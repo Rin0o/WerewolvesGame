@@ -1,0 +1,62 @@
+export const DAY = {
+  background: '#FFF8F0',
+  surface: '#FFFFFF',
+  surfaceAlt: '#FFF0DC',
+  primary: '#D4651A',
+  primaryDark: '#A84E10',
+  accent: '#E8A020',
+  text: '#2C1810',
+  textSecondary: '#7A5C44',
+  textMuted: '#B08060',
+  border: '#E8D0B8',
+  danger: '#C0392B',
+  success: '#27AE60',
+  shadow: 'rgba(44,24,16,0.15)',
+  cardGradient: ['#FFF8F0', '#FFE8CC'],
+  overlay: 'rgba(255,248,240,0.95)',
+};
+
+export const NIGHT = {
+  background: '#0D0820',
+  surface: '#1A1035',
+  surfaceAlt: '#221545',
+  primary: '#7B4FD4',
+  primaryDark: '#5A35A8',
+  accent: '#C084F5',
+  text: '#E8D8FF',
+  textSecondary: '#A080C8',
+  textMuted: '#604890',
+  border: '#2A1860',
+  danger: '#E85090',
+  success: '#40D890',
+  shadow: 'rgba(0,0,20,0.6)',
+  cardGradient: ['#1A1035', '#0D0820'],
+  overlay: 'rgba(13,8,32,0.95)',
+};
+
+export const FONTS = {
+  title: { fontSize: 28, fontWeight: '800', letterSpacing: 0.5 },
+  heading: { fontSize: 22, fontWeight: '700' },
+  subheading: { fontSize: 18, fontWeight: '600' },
+  body: { fontSize: 15, fontWeight: '400', lineHeight: 22 },
+  caption: { fontSize: 12, fontWeight: '400' },
+  button: { fontSize: 16, fontWeight: '700', letterSpacing: 0.8 },
+  code: { fontSize: 24, fontWeight: '800', letterSpacing: 4 },
+};
+
+export const RADIUS = {
+  sm: 8,
+  md: 14,
+  lg: 20,
+  xl: 30,
+  full: 999,
+};
+
+export const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+};

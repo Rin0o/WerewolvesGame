@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Werewolves of Miller's Hollow",
+    "slug": "werewolves-millers-hollow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.millardshollow.werewolves"
+    },
+    "android": {
+      "package": "com.millardshollow.werewolves"
+    },
+    "web": {},
+    "plugins": []
+  }
+}
