@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx create-expo-app@latest . --template blank --yes)",
       "Bash(npm init *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

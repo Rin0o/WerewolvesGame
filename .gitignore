@@ -2,6 +2,9 @@ node_modules/
 .expo/
 dist/
 web-build/
+git_key
+git_key.pub
+.claude/
 *.orig.*
 *.jks
 *.p8

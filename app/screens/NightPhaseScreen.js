@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import { submitNightAction, updateRoom } from '../firebase/roomService';
@@ -18,6 +19,7 @@ import { resolveNight } from '../game-logic/gameManager';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
 import PlayerCard from '../components/PlayerCard';
+import PhaseTransition from '../components/PhaseTransition';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
 import { getRoleInfo } from '../game-logic/roles';
@@ -36,6 +38,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [witchPoisonTarget, setWitchPoisonTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [showTransition, setShowTransition] = useState(true);
 
   const t = NIGHT;
 
@@ -140,7 +143,14 @@ export default function NightPhaseScreen({ route, navigation }) {
     (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient
+        colors={['#050210', '#0D0820', '#1A1035']}
+        style={StyleSheet.absoluteFill}
+      />
+      {showTransition && (
+        <PhaseTransition phase="night" onComplete={() => setShowTransition(false)} />
+      )}
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
         <Text style={[styles.phase, { color: t.textMuted }]}>Night {phase}</Text>

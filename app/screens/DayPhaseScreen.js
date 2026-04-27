@@ -8,9 +8,10 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import PhaseTransition from '../components/PhaseTransition';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
@@ -36,6 +37,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [resolving, setResolving] = useState(false);
   const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
+  const [showTransition, setShowTransition] = useState(true);
 
   const t = DAY;
 
@@ -113,9 +115,18 @@ export default function DayPhaseScreen({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient
+        colors={['#FF8C42', '#D4651A', '#FFF8F0']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.4 }}
+      />
+      {showTransition && (
+        <PhaseTransition phase="day" onComplete={() => setShowTransition(false)} />
+      )}
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.border, backgroundColor: t.surface }]}>
+      <View style={[styles.header, { borderBottomColor: 'rgba(212,101,26,0.3)', backgroundColor: 'transparent' }]}>
         <Text style={[styles.phase, { color: t.textMuted }]}>Day {phase}</Text>
         <Text style={[styles.title, { color: t.primary }]}>☀️ The Village Awakens</Text>
         {!accusedPlayerId && (

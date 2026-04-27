@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import { updateRoom } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
+import useSoundEffect from '../hooks/useSoundEffect';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function GameOverScreen({ route, navigation }) {
@@ -31,6 +32,8 @@ export default function GameOverScreen({ route, navigation }) {
   const isHost = playerId === hostId;
   const isVillagers = winner === 'villagers';
   const t = isVillagers ? DAY : NIGHT;
+
+  useSoundEffect(isVillagers ? 'villagersWin' : 'wolvesWin');
 
   async function handlePlayAgain() {
     if (!isHost) {
