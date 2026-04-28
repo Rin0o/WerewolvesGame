@@ -135,6 +135,18 @@ export default function DayPhaseScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scroll}>
+        {/* Lover reveal banner — shown once lovers are set */}
+        {gs.isLover && gs.myLover && (
+          <View style={[styles.announcement, { backgroundColor: '#FFF0F8', borderColor: '#E85090' }]}>
+            <Text style={styles.announcementEmoji}>💘</Text>
+            <Text style={[styles.announcementTitle, { color: '#E85090' }]}>You are in love!</Text>
+            <Text style={[styles.announcementText, { color: t.text }]}>
+              Your lover is {gs.myLover.nickname}. If they die, you die too.
+              {'\n'}If you are the last two alive, you win together.
+            </Text>
+          </View>
+        )}
+
         {/* Night announcement */}
         {nightVictim ? (
           <View style={[styles.announcement, { backgroundColor: '#FFF0DC', borderColor: t.danger }]}>

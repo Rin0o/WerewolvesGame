@@ -58,16 +58,32 @@ export function getPlayerWithRole(roleMap, role) {
 }
 
 /**
- * Checks win condition. Returns 'werewolves', 'villagers', or null.
+ * Checks win condition. Returns 'werewolves', 'villagers', 'lovers', or null.
+ * Lovers win if they are the last two players alive, regardless of team.
  */
-export function checkWinCondition(players, roleMap) {
+export function checkWinCondition(players, roleMap, lovers = null) {
   const alive = players.filter((p) => p.isAlive);
+
+  if (lovers && lovers.length === 2) {
+    const aliveIds = alive.map((p) => p.id);
+    const bothLoversAlive = lovers.every((id) => aliveIds.includes(id));
+    if (alive.length === 2 && bothLoversAlive) return 'lovers';
+  }
+
   const aliveWolves = alive.filter((p) => roleMap[p.id] === ROLE.WEREWOLF).length;
   const aliveVillagers = alive.filter((p) => roleMap[p.id] !== ROLE.WEREWOLF).length;
 
   if (aliveWolves === 0) return 'villagers';
   if (aliveWolves >= aliveVillagers) return 'werewolves';
   return null;
+}
+
+/**
+ * Returns the partner ID for a given lover, or null if not a lover.
+ */
+export function getLoversPartner(playerId, lovers) {
+  if (!lovers || !lovers.includes(playerId)) return null;
+  return lovers.find((id) => id !== playerId) || null;
 }
 
 /**

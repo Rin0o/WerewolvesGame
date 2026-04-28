@@ -34,8 +34,9 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [wolfTarget, setWolfTarget] = useState(null);
   const [seerTarget, setSeerTarget] = useState(null);
   const [seerResult, setSeerResult] = useState(null);
-  const [witchChoice, setWitchChoice] = useState(null); // 'save'|'poison'|'skip'
+  const [witchChoice, setWitchChoice] = useState(null);
   const [witchPoisonTarget, setWitchPoisonTarget] = useState(null);
+  const [cupidTargets, setCupidTargets] = useState([]);
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
@@ -60,12 +61,14 @@ export default function NightPhaseScreen({ route, navigation }) {
     const aliveWolves = players.filter((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF);
     const aliveSeer = players.find((p) => p.isAlive && roles[p.id] === ROLE.SEER);
     const aliveWitch = players.find((p) => p.isAlive && roles[p.id] === ROLE.WITCH);
+    const aliveCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID);
 
     const wolfDone = !!nightActions.werewolf || aliveWolves.length === 0;
     const seerDone = !!nightActions.seer || !aliveSeer;
     const witchDone = nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !aliveWitch;
+    const cupidDone = !!nightActions.cupid || !aliveCupid || room.phase > 1;
 
-    if (wolfDone && seerDone && witchDone) {
+    if (wolfDone && seerDone && witchDone && cupidDone) {
       setResolving(true);
       resolveNight(roomId, room).catch(() => setResolving(false));
     }
@@ -119,8 +122,19 @@ export default function NightPhaseScreen({ route, navigation }) {
     setMyActionDone(true);
   }
 
+  async function submitCupidChoice() {
+    if (cupidTargets.length !== 2) return;
+    await submitNightAction(roomId, 'cupid', cupidTargets);
+    setMyActionDone(true);
+  }
+
+  function toggleCupidTarget(id) {
+    setCupidTargets((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : prev.length < 2 ? [...prev, id] : prev
+    );
+  }
+
   async function handleTimerExpire() {
-    // Auto-skip on timeout
     if (myActionDone) return;
     if (gs.myRole === ROLE.WEREWOLF && !nightActions.werewolf) {
       await submitNightAction(roomId, 'werewolf', alivePlayers[0]?.id || null);
@@ -128,6 +142,9 @@ export default function NightPhaseScreen({ route, navigation }) {
       await submitNightAction(roomId, 'seer', alivePlayers[0]?.id || null);
     } else if (gs.myRole === ROLE.WITCH) {
       await submitWitchSkip();
+    } else if (gs.myRole === ROLE.CUPID && room.phase === 1) {
+      const targets = alivePlayers.slice(0, 2).map((p) => p.id);
+      await submitNightAction(roomId, 'cupid', targets);
     }
     setMyActionDone(true);
   }
@@ -137,7 +154,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const alreadyActed =
     (gs.myRole === ROLE.WEREWOLF && !!nightActions.werewolf) ||
     (gs.myRole === ROLE.SEER && !!nightActions.seer) ||
-    (gs.myRole === ROLE.WITCH && (nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip));
+    (gs.myRole === ROLE.WITCH && (nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip)) ||
+    (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1));
 
   const showWaiting = isSpectator || alreadyActed || myActionDone ||
     (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER);
@@ -306,6 +324,37 @@ export default function NightPhaseScreen({ route, navigation }) {
                 <Text style={[styles.witchBtnText, { color: t.textMuted }]}>Skip (use no potions)</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {/* CUPID ACTION */}
+        {!showWaiting && gs.myRole === ROLE.CUPID && room?.phase === 1 && (
+          <View style={styles.actionBox}>
+            <Text style={[styles.actionTitle, { color: t.accent }]}>💘 Choose Two Lovers</Text>
+            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+              Select exactly 2 players to bind together. If one dies, the other follows.
+              {cupidTargets.length > 0 ? ` (${cupidTargets.length}/2 selected)` : ''}
+            </Text>
+            <FlatList
+              data={players.filter((p) => p.isAlive)}
+              keyExtractor={(p) => p.id}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <PlayerCard
+                  player={item}
+                  theme={t}
+                  selected={cupidTargets.includes(item.id)}
+                  onPress={() => toggleCupidTarget(item.id)}
+                />
+              )}
+            />
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: cupidTargets.length === 2 ? t.accent : t.border }]}
+              onPress={submitCupidChoice}
+              disabled={cupidTargets.length !== 2}
+            >
+              <Text style={styles.submitText}>💘 Bind Their Hearts</Text>
+            </TouchableOpacity>
           </View>
         )}
 

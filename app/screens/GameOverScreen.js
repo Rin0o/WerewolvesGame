@@ -31,9 +31,10 @@ export default function GameOverScreen({ route, navigation }) {
   const { winner, players = [], roles = {}, events = [], hostId } = room;
   const isHost = playerId === hostId;
   const isVillagers = winner === 'villagers';
-  const t = isVillagers ? DAY : NIGHT;
+  const isLovers = winner === 'lovers';
+  const t = isVillagers || isLovers ? DAY : NIGHT;
 
-  useSoundEffect(isVillagers ? 'villagersWin' : 'wolvesWin');
+  useSoundEffect(isVillagers || isLovers ? 'villagersWin' : 'wolvesWin');
 
   async function handlePlayAgain() {
     if (!isHost) {
@@ -66,13 +67,15 @@ export default function GameOverScreen({ route, navigation }) {
     <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Winner banner */}
-        <View style={[styles.banner, { backgroundColor: t.surface, borderColor: isVillagers ? t.success : t.danger }]}>
-          <Text style={styles.bannerEmoji}>{isVillagers ? '🏡' : '🐺'}</Text>
-          <Text style={[styles.bannerTitle, { color: isVillagers ? t.success : t.danger }]}>
-            {isVillagers ? 'Villagers Win!' : 'Werewolves Win!'}
+        <View style={[styles.banner, { backgroundColor: t.surface, borderColor: isLovers ? '#E85090' : isVillagers ? t.success : t.danger }]}>
+          <Text style={styles.bannerEmoji}>{isLovers ? '💘' : isVillagers ? '🏡' : '🐺'}</Text>
+          <Text style={[styles.bannerTitle, { color: isLovers ? '#E85090' : isVillagers ? t.success : t.danger }]}>
+            {isLovers ? 'The Lovers Win!' : isVillagers ? 'Villagers Win!' : 'Werewolves Win!'}
           </Text>
           <Text style={[styles.bannerSub, { color: t.textSecondary }]}>
-            {isVillagers
+            {isLovers
+              ? 'Bound by Cupid\'s arrow, the two lovers outlasted everyone else!'
+              : isVillagers
               ? 'The village has driven out all werewolves!'
               : 'The werewolves have taken over Miller\'s Hollow!'}
           </Text>

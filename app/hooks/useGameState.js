@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ROLE } from '../constants/roles';
-import { checkWinCondition, getWerewolves, getPlayerWithRole } from '../game-logic/roles';
+import { checkWinCondition, getWerewolves, getPlayerWithRole, getLoversPartner } from '../game-logic/roles';
 
 /**
  * Derives computed game state from raw room data and current player id.
@@ -10,7 +10,7 @@ export default function useGameState(room, currentPlayerId) {
   return useMemo(() => {
     if (!room) return {};
 
-    const { players = [], roles = {}, status, phase, votes = {}, nightActions = {} } = room;
+    const { players = [], roles = {}, status, phase, votes = {}, nightActions = {}, lovers = null } = room;
 
     const myRole = roles[currentPlayerId];
     const myPlayer = players.find((p) => p.id === currentPlayerId);
@@ -30,18 +30,24 @@ export default function useGameState(room, currentPlayerId) {
     const seerId = getPlayerWithRole(roles, ROLE.SEER);
     const witchId = getPlayerWithRole(roles, ROLE.WITCH);
     const hunterId = getPlayerWithRole(roles, ROLE.HUNTER);
+    const cupidId = getPlayerWithRole(roles, ROLE.CUPID);
+    const isCupid = myRole === ROLE.CUPID;
+    const myLoverId = getLoversPartner(currentPlayerId, lovers);
+    const myLover = myLoverId ? players.find((p) => p.id === myLoverId) : null;
+    const isLover = !!myLoverId;
 
     const isNight = status === 'night';
     const isDay = status === 'day';
     const isEnded = status === 'ended';
     const isLobby = status === 'lobby';
 
-    const winner = room.winner || checkWinCondition(players, roles);
+    const winner = room.winner || checkWinCondition(players, roles, lovers);
 
     // Night action readiness
     const werewolvesActed = !!nightActions.werewolf;
     const seerActed = !!nightActions.seer;
     const witchActed = nightActions.witchSave !== undefined || nightActions.witchPoison !== undefined || nightActions.witchSkip;
+    const cupidActed = !!nightActions.cupid || phase > 1;
 
     const myVote = votes[currentPlayerId];
     const voteCount = Object.keys(votes).length;
@@ -68,6 +74,12 @@ export default function useGameState(room, currentPlayerId) {
       werewolvesActed,
       seerActed,
       witchActed,
+      cupidActed,
+      cupidId,
+      isCupid,
+      myLover,
+      isLover,
+      lovers,
       myVote,
       voteCount,
       aliveCount,
