@@ -1,5 +1,5 @@
 import { ROLE } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner } from './roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
 import {
   updateRoom,
   eliminatePlayer,
@@ -46,6 +46,15 @@ async function eliminateWithLoverChain(roomId, playerId, players, lovers, events
 export async function resolveNight(roomId, roomData) {
   const { nightActions, players, roles, phase, witchPotions, lovers } = roomData;
 
+  let updatedRoles = { ...roles };
+  if (nightActions.thief) {
+    const thiefPlayerId = getPlayerWithRole(roles, ROLE.THIEF);
+    if (thiefPlayerId) {
+      updatedRoles[thiefPlayerId] = nightActions.thief;
+      events.push(`Night ${phase}: A shadowy figure stole a role in the dark.`);
+    }
+  }
+
   let eliminatedId = nightActions.werewolf || null;
   const witchSaved = nightActions.witchSave === eliminatedId;
   const witchKilled = nightActions.witchPoison || null;
@@ -77,11 +86,11 @@ export async function resolveNight(roomId, roomData) {
 
   const updatedPotions = { ...witchPotions };
   if (witchSaved) {
-    const witchId = getPlayerWithRole(roles, ROLE.WITCH);
+    const witchId = getPlayerWithRole(updatedRoles, ROLE.WITCH);
     if (witchId) updatedPotions[witchId] = { ...updatedPotions[witchId], save: false };
   }
   if (witchKilled) {
-    const witchId = getPlayerWithRole(roles, ROLE.WITCH);
+    const witchId = getPlayerWithRole(updatedRoles, ROLE.WITCH);
     if (witchId) updatedPotions[witchId] = { ...updatedPotions[witchId], poison: false };
   }
 
@@ -89,14 +98,15 @@ export async function resolveNight(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
-  const winner = checkWinCondition(updatedPlayers, roles, newLovers);
+  const winner = checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   for (const e of events) await addEvent(roomId, e);
 
-  const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
+  const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
 
   await updateRoom(roomId, {
     status: winner ? 'ended' : 'day',
     winner: winner || null,
+    roles: updatedRoles,
     eliminatedThisNight: eliminatedId,
     witchPotions: updatedPotions,
     phaseStartedAt: new Date().toISOString(),

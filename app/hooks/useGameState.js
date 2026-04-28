@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ROLE } from '../constants/roles';
-import { checkWinCondition, getWerewolves, getPlayerWithRole, getLoversPartner } from '../game-logic/roles';
+import { checkWinCondition, getWerewolves, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from '../game-logic/roles';
 
 /**
  * Derives computed game state from raw room data and current player id.
@@ -36,6 +36,11 @@ export default function useGameState(room, currentPlayerId) {
     const myLover = myLoverId ? players.find((p) => p.id === myLoverId) : null;
     const isLover = !!myLoverId;
 
+    const thiefId = getPlayerWithRole(roles, ROLE.THIEF);
+    const isThief = myRole === ROLE.THIEF;
+    const thiefActed = !!room.nightActions?.thief || room.phase > 1;
+    const availableThiefRoles = isThief ? getAvailableRolesForThief(roles) : [];
+
     const isNight = status === 'night';
     const isDay = status === 'day';
     const isEnded = status === 'ended';
@@ -48,6 +53,7 @@ export default function useGameState(room, currentPlayerId) {
     const seerActed = !!nightActions.seer;
     const witchActed = nightActions.witchSave !== undefined || nightActions.witchPoison !== undefined || nightActions.witchSkip;
     const cupidActed = !!nightActions.cupid || phase > 1;
+    const thiefActedFlag = !!nightActions.thief || !thiefId || phase > 1 || availableThiefRoles.length === 0;
 
     const myVote = votes[currentPlayerId];
     const voteCount = Object.keys(votes).length;
@@ -80,6 +86,11 @@ export default function useGameState(room, currentPlayerId) {
       myLover,
       isLover,
       lovers,
+      thiefId,
+      isThief,
+      thiefActed,
+      thiefActedFlag,
+      availableThiefRoles,
       myVote,
       voteCount,
       aliveCount,

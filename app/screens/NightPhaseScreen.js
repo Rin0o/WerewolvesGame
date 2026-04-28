@@ -37,6 +37,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [witchChoice, setWitchChoice] = useState(null);
   const [witchPoisonTarget, setWitchPoisonTarget] = useState(null);
   const [cupidTargets, setCupidTargets] = useState([]);
+  const [thiefChoice, setThiefChoice] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
@@ -62,13 +63,15 @@ export default function NightPhaseScreen({ route, navigation }) {
     const aliveSeer = players.find((p) => p.isAlive && roles[p.id] === ROLE.SEER);
     const aliveWitch = players.find((p) => p.isAlive && roles[p.id] === ROLE.WITCH);
     const aliveCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID);
+    const aliveThief = players.find((p) => p.isAlive && roles[p.id] === ROLE.THIEF);
 
     const wolfDone = !!nightActions.werewolf || aliveWolves.length === 0;
     const seerDone = !!nightActions.seer || !aliveSeer;
     const witchDone = nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !aliveWitch;
     const cupidDone = !!nightActions.cupid || !aliveCupid || room.phase > 1;
+    const thiefDone = !!nightActions.thief || !aliveThief || room.phase > 1 || gs.availableThiefRoles?.length === 0;
 
-    if (wolfDone && seerDone && witchDone && cupidDone) {
+    if (wolfDone && seerDone && witchDone && cupidDone && thiefDone) {
       setResolving(true);
       resolveNight(roomId, room).catch(() => setResolving(false));
     }
@@ -128,6 +131,12 @@ export default function NightPhaseScreen({ route, navigation }) {
     setMyActionDone(true);
   }
 
+  async function submitThiefChoice() {
+    if (!thiefChoice) return;
+    await submitNightAction(roomId, 'thief', thiefChoice);
+    setMyActionDone(true);
+  }
+
   function toggleCupidTarget(id) {
     setCupidTargets((prev) =>
       prev.includes(id) ? prev.filter((t) => t !== id) : prev.length < 2 ? [...prev, id] : prev
@@ -145,6 +154,8 @@ export default function NightPhaseScreen({ route, navigation }) {
     } else if (gs.myRole === ROLE.CUPID && room.phase === 1) {
       const targets = alivePlayers.slice(0, 2).map((p) => p.id);
       await submitNightAction(roomId, 'cupid', targets);
+    } else if (gs.myRole === ROLE.THIEF && room.phase === 1 && gs.availableThiefRoles?.length > 0) {
+      await submitNightAction(roomId, 'thief', gs.availableThiefRoles[0]);
     }
     setMyActionDone(true);
   }
@@ -155,7 +166,8 @@ export default function NightPhaseScreen({ route, navigation }) {
     (gs.myRole === ROLE.WEREWOLF && !!nightActions.werewolf) ||
     (gs.myRole === ROLE.SEER && !!nightActions.seer) ||
     (gs.myRole === ROLE.WITCH && (nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip)) ||
-    (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1));
+    (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1)) ||
+    (gs.myRole === ROLE.THIEF && (!!nightActions.thief || room?.phase > 1 || gs.availableThiefRoles?.length === 0));
 
   const showWaiting = isSpectator || alreadyActed || myActionDone ||
     (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER);
@@ -358,6 +370,55 @@ export default function NightPhaseScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* THIEF ACTION */}
+        {!showWaiting && gs.myRole === ROLE.THIEF && room?.phase === 1 && (
+          <View style={styles.actionBox}>
+            <Text style={[styles.actionTitle, { color: t.accent }]}>🃏 Choose a Role to Steal</Text>
+            {gs.availableThiefRoles?.length === 0 ? (
+              <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+                No roles are available to steal. You remain a Thief and side with the villagers.
+              </Text>
+            ) : (
+              <>
+                <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+                  These roles are not assigned to any player. Pick one — you will become it immediately.
+                </Text>
+                {gs.availableThiefRoles.map((role) => {
+                  const info = getRoleInfo(role);
+                  return (
+                    <TouchableOpacity
+                      key={role}
+                      style={[
+                        styles.thiefRoleCard,
+                        {
+                          backgroundColor: thiefChoice === role ? t.primary : t.surfaceAlt,
+                          borderColor: thiefChoice === role ? t.accent : t.border,
+                        },
+                      ]}
+                      onPress={() => setThiefChoice(role)}
+                    >
+                      <Text style={styles.thiefRoleEmoji}>{info.emoji}</Text>
+                      <View style={styles.thiefRoleInfo}>
+                        <Text style={[styles.thiefRoleName, { color: t.text }]}>{info.name}</Text>
+                        <Text style={[styles.thiefRoleDesc, { color: t.textMuted }]} numberOfLines={2}>
+                          {info.ability || info.description}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[styles.submitBtn, { backgroundColor: thiefChoice ? t.primary : t.border }]}
+                  onPress={submitThiefChoice}
+                  disabled={!thiefChoice}
+                >
+                  <Text style={styles.submitText}>🃏 Steal This Role</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
@@ -446,4 +507,17 @@ const styles = StyleSheet.create({
   },
   chatTitle: { ...FONTS.heading },
   closeBtn: { ...FONTS.body },
+  thiefRoleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm,
+    marginBottom: SPACING.xs,
+    borderWidth: 1.5,
+    gap: SPACING.sm,
+  },
+  thiefRoleEmoji: { fontSize: 28 },
+  thiefRoleInfo: { flex: 1 },
+  thiefRoleName: { ...FONTS.body, fontWeight: '600' },
+  thiefRoleDesc: { ...FONTS.caption, lineHeight: 16 },
 });

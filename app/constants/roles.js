@@ -5,6 +5,7 @@ export const ROLE = {
   WITCH: 'witch',
   HUNTER: 'hunter',
   CUPID: 'cupid',
+  THIEF: 'thief',
 };
 
 export const ROLE_DEFINITIONS = {
@@ -56,6 +57,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Help the villagers win — unless your two lovers are the last players alive, in which case they win together regardless of team.',
     ability: 'On the first night only, choose any two players to become lovers. If one lover dies, the other dies of heartbreak. If the lovers are the last two alive, they win together.',
   },
+  [ROLE.THIEF]: {
+    name: 'Thief',
+    emoji: '🃏',
+    team: 'villagers',
+    description: 'A mysterious stranger who arrives in the village with no identity of their own.',
+    goal: 'Steal a role not yet taken by anyone else and play as that role for the rest of the game.',
+    ability: 'On the first night only, you see all roles not assigned to any player. You must pick one and immediately become that role — including its team and abilities. If no roles are available, you remain a Thief (and side with the villagers).',
+  },
 };
 
 // Suggested role compositions per player count
@@ -64,13 +73,13 @@ export const ROLE_COMPOSITIONS = {
   3:  [ROLE.WEREWOLF, ROLE.VILLAGER, ROLE.VILLAGER],
   4:  [ROLE.WEREWOLF, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.WITCH],
   5:  [ROLE.WEREWOLF, ROLE.SEER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  6:  [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  7:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  8:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.VILLAGER, ROLE.VILLAGER],
-  9:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  10: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  11: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
+  6:  [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
+  7:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
+  8:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER],
+  9:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
+  10: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
+  11: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
+  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
 };
 
 export function getCompositionForCount(count) {

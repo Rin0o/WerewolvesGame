@@ -1,5 +1,9 @@
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount } from '../constants/roles';
 
+const ALL_SELECTABLE_ROLES = [
+  ROLE.VILLAGER, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID,
+];
+
 // Shuffle array (Fisher-Yates)
 function shuffle(arr) {
   const a = [...arr];
@@ -76,6 +80,15 @@ export function checkWinCondition(players, roleMap, lovers = null) {
   if (aliveWolves === 0) return 'villagers';
   if (aliveWolves >= aliveVillagers) return 'werewolves';
   return null;
+}
+
+/**
+ * Returns roles available for the Thief to steal:
+ * all implemented roles (one each) not already assigned to any player, excluding THIEF itself.
+ */
+export function getAvailableRolesForThief(roleMap) {
+  const assigned = new Set(Object.values(roleMap));
+  return ALL_SELECTABLE_ROLES.filter((r) => !assigned.has(r));
 }
 
 /**
