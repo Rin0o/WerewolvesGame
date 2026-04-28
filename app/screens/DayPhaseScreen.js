@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
+import { BOT_CONFIG } from '../constants/devConfig';
 
 const DISCUSSION_SECONDS = 240;
 const DEFENSE_SECONDS = 30;
@@ -38,6 +39,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
+  const botVoteRef = useRef(null);
 
   const t = DAY;
 
@@ -54,6 +56,22 @@ export default function DayPhaseScreen({ route, navigation }) {
       setHunterMode(true);
     }
   }, [room?.status, room?.hunterTriggered]);
+
+  // Host auto-submits bot votes when an accusation is set
+  useEffect(() => {
+    if (!room || !gs.isHost || !room.accusedPlayerId || !BOT_CONFIG.enabled) return;
+    if (botVoteRef.current === room.accusedPlayerId) return;
+    botVoteRef.current = room.accusedPlayerId;
+
+    const { players = [], votes = {} } = room;
+    const aliveBots = players.filter((p) => p.isBot && p.isAlive);
+    for (const bot of aliveBots) {
+      if (!votes[bot.id]) {
+        const vote = Math.random() > 0.5 ? 'lynch' : 'spare';
+        submitVote(roomId, bot.id, vote);
+      }
+    }
+  }, [room?.accusedPlayerId]);
 
   // Host resolves votes when all are in
   useEffect(() => {

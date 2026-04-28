@@ -1,4 +1,4 @@
-import { ROLE } from '../constants/roles';
+import { ROLE, getCompositionForCount } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
 import {
   updateRoom,
@@ -6,19 +6,65 @@ import {
   clearNightActions,
   addEvent,
 } from '../firebase/roomService';
+import { BOT_CONFIG } from '../constants/devConfig';
+
+function shuffleArr(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export async function startGame(roomId, players) {
-  const { roleMap, witchPotions } = assignRoles(players);
+  const humanPlayers = players.filter((p) => !p.isBot);
+  let allPlayers = humanPlayers;
+  let roleMap = {};
+  let witchPotions = {};
+
+  if (BOT_CONFIG.enabled && BOT_CONFIG.bots.length > 0) {
+    const botPlayers = BOT_CONFIG.bots.map((b, i) => ({
+      id: `bot-${i}`,
+      nickname: b.nickname,
+      isAlive: true,
+      isHost: false,
+      isReady: true,
+      isBot: true,
+    }));
+    allPlayers = [...humanPlayers, ...botPlayers];
+
+    const composition = getCompositionForCount(allPlayers.length);
+    const remaining = [...composition];
+    for (const role of BOT_CONFIG.bots.map((b) => b.role)) {
+      const idx = remaining.indexOf(role);
+      if (idx !== -1) remaining.splice(idx, 1);
+    }
+    const humanRoles = shuffleArr(remaining).slice(0, humanPlayers.length);
+    shuffleArr(humanPlayers).forEach((p, i) => {
+      const role = humanRoles[i] || ROLE.VILLAGER;
+      roleMap[p.id] = role;
+      if (role === ROLE.WITCH) witchPotions[p.id] = { save: true, poison: true };
+    });
+    botPlayers.forEach((bot, i) => {
+      roleMap[bot.id] = BOT_CONFIG.bots[i].role;
+    });
+  } else {
+    const result = assignRoles(humanPlayers);
+    roleMap = result.roleMap;
+    witchPotions = result.witchPotions;
+  }
 
   await updateRoom(roomId, {
     roles: roleMap,
     witchPotions,
+    players: allPlayers,
     status: 'night',
     phase: 1,
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},
     eliminatedThisNight: null,
-    events: [`Game started with ${players.length} players.`],
+    events: [`Game started with ${allPlayers.length} players.`],
     winner: null,
     votes: {},
     accusedPlayerId: null,

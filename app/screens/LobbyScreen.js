@@ -16,6 +16,7 @@ import { startGame } from '../game-logic/gameManager';
 import { getCompositionForCount } from '../constants/roles';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { BOT_CONFIG } from '../constants/devConfig';
 
 const MIN_PLAYERS = 5;
 
@@ -44,8 +45,11 @@ export default function LobbyScreen({ route, navigation }) {
   const { players = [], code, hostId } = room;
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
-  const canStart = players.length >= MIN_PLAYERS;
-  const composition = getCompositionForCount(players.length);
+  const humanPlayers = players.filter((p) => !p.isBot);
+  const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
+  const effectiveCount = humanPlayers.length + botCount;
+  const canStart = effectiveCount >= MIN_PLAYERS;
+  const composition = getCompositionForCount(effectiveCount);
 
   async function handleReady() {
     await setPlayerReady(roomId, playerId, !myPlayer?.isReady);
@@ -109,12 +113,21 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
+      {/* Bot notice */}
+      {BOT_CONFIG.enabled && (
+        <View style={[styles.compBox, { backgroundColor: '#1a0a2e', borderColor: '#6B4FA0' }]}>
+          <Text style={[styles.compTitle, { color: '#A78BD4' }]}>
+            🤖 Bot mode active — {botCount} bot{botCount !== 1 ? 's' : ''} will join on start
+          </Text>
+        </View>
+      )}
+
       {/* Player List */}
       <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-        Players ({players.length}/{canStart ? players.length : `need ${MIN_PLAYERS}`})
+        Players ({humanPlayers.length}/{canStart ? effectiveCount : `need ${MIN_PLAYERS}`})
       </Text>
       <FlatList
-        data={players}
+        data={humanPlayers}
         keyExtractor={(p) => p.id}
         style={styles.list}
         renderItem={({ item }) => (
@@ -153,7 +166,7 @@ export default function LobbyScreen({ route, navigation }) {
           >
             {starting ? <ActivityIndicator color="#fff" /> : (
               <Text style={styles.btnText}>
-                {canStart ? '🐺 Start Game' : `Need ${MIN_PLAYERS - players.length} more players`}
+                {canStart ? '🐺 Start Game' : `Need ${MIN_PLAYERS - effectiveCount} more players`}
               </Text>
             )}
           </TouchableOpacity>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import PhaseTransition from '../components/PhaseTransition';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
 import { getRoleInfo } from '../game-logic/roles';
+import { BOT_CONFIG } from '../constants/devConfig';
 
 const ACTION_TIMER = 60;
 
@@ -41,6 +42,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
+  const botNightRef = useRef(null);
 
   const t = NIGHT;
 
@@ -54,6 +56,25 @@ export default function NightPhaseScreen({ route, navigation }) {
       navigation.replace('GameOver', { roomId, playerId, nickname });
     }
   }, [room?.status]);
+
+  // Host auto-submits bot night actions at the start of each night
+  useEffect(() => {
+    if (!room || !gs.isHost || room.status !== 'night' || !BOT_CONFIG.enabled) return;
+    if (botNightRef.current === room.phase) return;
+    botNightRef.current = room.phase;
+
+    const { players = [], roles = {}, nightActions = {} } = room;
+    const aliveBots = players.filter((p) => p.isBot && p.isAlive);
+    for (const bot of aliveBots) {
+      if (roles[bot.id] === ROLE.WEREWOLF && !nightActions.werewolf) {
+        const targets = players.filter((p) => p.isAlive && roles[p.id] !== ROLE.WEREWOLF);
+        if (targets.length > 0) {
+          const target = targets[Math.floor(Math.random() * targets.length)];
+          submitNightAction(roomId, 'werewolf', target.id);
+        }
+      }
+    }
+  }, [room?.phase, room?.status]);
 
   // Host resolves night when all role actions are in
   useEffect(() => {

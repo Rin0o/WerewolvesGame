@@ -20,6 +20,11 @@ export default function GameOverScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
 
+  const winner = room?.winner;
+  const isVillagers = winner === 'villagers';
+  const isLovers = winner === 'lovers';
+  useSoundEffect(room ? (isVillagers || isLovers ? 'villagersWin' : 'wolvesWin') : null);
+
   if (loading || !room) {
     return (
       <View style={[styles.center, { backgroundColor: NIGHT.background }]}>
@@ -28,13 +33,9 @@ export default function GameOverScreen({ route, navigation }) {
     );
   }
 
-  const { winner, players = [], roles = {}, events = [], hostId } = room;
+  const { players = [], roles = {}, events = [], hostId } = room;
   const isHost = playerId === hostId;
-  const isVillagers = winner === 'villagers';
-  const isLovers = winner === 'lovers';
   const t = isVillagers || isLovers ? DAY : NIGHT;
-
-  useSoundEffect(isVillagers || isLovers ? 'villagersWin' : 'wolvesWin');
 
   async function handlePlayAgain() {
     if (!isHost) {
