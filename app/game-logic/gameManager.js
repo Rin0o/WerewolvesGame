@@ -1,10 +1,10 @@
+import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
 import {
   updateRoom,
   eliminatePlayer,
   clearNightActions,
-  addEvent,
 } from '../firebase/roomService';
 import { BOT_CONFIG } from '../constants/devConfig';
 
@@ -92,6 +92,8 @@ async function eliminateWithLoverChain(roomId, playerId, players, lovers, events
 export async function resolveNight(roomId, roomData) {
   const { nightActions, players, roles, phase, witchPotions, lovers } = roomData;
 
+  const events = [];
+
   let updatedRoles = { ...roles };
   if (nightActions.thief) {
     const thiefPlayerId = getPlayerWithRole(roles, ROLE.THIEF);
@@ -105,7 +107,6 @@ export async function resolveNight(roomId, roomData) {
   const witchSaved = nightActions.witchSave === eliminatedId;
   const witchKilled = nightActions.witchPoison || null;
   const newLovers = nightActions.cupid || lovers || null;
-  const events = [];
 
   if (witchSaved && eliminatedId) {
     events.push(`Night ${phase}: The witch saved the werewolves' victim.`);
@@ -145,8 +146,6 @@ export async function resolveNight(roomId, roomData) {
   );
 
   const winner = checkWinCondition(updatedPlayers, updatedRoles, newLovers);
-  for (const e of events) await addEvent(roomId, e);
-
   const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
 
   await updateRoom(roomId, {
@@ -159,6 +158,7 @@ export async function resolveNight(roomId, roomData) {
     nightActions: {},
     lovers: newLovers,
     hunterTriggered: hunterTriggered || null,
+    events: arrayUnion(...events),
   });
 
   return { winner, eliminatedId };
@@ -204,8 +204,6 @@ export async function resolveLynch(roomId, roomData, accusedId) {
   );
 
   const winner = checkWinCondition(updatedPlayers, roles, lovers);
-  for (const e of events) await addEvent(roomId, e);
-
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
 
   await updateRoom(roomId, {
@@ -215,6 +213,7 @@ export async function resolveLynch(roomId, roomData, accusedId) {
     votes: {},
     accusedPlayerId: null,
     phaseStartedAt: new Date().toISOString(),
+    events: arrayUnion(...events),
   });
 
   return { eliminatedId, winner };
@@ -230,8 +229,6 @@ export async function hunterShoot(roomId, roomData, targetId) {
   const ids = await eliminateWithLoverChain(roomId, targetId, players, lovers, events, '');
   ids.forEach((id) => allEliminated.add(id));
 
-  for (const e of events) await addEvent(roomId, e);
-
   const updatedPlayers = players.map((p) =>
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
@@ -241,5 +238,6 @@ export async function hunterShoot(roomId, roomData, targetId) {
     winner: winner || null,
     status: winner ? 'ended' : roomData.status,
     hunterTriggered: null,
+    events: arrayUnion(...events),
   });
 }
