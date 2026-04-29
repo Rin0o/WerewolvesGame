@@ -205,15 +205,17 @@ export async function resolveLynch(roomId, roomData, accusedId) {
 
   const winner = checkWinCondition(updatedPlayers, roles, lovers);
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
+  const advanceToNight = !!eliminatedId && !winner && !hunterTriggered;
 
   await updateRoom(roomId, {
     winner: winner || null,
-    status: winner ? 'ended' : 'day',
-    hunterTriggered,
+    status: winner ? 'ended' : (advanceToNight ? 'night' : 'day'),
+    hunterTriggered: hunterTriggered || null,
     votes: {},
     accusedPlayerId: null,
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
+    ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null }),
   });
 
   return { eliminatedId, winner };
