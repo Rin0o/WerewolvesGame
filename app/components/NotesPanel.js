@@ -36,21 +36,31 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
             {/* Player board */}
             <Text style={[styles.section, { color: theme.textSecondary }]}>Player Board</Text>
             {players.map((p) => (
-              <View key={p.id}>
-                <PlayerCard
-                  player={p}
-                  theme={theme}
-                  suspicion={SUSPICION_LABELS[suspicions[p.id]] || SUSPICION_LABELS.neutral}
-                  suspectedRole={suspectedRoles[p.id]}
-                  onPress={() => cycleSuspicion(p.id)}
-                  disabled={false}
-                />
+              <View key={p.id} style={styles.playerRow}>
+                <View style={styles.playerCardWrap}>
+                  <PlayerCard
+                    player={p}
+                    theme={theme}
+                    suspicion={SUSPICION_LABELS[suspicions[p.id]] || SUSPICION_LABELS.neutral}
+                    onPress={() => cycleSuspicion(p.id)}
+                    disabled={false}
+                  />
+                </View>
                 <TouchableOpacity
                   onPress={() => setRolePickerFor(p.id)}
-                  style={[styles.rolePicker, { borderColor: theme.border }]}
+                  style={[
+                    styles.rolePicker,
+                    {
+                      backgroundColor: suspectedRoles[p.id] ? theme.surfaceAlt : 'transparent',
+                      borderColor: suspectedRoles[p.id] ? theme.primary : theme.border,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.rolePickerText, { color: theme.textMuted }]}>
-                    Suspected role: {suspectedRoles[p.id] || 'tap to set'}
+                  <Text style={styles.rolePickerEmoji}>
+                    {suspectedRoles[p.id] ? ROLE_DEFINITIONS[suspectedRoles[p.id]].emoji : '🎭'}
+                  </Text>
+                  <Text style={[styles.rolePickerText, { color: suspectedRoles[p.id] ? theme.text : theme.textMuted }]} numberOfLines={1}>
+                    {suspectedRoles[p.id] ? ROLE_DEFINITIONS[suspectedRoles[p.id]].name : 'Suspect'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -153,15 +163,33 @@ const styles = StyleSheet.create({
     minHeight: 100,
     ...FONTS.body,
   },
-  rolePicker: {
-    borderTopWidth: 1,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    marginTop: -4,
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
     marginBottom: SPACING.xs,
+  },
+  playerCardWrap: {
+    flex: 1,
+  },
+  rolePicker: {
+    width: 68,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  },
+  rolePickerEmoji: {
+    fontSize: 20,
+    marginBottom: 2,
   },
   rolePickerText: {
     ...FONTS.caption,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   roleOverlay: {
     flex: 1,

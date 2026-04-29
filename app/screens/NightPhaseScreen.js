@@ -24,6 +24,7 @@ import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
 import { getRoleInfo } from '../game-logic/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
+import RoleCard from '../components/RoleCard';
 
 const ACTION_TIMER = 60;
 
@@ -39,18 +40,24 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [witchPoisonTarget, setWitchPoisonTarget] = useState(null);
   const [cupidTargets, setCupidTargets] = useState([]);
   const [thiefChoice, setThiefChoice] = useState(null);
+  const [thiefStolenRole, setThiefStolenRole] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
   const botNightRef = useRef(null);
+  const pendingDay = useRef(false);
 
   const t = NIGHT;
 
-  // Navigate when game transitions
+  // Navigate when game transitions — defer day navigation if seer is reading their result
   useEffect(() => {
     if (!room) return;
     if (room.status === 'day') {
-      navigation.replace('DayPhase', { roomId, playerId, nickname });
+      if (seerResult) {
+        pendingDay.current = true;
+      } else {
+        navigation.replace('DayPhase', { roomId, playerId, nickname });
+      }
     }
     if (room.status === 'ended') {
       navigation.replace('GameOver', { roomId, playerId, nickname });
@@ -126,7 +133,15 @@ export default function NightPhaseScreen({ route, navigation }) {
     const isWolf = revealed === ROLE.WEREWOLF;
     setSeerResult(isWolf ? '🐺 They are a Werewolf!' : '✅ They are NOT a Werewolf.');
     await submitNightAction(roomId, 'seer', seerTarget);
+    // Don't setMyActionDone yet — wait for player to dismiss the result
+  }
+
+  function dismissSeerResult() {
+    setSeerResult(null);
     setMyActionDone(true);
+    if (pendingDay.current) {
+      navigation.replace('DayPhase', { roomId, playerId, nickname });
+    }
   }
 
   // ── Witch Action ──────────────────────────────────────────────────────────
@@ -155,7 +170,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function submitThiefChoice() {
     if (!thiefChoice) return;
     await submitNightAction(roomId, 'thief', thiefChoice);
-    setMyActionDone(true);
+    setThiefStolenRole(thiefChoice);
   }
 
   function toggleCupidTarget(id) {
@@ -190,8 +205,8 @@ export default function NightPhaseScreen({ route, navigation }) {
     (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1)) ||
     (gs.myRole === ROLE.THIEF && (!!nightActions.thief || room?.phase > 1 || gs.availableThiefRoles?.length === 0));
 
-  const showWaiting = isSpectator || alreadyActed || myActionDone ||
-    (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER);
+  const showWaiting = !thiefStolenRole && !seerResult && (isSpectator || alreadyActed || myActionDone ||
+    (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER));
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -266,41 +281,55 @@ export default function NightPhaseScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* SEER RESULT — shown independently so navigation can be deferred */}
+        {seerResult && (
+          <View style={styles.actionBox}>
+            <Text style={[styles.actionTitle, { color: t.accent }]}>🔮 Your Vision</Text>
+            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+              {players.find((p) => p.id === seerTarget)?.nickname || 'That player'} is...
+            </Text>
+            <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
+              <Text style={[styles.seerResultText, { color: t.text }]}>{seerResult}</Text>
+            </View>
+            <Text style={[styles.actionSub, { color: t.textMuted, marginTop: SPACING.sm }]}>
+              Remember this. Dawn will come soon.
+            </Text>
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: t.primary, marginTop: SPACING.md }]}
+              onPress={dismissSeerResult}
+            >
+              <Text style={styles.submitText}>Got it — I'm ready</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* SEER ACTION */}
-        {!showWaiting && gs.myRole === ROLE.SEER && (
+        {!showWaiting && gs.myRole === ROLE.SEER && !seerResult && (
           <View style={styles.actionBox}>
             <Text style={[styles.actionTitle, { color: t.accent }]}>🔮 Choose Someone to Reveal</Text>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               You will learn if they are a Werewolf.
             </Text>
-            {seerResult ? (
-              <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
-                <Text style={[styles.seerResultText, { color: t.text }]}>{seerResult}</Text>
-              </View>
-            ) : (
-              <>
-                <FlatList
-                  data={alivePlayers}
-                  keyExtractor={(p) => p.id}
-                  scrollEnabled={false}
-                  renderItem={({ item }) => (
-                    <PlayerCard
-                      player={item}
-                      theme={t}
-                      selected={seerTarget === item.id}
-                      onPress={() => setSeerTarget(item.id)}
-                    />
-                  )}
+            <FlatList
+              data={alivePlayers}
+              keyExtractor={(p) => p.id}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <PlayerCard
+                  player={item}
+                  theme={t}
+                  selected={seerTarget === item.id}
+                  onPress={() => setSeerTarget(item.id)}
                 />
-                <TouchableOpacity
-                  style={[styles.submitBtn, { backgroundColor: seerTarget ? t.primary : t.border }]}
-                  onPress={submitSeerReveal}
-                  disabled={!seerTarget}
-                >
-                  <Text style={styles.submitText}>Reveal Their Nature</Text>
-                </TouchableOpacity>
-              </>
-            )}
+              )}
+            />
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: seerTarget ? t.primary : t.border }]}
+              onPress={submitSeerReveal}
+              disabled={!seerTarget}
+            >
+              <Text style={styles.submitText}>Reveal Their Nature</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -437,6 +466,23 @@ export default function NightPhaseScreen({ route, navigation }) {
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        )}
+
+        {/* THIEF STOLEN ROLE REVEAL */}
+        {thiefStolenRole && (
+          <View style={styles.actionBox}>
+            <Text style={[styles.actionTitle, { color: t.accent }]}>🃏 You stole a role!</Text>
+            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+              From this moment on, you play as:
+            </Text>
+            <RoleCard role={thiefStolenRole} />
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: t.primary, marginTop: SPACING.sm }]}
+              onPress={() => { setMyActionDone(true); setThiefStolenRole(null); }}
+            >
+              <Text style={styles.submitText}>I understand my new role ✓</Text>
+            </TouchableOpacity>
           </View>
         )}
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { RADIUS, SPACING, FONTS } from '../constants/theme';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 
 export default function PlayerCard({
   player,
@@ -50,7 +51,11 @@ export default function PlayerCard({
             <Text style={[styles.suspicion, { color: theme.textSecondary }]}>{suspicion}</Text>
           )}
           {suspectedRole && (
-            <Text style={[styles.suspicion, { color: theme.textMuted }]}>Suspected: {suspectedRole}</Text>
+            <View style={[styles.suspectedChip, { backgroundColor: theme.surfaceAlt, borderColor: theme.primary }]}>
+              <Text style={[styles.suspectedChipText, { color: theme.text }]}>
+                {ROLE_DEFINITIONS[suspectedRole]?.emoji} {ROLE_DEFINITIONS[suspectedRole]?.name || suspectedRole}
+              </Text>
+            </View>
           )}
         </View>
         {selected && (
@@ -113,6 +118,18 @@ const styles = StyleSheet.create({
   suspicion: {
     ...FONTS.caption,
     marginTop: 2,
+  },
+  suspectedChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  suspectedChipText: {
+    ...FONTS.caption,
+    fontWeight: '700',
   },
   check: {
     fontSize: 20,

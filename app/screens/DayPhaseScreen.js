@@ -278,28 +278,26 @@ export default function DayPhaseScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Move to next night (host) */}
-        {gs.isHost && !accusedPlayerId && !hunterTriggered && (
-          <View style={styles.hostActions}>
-            <TouchableOpacity
-              style={[styles.nightBtn, { backgroundColor: '#1a0a2e' }]}
-              onPress={handleNightEnd}
-            >
-              <Text style={styles.nightBtnText}>🌙 End Discussion — Go to Night</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={{ height: 100 }} />
+        <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
-      {/* Floating Notes button */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: t.primary }]}
-        onPress={() => setNotesOpen(true)}
-      >
-        <Text style={styles.fabText}>📓</Text>
-      </TouchableOpacity>
+      {/* Bottom toolbar — Notes always visible; End Discussion when host can act */}
+      <View style={[styles.bottomBar, { borderTopColor: 'rgba(212,101,26,0.3)', backgroundColor: 'rgba(255,248,240,0.97)' }]}>
+        {gs.isHost && !accusedPlayerId && !hunterTriggered && (
+          <TouchableOpacity
+            style={[styles.nightBtn, { flex: 1 }]}
+            onPress={handleNightEnd}
+          >
+            <Text style={styles.nightBtnText}>🌙 End Discussion</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.notesBtn, { backgroundColor: t.primary, flex: 1 }]}
+          onPress={() => setNotesOpen(true)}
+        >
+          <Text style={styles.notesBtnText}>📓 Notes</Text>
+        </TouchableOpacity>
+      </View>
 
       <NotesPanel
         visible={notesOpen}
@@ -359,11 +357,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: SPACING.sm,
   },
-  hostActions: { padding: SPACING.md },
   nightBtn: {
     borderRadius: RADIUS.md,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     alignItems: 'center',
+    backgroundColor: '#1a0a2e',
   },
   nightBtnText: { ...FONTS.button, color: '#fff' },
   submitBtn: {
@@ -373,20 +371,16 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   submitBtnText: { ...FONTS.button, color: '#fff' },
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  bottomBar: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.sm,
+    borderTopWidth: 1,
   },
-  fabText: { fontSize: 24 },
+  notesBtn: {
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  notesBtnText: { ...FONTS.button, color: '#fff' },
 });
