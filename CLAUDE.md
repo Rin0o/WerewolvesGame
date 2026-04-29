@@ -4,9 +4,9 @@
 A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side coordinated via Firebase Firestore. No backend server.
 
 ## Tech Stack
-- **Expo ~51** (React Native)
+- **Expo ~54** (React Native 0.81)
 - **Firebase 10** — Firestore (real-time game state) + Anonymous Auth
-- **React Navigation 6** — Native Stack
+- **React Navigation 6** — Native Stack (`createNativeStackNavigator`)
 - **AsyncStorage** — local per-player notes/suspicions only
 
 ## Folder Structure
@@ -17,25 +17,29 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     HomeScreen.js            — Nickname input, create/join room
     LobbyScreen.js           — Room code display, player list, start game
     RoleRevealScreen.js      — Private role card shown to each player
-    NightPhaseScreen.js      — Night actions (wolf kill, seer reveal, witch)
+    NightPhaseScreen.js      — Night actions (wolf kill, seer reveal, witch, cupid, thief)
     DayPhaseScreen.js        — Day discussion, accusation, voting, lynch
     GameOverScreen.js        — Winner reveal, full role dump, event log
   /components/
-    PlayerCard.js            — Reusable player row with suspicion/role display
+    PlayerCard.js            — Reusable player row with suspicion/role chip display
     VotePanel.js             — Lynch/Spare buttons + revealed vote counts
     NotesPanel.js            — Slide-up modal: player board, notepad, clue log
     WerewolfChat.js          — Real-time Firestore chat (wolves only, night only)
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
     RoleCard.js              — Full role card with emoji, description, goal, ability
     ClueLog.js               — Scrollable event history list
+    PhaseTransition.js       — Animated day/night transition overlay
   /game-logic/
-    roles.js                 — assignRoles(), checkWinCondition(), getWerewolves()
-    gameManager.js           — startGame(), resolveNight(), resolveLynch(), hunterShoot()
+    roles.js                 — assignRoles(), checkWinCondition(), getWerewolves(),
+                               getLoversPartner(), getAvailableRolesForThief()
+    gameManager.js           — startGame(), resolveNight(), resolveLynch(),
+                               startNextNight(), hunterShoot()
     voteManager.js           — allVotesIn(), tallyVotes()
   /firebase/
     config.js                — Firebase app init — FILL IN YOUR CONFIG HERE
     authService.js           — signInAnon(), subscribeToAuth(), getCurrentUser()
-    roomService.js           — All Firestore reads/writes for rooms + chat
+    roomService.js           — All Firestore reads/writes for rooms + chat;
+                               disconnectPlayer(), reconnectPlayer()
   /hooks/
     useRoom.js               — Real-time room listener → { room, loading, error }
     useGameState.js          — Derived selectors from room + playerId
@@ -43,6 +47,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   /constants/
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS
     theme.js                 — DAY and NIGHT theme objects + FONTS, RADIUS, SPACING
+    devConfig.js             — BOT_CONFIG: enable/disable test bots and their roles
 ```
 
 ## Firestore Data Structure
@@ -53,10 +58,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   code: string                    // 5-char uppercase join code
   hostId: string                  // Firebase Auth UID of host
   status: "lobby"|"night"|"day"|"ended"
-  phase: number                   // Night/day cycle count (starts at 1)
+  phase: number                   // Cycle count (starts at 1, increments each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
-  players: [                      // Array — updated atomically via arrayUnion/Filter
-    { id, nickname, isAlive, isHost, isReady }
+  players: [                      // Array of player objects
+    { id, nickname, isAlive, isHost, isReady, isBot? }
   ]
   roles: { [playerId]: role }     // NEVER expose raw to other players
   nightActions: {
@@ -65,14 +70,18 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     witchSave: playerId           // Who witch saved (equals werewolf target if used)
     witchPoison: playerId         // Who witch poisoned
     witchSkip: true               // Witch chose no action
+    cupid: [playerId, playerId]   // Two lovers chosen (phase 1 only)
+    thief: role                   // Role the thief stole (phase 1 only)
   }
   witchPotions: { [playerId]: { save: bool, poison: bool } }
   eliminatedThisNight: playerId|null
-  events: string[]                // Append-only game event log
+  events: string[]                // Append-only game event log (written with arrayUnion)
   votes: { [voterId]: "lynch"|"spare" }
   accusedPlayerId: string|null
-  winner: "villagers"|"werewolves"|null
+  winner: "villagers"|"werewolves"|"lovers"|null
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
+  lovers: [playerId, playerId]|null  // Set by Cupid on night 1
+  disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
 }
 ```
 
@@ -81,41 +90,60 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 { senderId, senderNickname, text, createdAt: Timestamp }
 ```
 
-## Role Logic
+## Roles
 
 ### Role Compositions (by player count)
-| Players | Wolves | Seer | Witch | Hunter | Villagers |
-|---------|--------|------|-------|--------|-----------|
-| 5       | 1      | 1    | -     | -      | 3         |
-| 6       | 1      | 1    | 1     | -      | 3         |
-| 7       | 2      | 1    | 1     | -      | 3         |
-| 8+      | 2-3    | 1    | 1     | 1      | rest      |
+| Players | Wolves | Seer | Witch | Hunter | Cupid | Thief | Villagers |
+|---------|--------|------|-------|--------|-------|-------|-----------|
+| 5       | 1      | 1    | -     | -      | -     | -     | 3         |
+| 6       | 1      | 1    | 1     | -      | -     | 1     | 2         |
+| 7       | 2      | 1    | 1     | -      | -     | 1     | 2         |
+| 8       | 2      | 1    | 1     | 1      | 1     | 1     | 1         |
+| 9       | 2      | 1    | 1     | 1      | 1     | 1     | 2         |
+| 10      | 3      | 1    | 1     | 1      | 1     | 1     | 2         |
+| 11      | 3      | 1    | 1     | 1      | 1     | 1     | 3         |
+| 12      | 3      | 1    | 1     | 1      | 1     | 1     | 4         |
 
 ### Win Conditions
-- **Villagers win**: all werewolves eliminated
+- **Villagers win**: all werewolves eliminated (and lovers are not the last two alive)
 - **Werewolves win**: werewolf count ≥ living villager count
+- **Lovers win**: the two lovers are the last two players alive (overrides team allegiance)
 
 ### Night Resolution Order
-1. Werewolves pick victim (`nightActions.werewolf`)
-2. Witch sees victim, can save OR poison OR skip
-3. Seer inspects a player (info only, no state change)
-4. Host client calls `resolveNight()` once all actions are submitted
+1. **Thief** (phase 1 only): picks an unassigned role and immediately becomes it
+2. **Cupid** (phase 1 only): links two players as lovers
+3. **Werewolves**: pick a victim (`nightActions.werewolf`)
+4. **Witch**: sees the victim, can save OR poison OR skip
+5. **Seer**: inspects a player (result shown to seer only, no state change)
+6. Host client calls `resolveNight()` once all active roles have acted
 
-### Hunter Special
-- When eliminated (night or day), `hunterTriggered` is set to their playerId
-- Hunter's client sees a target picker; on submit calls `hunterShoot()`
-- Win condition re-checked after hunter shot
+### Role Details
+
+**Werewolf** — each night selects a villager to kill. Multiple wolves coordinate via the in-game wolf chat (Firestore subcollection).
+
+**Seer** — each night selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
+
+**Witch** — has one Save potion (revive that night's victim) and one Poison potion (kill any player). Each potion can only be used once per game. Can skip both.
+
+**Hunter** — when eliminated (night or day), `hunterTriggered` is set to their playerId. Their screen shows a target picker. On confirm, `hunterShoot()` is called and win condition is re-checked.
+
+**Cupid** — on night 1 only, chooses exactly 2 players to become lovers. Lovers are stored in `room.lovers`. If one lover dies, the other immediately dies of heartbreak. If the two lovers are the last alive, they win together regardless of team.
+
+**Thief** — on night 1 only, sees all roles not assigned to any player (`getAvailableRolesForThief`). Must pick one and immediately becomes that role (including team). The swap is recorded silently in the event log ("A shadowy figure stole a role in the dark."). If no roles are available, the Thief sides with the villagers.
+
+### Lover Chain
+`eliminateWithLoverChain()` in gameManager.js handles lover death propagation. When any player is eliminated, their lover (if alive) is also eliminated immediately. This applies to wolf kills, witch poison, lynch, and hunter shot.
 
 ## Key Conventions
-- **Roles are private**: `roles` map is written by host on game start. Clients read their own role via `roles[myPlayerId]`. Never render `roles` for other players except on GameOver screen.
-- **Host is orchestrator**: The host client is responsible for detecting when all night actions are in and calling `resolveNight()`. On day phase, host detects when all votes are in and calls `resolveLynch()`.
-- **Firestore security rules** (to be configured in Firebase Console):
-  - Allow read on `rooms/{roomId}` to any authenticated user
-  - Allow write on `rooms/{roomId}` only to authenticated users
-  - Allow read/write on `werewolfChat` subcollection only during night phase
-  - Consider Cloud Functions for server-side validation in production
-- **Timers**: Enforced client-side only. `phaseStartedAt` is stored as ISO string for reference. No Cloud Functions enforce timeouts — the host client auto-submits on expire.
-- **No comments in code**: Per project convention, code is self-documenting via naming.
+- **Roles are private**: `roles` map written by host on game start. Clients read `roles[myPlayerId]`. Never render other players' roles except on GameOver.
+- **Host is orchestrator**: Host client detects when all night actions are in and calls `resolveNight()`. On day phase, host detects when all votes are in and calls `resolveLynch()`. Disconnected players are skipped in both checks.
+- **One lynch per day**: After a successful lynch (lynchCount > spareCount) with no game winner and no Hunter triggered, `resolveLynch()` transitions directly to `status: 'night'` and increments the phase. Spared players leave the day open for another accusation.
+- **Events are atomic**: All game events are written using Firestore `arrayUnion(...events)` inside the same `updateRoom()` call that changes `status`. Never use separate `addEvent()` calls from game logic — this caused race conditions where clients saw the status change before events landed.
+- **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog.
+- **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
+- **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname, role }] }`. When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Bots can only be `werewolf` or `villager`.
+- **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire.
+- **No comments in code**: Code is self-documenting via naming.
 - **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly.
 
 ## Firebase Setup (Required Before Running)
@@ -146,10 +174,12 @@ npm install
 npx expo start
 ```
 Scan the QR code with Expo Go (iOS/Android) or press `a`/`i` for emulators.
+If Metro fails to connect, try `npx expo start --tunnel`.
 
 ## Known Limitations / Future Work
 - Timers are client-side only — drifts possible on slow devices
 - No server-side role validation (roles map is readable by determined clients)
 - Wolf chat not cleared between games (cosmetic only)
-- Hunter shooting during night phase resolves immediately; during day it shows picker on GameOver boundary — review `hunterTriggered` flow if issues arise
-- Reconnection: if a player closes and reopens the app mid-game, navigating back to the correct screen requires passing params again (no deep-link/session restore yet)
+- Bot support is dev/testing only — disable `BOT_CONFIG.enabled` before shipping
+- Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
+- No deep-link or session restore — if a player force-quits the app they must rejoin via the Home screen (room code needed again)

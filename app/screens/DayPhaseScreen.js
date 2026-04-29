@@ -52,18 +52,11 @@ export default function DayPhaseScreen({ route, navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Block hardware back button
+  // Block hardware back (Android) and swipe-back gesture (iOS)
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => true);
+    navigation.setOptions({ gestureEnabled: false });
     return () => handler.remove();
-  }, []);
-
-  // Block swipe/gesture back — allow only REPLACE (phase transitions)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (e.data.action.type !== 'REPLACE') e.preventDefault();
-    });
-    return unsubscribe;
   }, [navigation]);
 
   function handleExit() {
