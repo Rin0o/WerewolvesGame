@@ -100,6 +100,14 @@ export async function addEvent(roomId, event) {
   await updateDoc(roomRef, { events: arrayUnion(event) });
 }
 
+export async function disconnectPlayer(roomId, playerId) {
+  await updateDoc(doc(db, 'rooms', roomId), { disconnectedPlayers: arrayUnion(playerId) });
+}
+
+export async function reconnectPlayer(roomId, playerId) {
+  await updateDoc(doc(db, 'rooms', roomId), { disconnectedPlayers: arrayRemove(playerId) });
+}
+
 export async function eliminatePlayer(roomId, playerId) {
   const roomRef = doc(db, 'rooms', roomId);
   const snap = await getDoc(roomRef);

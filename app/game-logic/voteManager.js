@@ -1,8 +1,10 @@
 /**
  * Returns true when all alive players have submitted a vote.
  */
-export function allVotesIn(votes, players) {
-  const aliveIds = players.filter((p) => p.isAlive).map((p) => p.id);
+export function allVotesIn(votes, players, disconnectedPlayers = []) {
+  const aliveIds = players
+    .filter((p) => p.isAlive && !disconnectedPlayers.includes(p.id))
+    .map((p) => p.id);
   return aliveIds.length > 0 && aliveIds.every((id) => votes[id] !== undefined);
 }
 

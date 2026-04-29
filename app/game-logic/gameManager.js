@@ -70,6 +70,7 @@ export async function startGame(roomId, players) {
     accusedPlayerId: null,
     lovers: null,
     hunterTriggered: null,
+    disconnectedPlayers: [],
   });
 }
 
@@ -90,7 +91,7 @@ async function eliminateWithLoverChain(roomId, playerId, players, lovers, events
 }
 
 export async function resolveNight(roomId, roomData) {
-  const { nightActions, players, roles, phase, witchPotions, lovers } = roomData;
+  const { nightActions, players, roles, phase, witchPotions, lovers, disconnectedPlayers = [] } = roomData;
 
   const events = [];
 
@@ -141,6 +142,15 @@ export async function resolveNight(roomId, roomData) {
     if (witchId) updatedPotions[witchId] = { ...updatedPotions[witchId], poison: false };
   }
 
+  for (const pid of disconnectedPlayers) {
+    const p = players.find((pl) => pl.id === pid && pl.isAlive);
+    if (p && !allEliminated.has(pid)) {
+      events.push(`Night ${phase}: ${p.nickname} abandoned the village and was lost.`);
+      const ids = await eliminateWithLoverChain(roomId, pid, players, newLovers, events, `Night ${phase}`);
+      ids.forEach((id) => allEliminated.add(id));
+    }
+  }
+
   const updatedPlayers = players.map((p) =>
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
@@ -158,6 +168,7 @@ export async function resolveNight(roomId, roomData) {
     nightActions: {},
     lovers: newLovers,
     hunterTriggered: hunterTriggered || null,
+    disconnectedPlayers: [],
     events: arrayUnion(...events),
   });
 
@@ -178,7 +189,7 @@ export async function startNextNight(roomId, currentPhase) {
 }
 
 export async function resolveLynch(roomId, roomData, accusedId) {
-  const { votes, players, roles, phase, lovers } = roomData;
+  const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
   const voteValues = Object.values(votes);
   const lynchCount = voteValues.filter((v) => v === 'lynch').length;
   const spareCount = voteValues.filter((v) => v === 'spare').length;
@@ -199,6 +210,15 @@ export async function resolveLynch(roomId, roomData, accusedId) {
     events.push(`Day ${phase}: ${players.find((p) => p.id === accusedId)?.nickname || 'Someone'} was spared.`);
   }
 
+  for (const pid of disconnectedPlayers) {
+    const p = players.find((pl) => pl.id === pid && pl.isAlive);
+    if (p && !allEliminated.has(pid)) {
+      events.push(`Day ${phase}: ${p.nickname} abandoned the village and was lost.`);
+      const ids = await eliminateWithLoverChain(roomId, pid, players, lovers, events, `Day ${phase}`);
+      ids.forEach((id) => allEliminated.add(id));
+    }
+  }
+
   const updatedPlayers = players.map((p) =>
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
@@ -213,6 +233,7 @@ export async function resolveLynch(roomId, roomData, accusedId) {
     hunterTriggered: hunterTriggered || null,
     votes: {},
     accusedPlayerId: null,
+    disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
     ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null }),

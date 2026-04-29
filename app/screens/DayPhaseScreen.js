@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +16,7 @@ import PhaseTransition from '../components/PhaseTransition';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
-import { accusePlayer, submitVote, clearVotes, updateRoom, addEvent } from '../firebase/roomService';
+import { accusePlayer, submitVote, clearVotes, updateRoom, addEvent, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveLynch, startNextNight, hunterShoot } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
 import Timer from '../components/Timer';
@@ -42,6 +43,46 @@ export default function DayPhaseScreen({ route, navigation }) {
   const botVoteRef = useRef(null);
 
   const t = DAY;
+
+  // Reconnect when screen gains focus (returning player)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      reconnectPlayer(roomId, playerId);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  // Block hardware back button
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => handler.remove();
+  }, []);
+
+  // Block swipe/gesture back — allow only REPLACE (phase transitions)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (e.data.action.type !== 'REPLACE') e.preventDefault();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  function handleExit() {
+    Alert.alert(
+      'Leave Game',
+      'You will be eliminated at the end of this phase if you leave. Are you sure?',
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            await disconnectPlayer(roomId, playerId);
+            navigation.navigate('Home');
+          },
+        },
+      ]
+    );
+  }
 
   useEffect(() => {
     if (!room) return;
@@ -77,8 +118,8 @@ export default function DayPhaseScreen({ route, navigation }) {
   useEffect(() => {
     if (!room || !gs.isHost || resolving) return;
     if (!room.accusedPlayerId) return;
-    const { votes = {}, players = [] } = room;
-    if (allVotesIn(votes, players)) {
+    const { votes = {}, players = [], disconnectedPlayers: disconnected = [] } = room;
+    if (allVotesIn(votes, players, disconnected)) {
       setResolving(true);
       resolveLynch(roomId, room, room.accusedPlayerId)
         .catch(() => setResolving(false))
@@ -96,10 +137,10 @@ export default function DayPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, phase, accusedPlayerId, votes = {}, events = [], eliminatedThisNight, hunterTriggered } = room;
+  const { players = [], roles = {}, phase, accusedPlayerId, votes = {}, events = [], eliminatedThisNight, hunterTriggered, disconnectedPlayers: disconnected = [] } = room;
   const accusedPlayer = accusedPlayerId ? players.find((p) => p.id === accusedPlayerId) : null;
   const voteResults = Object.keys(votes).length > 0 ? tallyVotes(votes) : null;
-  const votesRevealed = allVotesIn(votes, players.filter((p) => p.isAlive));
+  const votesRevealed = allVotesIn(votes, players.filter((p) => p.isAlive), disconnected);
 
   // Night announcement
   const nightVictim = eliminatedThisNight ? players.find((p) => p.id === eliminatedThisNight) : null;
@@ -145,7 +186,12 @@ export default function DayPhaseScreen({ route, navigation }) {
       )}
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: 'rgba(212,101,26,0.3)', backgroundColor: 'transparent' }]}>
-        <Text style={[styles.phase, { color: t.textMuted }]}>Day {phase}</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.phase, { color: t.textMuted }]}>Day {phase}</Text>
+          <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
+            <Text style={[styles.exitText, { color: t.textMuted }]}>✕ Leave</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.title, { color: t.primary }]}>☀️ The Village Awakens</Text>
         {!accusedPlayerId && (
           <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={() => {}} theme={t} />
@@ -320,6 +366,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: SPACING.xs,
   },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  exitBtn: { padding: SPACING.xs },
+  exitText: { ...FONTS.caption },
   phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   title: { ...FONTS.heading },
   scroll: { flex: 1 },

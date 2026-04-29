@@ -9,12 +9,13 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
-import { submitNightAction, updateRoom } from '../firebase/roomService';
+import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveNight } from '../game-logic/gameManager';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
@@ -48,6 +49,46 @@ export default function NightPhaseScreen({ route, navigation }) {
   const pendingDay = useRef(false);
 
   const t = NIGHT;
+
+  // Reconnect when screen gains focus (returning player)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      reconnectPlayer(roomId, playerId);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  // Block hardware back button
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => handler.remove();
+  }, []);
+
+  // Block swipe/gesture back — allow only REPLACE (phase transitions)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (e.data.action.type !== 'REPLACE') e.preventDefault();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  function handleExit() {
+    Alert.alert(
+      'Leave Game',
+      'You will be eliminated at the end of this phase if you leave. Are you sure?',
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            await disconnectPlayer(roomId, playerId);
+            navigation.navigate('Home');
+          },
+        },
+      ]
+    );
+  }
 
   // Navigate when game transitions — defer day navigation if seer is reading their result
   useEffect(() => {
@@ -86,18 +127,18 @@ export default function NightPhaseScreen({ route, navigation }) {
   // Host resolves night when all role actions are in
   useEffect(() => {
     if (!room || !gs.isHost || resolving) return;
-    const { nightActions = {}, players = [], roles = {} } = room;
-    const aliveWolves = players.filter((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF);
-    const aliveSeer = players.find((p) => p.isAlive && roles[p.id] === ROLE.SEER);
-    const aliveWitch = players.find((p) => p.isAlive && roles[p.id] === ROLE.WITCH);
-    const aliveCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID);
-    const aliveThief = players.find((p) => p.isAlive && roles[p.id] === ROLE.THIEF);
+    const { nightActions = {}, players = [], roles = {}, disconnectedPlayers: disconnected = [] } = room;
+    const activeWolves = players.filter((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF && !disconnected.includes(p.id));
+    const activeSeer = players.find((p) => p.isAlive && roles[p.id] === ROLE.SEER && !disconnected.includes(p.id));
+    const activeWitch = players.find((p) => p.isAlive && roles[p.id] === ROLE.WITCH && !disconnected.includes(p.id));
+    const activeCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID && !disconnected.includes(p.id));
+    const activeThief = players.find((p) => p.isAlive && roles[p.id] === ROLE.THIEF && !disconnected.includes(p.id));
 
-    const wolfDone = !!nightActions.werewolf || aliveWolves.length === 0;
-    const seerDone = !!nightActions.seer || !aliveSeer;
-    const witchDone = nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !aliveWitch;
-    const cupidDone = !!nightActions.cupid || !aliveCupid || room.phase > 1;
-    const thiefDone = !!nightActions.thief || !aliveThief || room.phase > 1 || gs.availableThiefRoles?.length === 0;
+    const wolfDone = !!nightActions.werewolf || activeWolves.length === 0;
+    const seerDone = !!nightActions.seer || !activeSeer;
+    const witchDone = nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !activeWitch;
+    const cupidDone = !!nightActions.cupid || !activeCupid || room.phase > 1;
+    const thiefDone = !!nightActions.thief || !activeThief || room.phase > 1 || gs.availableThiefRoles?.length === 0;
 
     if (wolfDone && seerDone && witchDone && cupidDone && thiefDone) {
       setResolving(true);
@@ -219,7 +260,12 @@ export default function NightPhaseScreen({ route, navigation }) {
       )}
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
-        <Text style={[styles.phase, { color: t.textMuted }]}>Night {phase}</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.phase, { color: t.textMuted }]}>Night {phase}</Text>
+          <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
+            <Text style={[styles.exitText, { color: t.textMuted }]}>✕ Leave</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.title, { color: t.text }]}>🌙 The Village Sleeps</Text>
         {!showWaiting && <Timer totalSeconds={ACTION_TIMER} onExpire={handleTimerExpire} theme={t} />}
       </View>
@@ -520,6 +566,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
   },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  exitBtn: { padding: SPACING.xs },
+  exitText: { ...FONTS.caption },
   phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   title: { ...FONTS.heading },
   scroll: { flex: 1 },
