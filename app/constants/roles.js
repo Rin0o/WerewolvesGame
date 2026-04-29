@@ -86,7 +86,19 @@ export function getCompositionForCount(count) {
   if (count < 2) return [];
   const capped = Math.min(count, 12);
   const base = ROLE_COMPOSITIONS[capped] || ROLE_COMPOSITIONS[12];
-  // If more than 12, fill remaining with villagers
   const extra = count > 12 ? Array(count - 12).fill(ROLE.VILLAGER) : [];
   return [...base, ...extra];
+}
+
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief }) {
+  const comp = [];
+  for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
+  if (seer) comp.push(ROLE.SEER);
+  if (witch) comp.push(ROLE.WITCH);
+  if (hunter) comp.push(ROLE.HUNTER);
+  if (cupid) comp.push(ROLE.CUPID);
+  if (thief) comp.push(ROLE.THIEF);
+  const villagers = playerCount - comp.length;
+  for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);
+  return comp;
 }

@@ -1,17 +1,32 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { getRoleInfo } from '../game-logic/roles';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
+
+const ROLE_IMAGES = {
+  villager: require('../../assets/roles/villager.png'),
+  werewolf: require('../../assets/roles/werewolf.png'),
+  seer: require('../../assets/roles/seer.png'),
+  witch: require('../../assets/roles/witch.png'),
+  hunter: require('../../assets/roles/hunter.png'),
+  thief: require('../../assets/roles/thief.png'),
+  cupid: require('../../assets/roles/cupid.png'),
+};
 
 export default function RoleCard({ role, fellowWolves = [], players = [] }) {
   const info = getRoleInfo(role);
   const wolves = fellowWolves
     .map((id) => players.find((p) => p.id === id)?.nickname || id)
     .filter(Boolean);
+  const image = ROLE_IMAGES[role] || null;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.emoji}>{info.emoji}</Text>
+      {image ? (
+        <Image source={image} style={styles.roleImage} resizeMode="contain" />
+      ) : (
+        <Text style={styles.emoji}>{info.emoji}</Text>
+      )}
       <Text style={styles.name}>{info.name}</Text>
       <View style={styles.divider} />
       <Text style={styles.label}>Description</Text>
@@ -49,6 +64,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 12,
+  },
+  roleImage: {
+    width: '100%',
+    height: 260,
+    marginBottom: SPACING.md,
+    borderRadius: RADIUS.md,
   },
   emoji: {
     fontSize: 64,

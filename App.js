@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import LaunchScreen from './app/screens/LaunchScreen';
 import HomeScreen from './app/screens/HomeScreen';
 import LobbyScreen from './app/screens/LobbyScreen';
 import RoleRevealScreen from './app/screens/RoleRevealScreen';
@@ -20,9 +21,10 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="auto" />
         <Stack.Navigator
-          initialRouteName="Home"
+          initialRouteName="Launch"
           screenOptions={{ headerShown: false, animation: 'fade' }}
         >
+          <Stack.Screen name="Launch" component={LaunchScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Lobby" component={LobbyScreen} />
           <Stack.Screen name="RoleReveal" component={RoleRevealScreen} />

@@ -18,9 +18,9 @@ function shuffle(arr) {
  * Assigns roles to players and returns a map { playerId: role }
  * Also returns initial witch potions map { playerId: { save: true, poison: true } }
  */
-export function assignRoles(players) {
-  const composition = getCompositionForCount(players.length);
-  const shuffledRoles = shuffle(composition);
+export function assignRoles(players, composition = null) {
+  const comp = composition || getCompositionForCount(players.length);
+  const shuffledRoles = shuffle(comp);
   const shuffledPlayers = shuffle([...players]);
 
   const roleMap = {};

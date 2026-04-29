@@ -4,13 +4,18 @@
     "slug": "werewolves-millers-hollow",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/game_icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.millardshollow.werewolves"
     },
     "android": {
-      "package": "com.millardshollow.werewolves"
+      "package": "com.millardshollow.werewolves",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/game_icon.png",
+        "backgroundColor": "#0D0820"
+      }
     },
     "web": {},
     "plugins": []

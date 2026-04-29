@@ -17,7 +17,7 @@ function shuffleArr(arr) {
   return a;
 }
 
-export async function startGame(roomId, players) {
+export async function startGame(roomId, players, customComposition = null) {
   const humanPlayers = players.filter((p) => !p.isBot);
   let allPlayers = humanPlayers;
   let roleMap = {};
@@ -34,7 +34,7 @@ export async function startGame(roomId, players) {
     }));
     allPlayers = [...humanPlayers, ...botPlayers];
 
-    const composition = getCompositionForCount(allPlayers.length);
+    const composition = customComposition || getCompositionForCount(allPlayers.length);
     const remaining = [...composition];
     for (const role of BOT_CONFIG.bots.map((b) => b.role)) {
       const idx = remaining.indexOf(role);
@@ -50,7 +50,7 @@ export async function startGame(roomId, players) {
       roleMap[bot.id] = BOT_CONFIG.bots[i].role;
     });
   } else {
-    const result = assignRoles(humanPlayers);
+    const result = assignRoles(humanPlayers, customComposition);
     roleMap = result.roleMap;
     witchPotions = result.witchPotions;
   }
