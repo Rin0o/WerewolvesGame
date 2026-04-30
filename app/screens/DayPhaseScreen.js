@@ -24,7 +24,7 @@ import VotePanel from '../components/VotePanel';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DISCUSSION_SECONDS = 240;
@@ -40,6 +40,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
+  const [lastLynchResult, setLastLynchResult] = useState(null);
   const botVoteRef = useRef(null);
 
   const t = DAY;
@@ -121,6 +122,28 @@ export default function DayPhaseScreen({ route, navigation }) {
         });
     }
   }, [room?.votes]);
+
+  // Snapshot votes the moment they're all in, before resolveLynch wipes them
+  const allIn = room
+    ? allVotesIn(room.votes || {}, (room.players || []).filter((p) => p.isAlive), room.disconnectedPlayers || [])
+    : false;
+  useEffect(() => {
+    if (!allIn || !room?.accusedPlayerId || !room?.votes) return;
+    const votesCopy = { ...room.votes };
+    const tally = tallyVotes(votesCopy);
+    const accused = room.players?.find((p) => p.id === room.accusedPlayerId);
+    setLastLynchResult({
+      accusedId: room.accusedPlayerId,
+      accusedNickname: accused?.nickname,
+      votes: votesCopy,
+      lynched: tally.winner === 'lynch',
+    });
+  }, [allIn]);
+
+  // Clear result when a new accusation starts
+  useEffect(() => {
+    if (room?.accusedPlayerId) setLastLynchResult(null);
+  }, [room?.accusedPlayerId]);
 
   if (loading || !room) {
     return (
@@ -293,6 +316,53 @@ export default function DayPhaseScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* Lynch result — persists after votes are cleared */}
+        {lastLynchResult && !accusedPlayerId && !hunterTriggered && (
+          <View style={[
+            styles.lynchResult,
+            { borderColor: lastLynchResult.lynched ? t.danger : t.success,
+              backgroundColor: lastLynchResult.lynched ? '#FFF0DC' : '#F0FFF4' }
+          ]}>
+            <Text style={[styles.lynchResultVerdict, { color: lastLynchResult.lynched ? t.danger : t.success }]}>
+              {lastLynchResult.lynched ? '⚔️ Lynched' : '🛡️ Spared'}
+            </Text>
+            <Text style={[styles.lynchResultName, { color: t.text }]}>
+              {lastLynchResult.accusedNickname}
+            </Text>
+
+            <View style={styles.lynchTally}>
+              <Text style={[styles.lynchTallyItem, { color: t.danger }]}>
+                ⚔️ {Object.values(lastLynchResult.votes).filter((v) => v === 'lynch').length} lynch
+              </Text>
+              <Text style={[styles.lynchTallyItem, { color: t.success }]}>
+                🛡️ {Object.values(lastLynchResult.votes).filter((v) => v === 'spare').length} spare
+              </Text>
+            </View>
+
+            {['lynch', 'spare'].map((decision) => {
+              const names = Object.entries(lastLynchResult.votes)
+                .filter(([, v]) => v === decision)
+                .map(([id]) => players.find((p) => p.id === id)?.nickname || '?')
+                .join(', ');
+              if (!names) return null;
+              return (
+                <Text key={decision} style={[styles.lynchVoterRow, { color: decision === 'lynch' ? t.danger : t.success }]}>
+                  {decision === 'lynch' ? '⚔️' : '🛡️'} {names}
+                </Text>
+              );
+            })}
+
+            {lastLynchResult.lynched && roles[lastLynchResult.accusedId] && (() => {
+              const info = ROLE_DEFINITIONS[roles[lastLynchResult.accusedId]];
+              return (
+                <Text style={[styles.lynchRole, { color: t.textSecondary }]}>
+                  They were {info?.emoji} {info?.name}
+                </Text>
+              );
+            })()}
+          </View>
+        )}
+
         {/* Player List (accusation targets) */}
         {!accusedPlayerId && (
           <View style={styles.playerSection}>
@@ -391,6 +461,19 @@ const styles = StyleSheet.create({
   },
   voteSectionTitle: { ...FONTS.subheading, textAlign: 'center', marginBottom: SPACING.sm },
   defenseLabel: { ...FONTS.caption, textAlign: 'center', marginBottom: SPACING.xs },
+  lynchResult: {
+    margin: SPACING.md,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1.5,
+    gap: SPACING.xs,
+  },
+  lynchResultVerdict: { ...FONTS.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  lynchResultName: { ...FONTS.heading },
+  lynchTally: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
+  lynchTallyItem: { ...FONTS.subheading, fontWeight: '700' },
+  lynchVoterRow: { ...FONTS.caption, lineHeight: 18 },
+  lynchRole: { ...FONTS.body, marginTop: SPACING.xs },
   playerSection: { padding: SPACING.md },
   sectionTitle: {
     ...FONTS.caption,

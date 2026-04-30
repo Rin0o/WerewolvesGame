@@ -39,8 +39,8 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   playBtn: {
-    width: width * 0.55,
+    width: width * 1,
     height: undefined,
-    aspectRatio: 3,
+    aspectRatio: 2,
   },
 });
