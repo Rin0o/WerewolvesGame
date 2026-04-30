@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { RADIUS, SPACING, FONTS } from '../constants/theme';
+
+const LYNCH_BTN = require('../../assets/lynch_btn.png');
+const SAVE_BTN = require('../../assets/save_btn.png');
 
 export default function VotePanel({ theme, onVote, myVote, voteCounts, revealed, accusedNickname, disabled }) {
   return (
@@ -22,28 +25,28 @@ export default function VotePanel({ theme, onVote, myVote, voteCounts, revealed,
       {!revealed && (
         <View style={styles.buttons}>
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: myVote === 'lynch' ? theme.danger : theme.surfaceAlt, borderColor: theme.danger },
-            ]}
+            style={styles.button}
             onPress={() => onVote('lynch')}
             disabled={!!myVote || disabled}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.buttonText, { color: myVote === 'lynch' ? '#fff' : theme.danger }]}>
-              ⚔️ Lynch
-            </Text>
+            <Image
+              source={LYNCH_BTN}
+              style={[styles.buttonImage, myVote && myVote !== 'lynch' && styles.buttonDimmed]}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: myVote === 'spare' ? theme.success : theme.surfaceAlt, borderColor: theme.success },
-            ]}
+            style={styles.button}
             onPress={() => onVote('spare')}
             disabled={!!myVote || disabled}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.buttonText, { color: myVote === 'spare' ? '#fff' : theme.success }]}>
-              🛡️ Spare
-            </Text>
+            <Image
+              source={SAVE_BTN}
+              style={[styles.buttonImage, myVote && myVote !== 'spare' && styles.buttonDimmed]}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
       )}
@@ -75,13 +78,14 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: RADIUS.md,
-    borderWidth: 2,
-    paddingVertical: SPACING.md,
     alignItems: 'center',
   },
-  buttonText: {
-    ...FONTS.button,
+  buttonImage: {
+    width: '100%',
+    height: 80,
+  },
+  buttonDimmed: {
+    opacity: 0.3,
   },
   waiting: {
     ...FONTS.caption,

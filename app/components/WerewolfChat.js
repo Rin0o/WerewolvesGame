@@ -94,8 +94,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: NIGHT.primary,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs, marginBottom: SPACING.sm },
-  headerIcon: { width: 22, height: 22 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
+  headerIcon: { width: 32, height: 32 },
   header: { ...FONTS.subheading, color: NIGHT.accent },
   list: {
     flex: 1,

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   FlatList,
   ScrollView,
+  Modal,
   Alert,
   ActivityIndicator,
   BackHandler,
@@ -26,7 +27,7 @@ import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
-import { ROLE_ICONS } from '../constants/icons';
+import { ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS } from '../constants/icons';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DISCUSSION_SECONDS = 240;
@@ -43,6 +44,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
   const [lastLynchResult, setLastLynchResult] = useState(null);
+  const [accuseTarget, setAccuseTarget] = useState(null);
   const botVoteRef = useRef(null);
 
   const t = DAY;
@@ -163,16 +165,9 @@ export default function DayPhaseScreen({ route, navigation }) {
   // Night announcement
   const nightVictim = eliminatedThisNight ? players.find((p) => p.id === eliminatedThisNight) : null;
 
-  async function handleAccuse(targetId) {
+  function handleAccuse(targetId) {
     if (!gs.isAlive) return;
-    Alert.alert(
-      'Accuse Player',
-      `Accuse ${players.find((p) => p.id === targetId)?.nickname}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Accuse', style: 'destructive', onPress: () => accusePlayer(roomId, targetId) },
-      ]
-    );
+    setAccuseTarget(targetId);
   }
 
   async function handleVote(vote) {
@@ -431,6 +426,74 @@ export default function DayPhaseScreen({ route, navigation }) {
         events={events}
         playerHooks={playerHooks}
       />
+
+      {/* Accuse confirmation modal */}
+      {(() => {
+        const target = players.find((p) => p.id === accuseTarget);
+        if (!target) return null;
+        const suspicion = playerHooks.suspicions[accuseTarget];
+        const suspectedRole = playerHooks.suspectedRoles[accuseTarget];
+        return (
+          <Modal visible={!!accuseTarget} transparent animationType="fade" onRequestClose={() => setAccuseTarget(null)}>
+            <View style={styles.accuseOverlay}>
+              <View style={[styles.accuseModal, { backgroundColor: t.surface, borderColor: t.danger }]}>
+                <Text style={[styles.accuseHeading, { color: t.danger }]}>⚖️ Raise an Accusation</Text>
+
+                <View style={[styles.accusePlayerRow, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+                  <View style={[styles.accuseAvatar, { backgroundColor: t.primary }]}>
+                    <Text style={styles.accuseAvatarText}>{target.nickname?.[0]?.toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.accusePlayerName, { color: t.text }]}>{target.nickname}</Text>
+                </View>
+
+                {(suspicion && suspicion !== 'neutral') && (
+                  <View style={[styles.accuseChip, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+                    <Image source={SUSPICION_ICONS[suspicion]} style={styles.accuseChipIcon} resizeMode="contain" />
+                    <Text style={[styles.accuseChipText, { color: t.textSecondary }]}>
+                      Your read: {SUSPICION_LABELS[suspicion]}
+                    </Text>
+                  </View>
+                )}
+
+                {suspectedRole && (
+                  <View style={[styles.accuseChip, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
+                    {ROLE_ICONS[suspectedRole] && (
+                      <Image source={ROLE_ICONS[suspectedRole]} style={styles.accuseChipIcon} resizeMode="contain" />
+                    )}
+                    <Text style={[styles.accuseChipText, { color: t.text }]}>
+                      Suspected role: {ROLE_DEFINITIONS[suspectedRole]?.name}
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={[styles.accuseBody, { color: t.textSecondary }]}>
+                  Accusing{' '}
+                  <Text style={{ fontWeight: '700', color: t.text }}>{target.nickname}</Text>
+                  {' '}puts them on trial. They will have a moment to defend themselves before the village votes to{' '}
+                  <Text style={{ color: t.danger, fontWeight: '600' }}>lynch</Text> or{' '}
+                  <Text style={{ color: t.success, fontWeight: '600' }}>spare</Text> them.
+                  {'\n\n'}This cannot be undone once confirmed.
+                </Text>
+
+                <View style={styles.accuseBtns}>
+                  <TouchableOpacity
+                    style={[styles.accuseBtn, { backgroundColor: t.surfaceAlt, borderColor: t.border, borderWidth: 1 }]}
+                    onPress={() => setAccuseTarget(null)}
+                  >
+                    <Text style={[styles.accuseBtnText, { color: t.textSecondary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.accuseBtn, { backgroundColor: t.danger }]}
+                    onPress={() => { setAccuseTarget(null); accusePlayer(roomId, accuseTarget); }}
+                  >
+                    <Text style={[styles.accuseBtnText, { color: '#fff' }]}>Accuse</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
     </SafeAreaView>
   );
 }
@@ -488,13 +551,13 @@ const styles = StyleSheet.create({
   lynchTally: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
   lynchTallyItem: { ...FONTS.subheading, fontWeight: '700' },
   lynchVoterRow: { ...FONTS.caption, lineHeight: 18 },
-  lynchRoleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: SPACING.xs },
-  lynchRoleIcon: { width: 18, height: 18 },
+  lynchRoleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.xs },
+  lynchRoleIcon: { width: 26, height: 26 },
   lynchRole: { ...FONTS.body },
-  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  actionTitleIcon: { width: 28, height: 28 },
-  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  btnIcon: { width: 20, height: 20 },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  actionTitleIcon: { width: 40, height: 40 },
+  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  btnIcon: { width: 26, height: 26 },
   playerSection: { padding: SPACING.md },
   sectionTitle: {
     ...FONTS.caption,
@@ -529,4 +592,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   notesBtnText: { ...FONTS.button, color: '#fff' },
+  accuseOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  accuseModal: {
+    width: '100%',
+    borderRadius: RADIUS.xl,
+    borderWidth: 2,
+    padding: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  accuseHeading: {
+    ...FONTS.heading,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  accusePlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    padding: SPACING.sm,
+  },
+  accuseAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accuseAvatarText: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  accusePlayerName: { ...FONTS.subheading, fontWeight: '700' },
+  accuseChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    alignSelf: 'flex-start',
+  },
+  accuseChipIcon: { width: 22, height: 22 },
+  accuseChipText: { ...FONTS.body, fontWeight: '600' },
+  accuseBody: {
+    ...FONTS.body,
+    lineHeight: 22,
+    marginTop: SPACING.xs,
+  },
+  accuseBtns: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  accuseBtn: {
+    flex: 1,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  accuseBtnText: { ...FONTS.button },
 });

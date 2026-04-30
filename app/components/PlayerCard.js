@@ -57,25 +57,9 @@ export default function PlayerCard({
           )}
 
           {suspicionLevel && suspicionLevel !== 'neutral' && (
-            <View style={styles.suspicionRow}>
-              {SUSPICION_ICONS[suspicionLevel] && (
-                <Image source={SUSPICION_ICONS[suspicionLevel]} style={styles.suspicionIcon} resizeMode="contain" />
-              )}
-              <Text style={[styles.suspicionText, { color: theme.textSecondary }]}>
-                {SUSPICION_LABELS[suspicionLevel]}
-              </Text>
-            </View>
-          )}
-
-          {suspectedRole && (
-            <View style={[styles.suspectedChip, { backgroundColor: theme.surfaceAlt, borderColor: theme.primary }]}>
-              {ROLE_ICONS[suspectedRole] && (
-                <Image source={ROLE_ICONS[suspectedRole]} style={styles.chipIcon} resizeMode="contain" />
-              )}
-              <Text style={[styles.suspectedChipText, { color: theme.text }]}>
-                {ROLE_DEFINITIONS[suspectedRole]?.name || suspectedRole}
-              </Text>
-            </View>
+            <Text style={[styles.suspicionLabel, { color: theme.textSecondary }]}>
+              {SUSPICION_LABELS[suspicionLevel]}
+            </Text>
           )}
         </View>
 
@@ -117,26 +101,11 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { ...FONTS.subheading },
   badge: { ...FONTS.caption, fontWeight: '700', letterSpacing: 1 },
-  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  roleIcon: { width: 16, height: 16 },
-  roleText: { ...FONTS.caption, fontWeight: '700', letterSpacing: 1 },
-  suspicionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  suspicionIcon: { width: 14, height: 14 },
-  suspicionText: { ...FONTS.caption },
-  suspectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    marginTop: 4,
-    gap: 4,
-  },
-  chipIcon: { width: 12, height: 12 },
-  suspectedChipText: { ...FONTS.caption, fontWeight: '700' },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  roleIcon: { width: 24, height: 24 },
+  roleText: { ...FONTS.body, fontWeight: '700', letterSpacing: 1 },
+  suspicionLabel: { ...FONTS.caption, marginTop: 3 },
   suspicionBadge: { marginLeft: SPACING.sm },
-  suspicionBadgeIcon: { width: 26, height: 26 },
+  suspicionBadgeIcon: { width: 38, height: 38 },
   check: { fontSize: 20, fontWeight: '700', marginLeft: SPACING.sm },
 });

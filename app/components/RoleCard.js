@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: NIGHT.primary,
   },
-  wolvesLabelRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: SPACING.sm },
-  wolvesLabelIcon: { width: 22, height: 22 },
+  wolvesLabelRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
+  wolvesLabelIcon: { width: 32, height: 32 },
   wolvesLabel: { ...FONTS.subheading, color: NIGHT.accent },
   wolfName: {
     ...FONTS.body,

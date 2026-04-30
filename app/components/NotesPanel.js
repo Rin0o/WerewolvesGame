@@ -67,9 +67,6 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                   ) : (
                     <Text style={styles.rolePickerEmoji}>🎭</Text>
                   )}
-                  <Text style={[styles.rolePickerText, { color: suspectedRoles[p.id] ? theme.text : theme.textMuted }]} numberOfLines={1}>
-                    {suspectedRoles[p.id] ? ROLE_DEFINITIONS[suspectedRoles[p.id]].name : 'Suspect'}
-                  </Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -180,22 +177,15 @@ const styles = StyleSheet.create({
   },
   playerCardWrap: { flex: 1 },
   rolePicker: {
-    width: 68,
+    width: 62,
     borderWidth: 1.5,
     borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'stretch',
   },
-  rolePickerIcon: { width: 28, height: 28, marginBottom: 2 },
-  rolePickerEmoji: { fontSize: 22, marginBottom: 2 },
-  rolePickerText: {
-    ...FONTS.caption,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+  rolePickerIcon: { width: 46, height: 46 },
+  rolePickerEmoji: { fontSize: 36 },
   roleOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -205,7 +195,7 @@ const styles = StyleSheet.create({
   rolePick: {
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    width: 260,
+    width: 300,
     borderWidth: 1,
   },
   rolePickTitle: {
@@ -214,17 +204,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   roleOption: {
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
   },
   roleOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
-  roleOptionIcon: { width: 24, height: 24 },
-  roleOptionEmoji: { fontSize: 22, width: 24, textAlign: 'center' },
-  roleOptionText: { ...FONTS.body },
+  roleOptionIcon: { width: 34, height: 34 },
+  roleOptionEmoji: { fontSize: 30, width: 34, textAlign: 'center' },
+  roleOptionText: { ...FONTS.body, fontWeight: '600' },
   clearRole: {
     ...FONTS.caption,
     textAlign: 'center',
