@@ -11,14 +11,15 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 
 ## Folder Structure
 ```
-/App.js                      — Root: NavigationContainer + Stack
+/App.js                      — Root: NavigationContainer + Stack (initial route: Launch)
 /app/
   /screens/
+    LaunchScreen.js          — Full-screen background + play button; entry point
     HomeScreen.js            — Nickname input, create/join room
-    LobbyScreen.js           — Room code display, player list, start game
+    LobbyScreen.js           — Room code, game mode selector, role config, player list
     RoleRevealScreen.js      — Private role card shown to each player
     NightPhaseScreen.js      — Night actions (wolf kill, seer reveal, witch, cupid, thief)
-    DayPhaseScreen.js        — Day discussion, accusation, voting, lynch
+    DayPhaseScreen.js        — Day discussion, accusation, voting, lynch result
     GameOverScreen.js        — Winner reveal, full role dump, event log
   /components/
     PlayerCard.js            — Reusable player row with suspicion/role chip display
@@ -26,14 +27,15 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     NotesPanel.js            — Slide-up modal: player board, notepad, clue log
     WerewolfChat.js          — Real-time Firestore chat (wolves only, night only)
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
-    RoleCard.js              — Full role card with emoji, description, goal, ability
+    RoleCard.js              — Role card with PNG image (assets/roles/), description,
+                               goal, ability; falls back to emoji if no image
     ClueLog.js               — Scrollable event history list
     PhaseTransition.js       — Animated day/night transition overlay
   /game-logic/
-    roles.js                 — assignRoles(), checkWinCondition(), getWerewolves(),
-                               getLoversPartner(), getAvailableRolesForThief()
-    gameManager.js           — startGame(), resolveNight(), resolveLynch(),
-                               startNextNight(), hunterShoot()
+    roles.js                 — assignRoles(players, composition?), checkWinCondition(),
+                               getWerewolves(), getLoversPartner(), getAvailableRolesForThief()
+    gameManager.js           — startGame(roomId, players, customComposition?),
+                               resolveNight(), resolveLynch(), startNextNight(), hunterShoot()
     voteManager.js           — allVotesIn(), tallyVotes()
   /firebase/
     config.js                — Firebase app init — FILL IN YOUR CONFIG HERE
@@ -45,9 +47,16 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     useGameState.js          — Derived selectors from room + playerId
     usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles
   /constants/
-    roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS
+    roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
+                               getCompositionForCount(), buildCustomComposition()
     theme.js                 — DAY and NIGHT theme objects + FONTS, RADIUS, SPACING
     devConfig.js             — BOT_CONFIG: enable/disable test bots and their roles
+/assets/
+  game_icon.png              — App icon (set in app.json for iOS + Android)
+  home_page.png              — LaunchScreen background
+  play_btn.png               — LaunchScreen play button
+  /roles/                    — PNG role card images (villager, werewolf, seer, witch,
+                               hunter, thief, cupid); shown in RoleCard component
 ```
 
 ## Firestore Data Structure
@@ -82,6 +91,17 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
+  gameMode: "normal"|"custom"     // Set by host in lobby; defaults to "normal" if absent
+  customRoles: {                  // Only used when gameMode === "custom"
+    playerCount: number           // Target total players (must equal effectiveCount to start)
+    werewolf: number              // Count (min 1)
+    seer: boolean
+    witch: boolean
+    hunter: boolean
+    cupid: boolean
+    thief: boolean
+    // villagers = playerCount − werewolf − sum(enabled specials); auto-filled
+  }
 }
 ```
 
@@ -142,6 +162,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog.
 - **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
 - **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname, role }] }`. When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Bots can only be `werewolf` or `villager`.
+- **Game modes**: Host selects Normal or Custom in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
+- **Vote feedback**: DayPhaseScreen snapshots the vote map into local `lastLynchResult` state the moment `allVotesIn` becomes true — before `resolveLynch` wipes `votes: {}` from Firestore. The result card (verdict, tally, per-player votes, role reveal if lynched) persists until the next accusation starts.
+- **Role card images**: `RoleCard` component maps role keys to static `require()` calls for PNGs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
+- **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. It calls `navigation.replace('Home')` on press so the back button can never return to it.
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire.
 - **No comments in code**: Code is self-documenting via naming.
 - **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly.
