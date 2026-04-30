@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { getRoleInfo } from '../game-logic/roles';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
+import { ROLE_ICONS } from '../constants/icons';
 
 const ROLE_IMAGES = {
   villager: require('../../assets/roles/villager.png'),
@@ -41,7 +42,10 @@ export default function RoleCard({ role, fellowWolves = [], players = [] }) {
       )}
       {wolves.length > 0 && (
         <View style={styles.wolvesBox}>
-          <Text style={styles.wolvesLabel}>🐺 Fellow Werewolves</Text>
+          <View style={styles.wolvesLabelRow}>
+            <Image source={ROLE_ICONS.werewolf} style={styles.wolvesLabelIcon} resizeMode="contain" />
+            <Text style={styles.wolvesLabel}>Fellow Werewolves</Text>
+          </View>
           {wolves.map((name) => (
             <Text key={name} style={styles.wolfName}>• {name}</Text>
           ))}
@@ -108,11 +112,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: NIGHT.primary,
   },
-  wolvesLabel: {
-    ...FONTS.subheading,
-    color: NIGHT.accent,
-    marginBottom: SPACING.sm,
-  },
+  wolvesLabelRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: SPACING.sm },
+  wolvesLabelIcon: { width: 22, height: 22 },
+  wolvesLabel: { ...FONTS.subheading, color: NIGHT.accent },
   wolfName: {
     ...FONTS.body,
     color: NIGHT.text,

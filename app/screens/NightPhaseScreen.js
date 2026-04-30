@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -23,6 +24,7 @@ import PlayerCard from '../components/PlayerCard';
 import PhaseTransition from '../components/PhaseTransition';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
+import { ROLE_ICONS } from '../constants/icons';
 import { getRoleInfo } from '../game-logic/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 import RoleCard from '../components/RoleCard';
@@ -285,7 +287,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* WEREWOLF ACTION */}
         {!showWaiting && gs.myRole === ROLE.WEREWOLF && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🐺 Choose a Victim</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.werewolf} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose a Victim</Text>
+            </View>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               Pick a player to eliminate tonight.
             </Text>
@@ -315,7 +320,10 @@ export default function NightPhaseScreen({ route, navigation }) {
               style={[styles.chatBtn, { borderColor: t.primary }]}
               onPress={() => setChatVisible(true)}
             >
-              <Text style={[styles.chatBtnText, { color: t.accent }]}>🐺 Open Wolf Chat</Text>
+              <View style={styles.btnIconRow}>
+                <Image source={ROLE_ICONS.werewolf} style={styles.btnIcon} resizeMode="contain" />
+                <Text style={[styles.chatBtnText, { color: t.accent }]}>Open Wolf Chat</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -323,7 +331,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* SEER RESULT — shown independently so navigation can be deferred */}
         {seerResult && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🔮 Your Vision</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Your Vision</Text>
+            </View>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               {players.find((p) => p.id === seerTarget)?.nickname || 'That player'} is...
             </Text>
@@ -345,7 +356,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* SEER ACTION */}
         {!showWaiting && gs.myRole === ROLE.SEER && !seerResult && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🔮 Choose Someone to Reveal</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose Someone to Reveal</Text>
+            </View>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               You will learn if they are a Werewolf.
             </Text>
@@ -375,7 +389,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* WITCH ACTION */}
         {!showWaiting && gs.myRole === ROLE.WITCH && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🧙‍♀️ Witch's Turn</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.witch} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Witch's Turn</Text>
+            </View>
             {victimPlayer ? (
               <Text style={[styles.actionSub, { color: t.textSecondary }]}>
                 The werewolves killed: {victimPlayer.nickname}
@@ -431,7 +448,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* CUPID ACTION */}
         {!showWaiting && gs.myRole === ROLE.CUPID && room?.phase === 1 && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>💘 Choose Two Lovers</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.cupid} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose Two Lovers</Text>
+            </View>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               Select exactly 2 players to bind together. If one dies, the other follows.
               {cupidTargets.length > 0 ? ` (${cupidTargets.length}/2 selected)` : ''}
@@ -454,7 +474,10 @@ export default function NightPhaseScreen({ route, navigation }) {
               onPress={submitCupidChoice}
               disabled={cupidTargets.length !== 2}
             >
-              <Text style={styles.submitText}>💘 Bind Their Hearts</Text>
+              <View style={styles.btnIconRow}>
+                <Image source={ROLE_ICONS.cupid} style={styles.btnIcon} resizeMode="contain" />
+                <Text style={styles.submitText}>Bind Their Hearts</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -462,7 +485,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* THIEF ACTION */}
         {!showWaiting && gs.myRole === ROLE.THIEF && room?.phase === 1 && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🃏 Choose a Role to Steal</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.thief} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose a Role to Steal</Text>
+            </View>
             {gs.availableThiefRoles?.length === 0 ? (
               <Text style={[styles.actionSub, { color: t.textSecondary }]}>
                 No roles are available to steal. You remain a Thief and side with the villagers.
@@ -486,7 +512,11 @@ export default function NightPhaseScreen({ route, navigation }) {
                       ]}
                       onPress={() => setThiefChoice(role)}
                     >
-                      <Text style={styles.thiefRoleEmoji}>{info.emoji}</Text>
+                      {ROLE_ICONS[role] ? (
+                        <Image source={ROLE_ICONS[role]} style={styles.thiefRoleIcon} resizeMode="contain" />
+                      ) : (
+                        <Text style={styles.thiefRoleEmoji}>{info.emoji}</Text>
+                      )}
                       <View style={styles.thiefRoleInfo}>
                         <Text style={[styles.thiefRoleName, { color: t.text }]}>{info.name}</Text>
                         <Text style={[styles.thiefRoleDesc, { color: t.textMuted }]} numberOfLines={2}>
@@ -501,7 +531,10 @@ export default function NightPhaseScreen({ route, navigation }) {
                   onPress={submitThiefChoice}
                   disabled={!thiefChoice}
                 >
-                  <Text style={styles.submitText}>🃏 Steal This Role</Text>
+                  <View style={styles.btnIconRow}>
+                <Image source={ROLE_ICONS.thief} style={styles.btnIcon} resizeMode="contain" />
+                <Text style={styles.submitText}>Steal This Role</Text>
+              </View>
                 </TouchableOpacity>
               </>
             )}
@@ -511,7 +544,10 @@ export default function NightPhaseScreen({ route, navigation }) {
         {/* THIEF STOLEN ROLE REVEAL */}
         {thiefStolenRole && (
           <View style={styles.actionBox}>
-            <Text style={[styles.actionTitle, { color: t.accent }]}>🃏 You stole a role!</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.thief} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.actionTitle, { color: t.accent }]}>You stole a role!</Text>
+            </View>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               From this moment on, you play as:
             </Text>
@@ -576,7 +612,11 @@ const styles = StyleSheet.create({
   waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
   waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
   actionBox: { padding: SPACING.md },
-  actionTitle: { ...FONTS.heading, marginBottom: SPACING.xs },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginBottom: SPACING.xs },
+  actionTitleIcon: { width: 28, height: 28 },
+  actionTitle: { ...FONTS.heading },
+  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  btnIcon: { width: 20, height: 20 },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
   submitBtn: {
     borderRadius: RADIUS.md,
@@ -625,6 +665,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     gap: SPACING.sm,
   },
+  thiefRoleIcon: { width: 28, height: 28 },
   thiefRoleEmoji: { fontSize: 28 },
   thiefRoleInfo: { flex: 1 },
   thiefRoleName: { ...FONTS.body, fontWeight: '600' },

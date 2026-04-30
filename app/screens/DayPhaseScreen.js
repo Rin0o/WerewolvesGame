@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -25,6 +26,7 @@ import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE_ICONS } from '../constants/icons';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DISCUSSION_SECONDS = 240;
@@ -247,7 +249,10 @@ export default function DayPhaseScreen({ route, navigation }) {
         {/* Hunter mode */}
         {hunterTriggered && (
           <View style={[styles.hunterBox, { backgroundColor: '#FFF8F0', borderColor: t.accent }]}>
-            <Text style={[styles.hunterTitle, { color: t.primary }]}>🏹 The Hunter's Final Shot</Text>
+            <View style={styles.actionTitleRow}>
+              <Image source={ROLE_ICONS.hunter} style={styles.actionTitleIcon} resizeMode="contain" />
+              <Text style={[styles.hunterTitle, { color: t.primary }]}>The Hunter's Final Shot</Text>
+            </View>
             <Text style={[styles.hunterSub, { color: t.textSecondary }]}>
               {hunterTriggered === playerId
                 ? 'You are the Hunter! Choose someone to take down with you.'
@@ -273,7 +278,10 @@ export default function DayPhaseScreen({ route, navigation }) {
                   onPress={handleHunterShoot}
                   disabled={!hunterTarget}
                 >
-                  <Text style={styles.submitBtnText}>🏹 Fire!</Text>
+                  <View style={styles.btnIconRow}>
+                    <Image source={ROLE_ICONS.hunter} style={styles.btnIcon} resizeMode="contain" />
+                    <Text style={styles.submitBtnText}>Fire!</Text>
+                  </View>
                 </TouchableOpacity>
               </>
             )}
@@ -353,11 +361,18 @@ export default function DayPhaseScreen({ route, navigation }) {
             })}
 
             {lastLynchResult.lynched && roles[lastLynchResult.accusedId] && (() => {
-              const info = ROLE_DEFINITIONS[roles[lastLynchResult.accusedId]];
+              const roleKey = roles[lastLynchResult.accusedId];
+              const info = ROLE_DEFINITIONS[roleKey];
               return (
-                <Text style={[styles.lynchRole, { color: t.textSecondary }]}>
-                  They were {info?.emoji} {info?.name}
-                </Text>
+                <View style={styles.lynchRoleRow}>
+                  <Text style={[styles.lynchRole, { color: t.textSecondary }]}>They were</Text>
+                  {ROLE_ICONS[roleKey] ? (
+                    <Image source={ROLE_ICONS[roleKey]} style={styles.lynchRoleIcon} resizeMode="contain" />
+                  ) : (
+                    <Text style={[styles.lynchRole, { color: t.textSecondary }]}>{info?.emoji}</Text>
+                  )}
+                  <Text style={[styles.lynchRole, { color: t.textSecondary }]}>{info?.name}</Text>
+                </View>
               );
             })()}
           </View>
@@ -473,7 +488,13 @@ const styles = StyleSheet.create({
   lynchTally: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
   lynchTallyItem: { ...FONTS.subheading, fontWeight: '700' },
   lynchVoterRow: { ...FONTS.caption, lineHeight: 18 },
-  lynchRole: { ...FONTS.body, marginTop: SPACING.xs },
+  lynchRoleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: SPACING.xs },
+  lynchRoleIcon: { width: 18, height: 18 },
+  lynchRole: { ...FONTS.body },
+  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  actionTitleIcon: { width: 28, height: 28 },
+  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  btnIcon: { width: 20, height: 20 },
   playerSection: { padding: SPACING.md },
   sectionTitle: {
     ...FONTS.caption,

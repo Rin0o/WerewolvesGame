@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -16,6 +17,7 @@ import { startGame } from '../game-logic/gameManager';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { BOT_CONFIG } from '../constants/devConfig';
+import { ROLE_ICONS } from '../constants/icons';
 
 const MIN_PLAYERS = 5;
 const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF];
@@ -192,7 +194,11 @@ export default function LobbyScreen({ route, navigation }) {
           <View style={styles.compRow}>
             {Object.entries(normalRoleCounts).map(([role, count]) => (
               <View key={role} style={[styles.rolePill, { backgroundColor: t.surface, borderColor: t.border }]}>
-                <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                {ROLE_ICONS[role] ? (
+                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                  )}
                 {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
               </View>
             ))}
@@ -219,7 +225,14 @@ export default function LobbyScreen({ route, navigation }) {
           </View>
 
           <View style={styles.configRow}>
-            <Text style={[styles.configLabel, { color: t.text }]}>🐺 Werewolves</Text>
+            <View style={styles.configLabelRow}>
+              {ROLE_ICONS.werewolf ? (
+                <Image source={ROLE_ICONS.werewolf} style={styles.configLabelIcon} resizeMode="contain" />
+              ) : (
+                <Text>🐺 </Text>
+              )}
+              <Text style={[styles.configLabel, { color: t.text }]}>Werewolves</Text>
+            </View>
             <View style={styles.stepper}>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changeWerewolves(-1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>−</Text>
@@ -236,7 +249,14 @@ export default function LobbyScreen({ route, navigation }) {
             const enabled = !!cfg[role];
             return (
               <View key={role} style={styles.configRow}>
-                <Text style={[styles.configLabel, { color: t.text }]}>{info.emoji} {info.name}</Text>
+                <View style={styles.configLabelRow}>
+                  {ROLE_ICONS[role] ? (
+                    <Image source={ROLE_ICONS[role]} style={styles.configLabelIcon} resizeMode="contain" />
+                  ) : (
+                    <Text>{info.emoji} </Text>
+                  )}
+                  <Text style={[styles.configLabel, { color: t.text }]}>{info.name}</Text>
+                </View>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: enabled ? t.success : t.surfaceAlt, borderColor: enabled ? t.success : t.border }]}
                   onPress={() => toggleSpecialRole(role)}
@@ -250,7 +270,14 @@ export default function LobbyScreen({ route, navigation }) {
           })}
 
           <View style={[styles.configRow, { borderTopWidth: 1, borderTopColor: t.border, marginTop: SPACING.xs, paddingTop: SPACING.sm }]}>
-            <Text style={[styles.configLabel, { color: t.textMuted }]}>🏡 Villagers (auto-filled)</Text>
+            <View style={styles.configLabelRow}>
+              {ROLE_ICONS.villager ? (
+                <Image source={ROLE_ICONS.villager} style={styles.configLabelIcon} resizeMode="contain" />
+              ) : (
+                <Text>🏡 </Text>
+              )}
+              <Text style={[styles.configLabel, { color: t.textMuted }]}>Villagers (auto-filled)</Text>
+            </View>
             <Text style={[styles.stepValue, { color: villagerCount >= 1 ? t.success : t.danger }]}>
               {villagerCount}
             </Text>
@@ -273,7 +300,11 @@ export default function LobbyScreen({ route, navigation }) {
             <View style={styles.previewRow}>
               {Object.entries(customRoleCounts).map(([role, count]) => (
                 <View key={role} style={[styles.rolePill, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
-                  <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                  {ROLE_ICONS[role] ? (
+                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                  )}
                   {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
                 </View>
               ))}
@@ -291,7 +322,11 @@ export default function LobbyScreen({ route, navigation }) {
           <View style={styles.compRow}>
             {Object.entries(customRoleCounts).map(([role, count]) => (
               <View key={role} style={[styles.rolePill, { backgroundColor: t.surface, borderColor: t.border }]}>
-                <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                {ROLE_ICONS[role] ? (
+                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+                  )}
                 {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
               </View>
             ))}
@@ -453,8 +488,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 4,
   },
+  roleIcon: { width: 20, height: 20 },
   roleEmoji: { fontSize: 16 },
   roleCount: { ...FONTS.caption, fontWeight: '700' },
+  configLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  configLabelIcon: { width: 20, height: 20 },
   sectionTitle: {
     ...FONTS.caption,
     textTransform: 'uppercase',

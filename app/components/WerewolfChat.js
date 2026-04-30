@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   FlatList,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { subscribeToWerewolfChat, sendWerewolfMessage } from '../firebase/roomService';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
+import { ROLE_ICONS } from '../constants/icons';
 
 export default function WerewolfChat({ roomId, currentPlayerId, currentNickname, isNight }) {
   const [messages, setMessages] = useState([]);
@@ -35,7 +37,10 @@ export default function WerewolfChat({ roomId, currentPlayerId, currentNickname,
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <Text style={styles.header}>🐺 Wolf Pack Chat</Text>
+      <View style={styles.headerRow}>
+        <Image source={ROLE_ICONS.werewolf} style={styles.headerIcon} resizeMode="contain" />
+        <Text style={styles.header}>Wolf Pack Chat</Text>
+      </View>
       <FlatList
         ref={flatRef}
         data={messages}
@@ -89,12 +94,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: NIGHT.primary,
   },
-  header: {
-    ...FONTS.subheading,
-    color: NIGHT.accent,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs, marginBottom: SPACING.sm },
+  headerIcon: { width: 22, height: 22 },
+  header: { ...FONTS.subheading, color: NIGHT.accent },
   list: {
     flex: 1,
     marginBottom: SPACING.sm,

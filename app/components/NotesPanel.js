@@ -2,22 +2,23 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   Modal,
-  Animated,
 } from 'react-native';
 import PlayerCard from './PlayerCard';
 import ClueLog from './ClueLog';
 import { RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE_ICONS } from '../constants/icons';
 
 const ROLE_OPTIONS = Object.keys(ROLE_DEFINITIONS);
 
 export default function NotesPanel({ visible, onClose, theme, players, events, playerHooks }) {
-  const { notes, updateNotes, suspicions, cycleSuspicion, suspectedRoles, setSuspectedRole, SUSPICION_LABELS } = playerHooks;
+  const { notes, updateNotes, suspicions, cycleSuspicion, suspectedRoles, setSuspectedRole } = playerHooks;
   const [rolePickerFor, setRolePickerFor] = useState(null);
 
   return (
@@ -41,7 +42,8 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                   <PlayerCard
                     player={p}
                     theme={theme}
-                    suspicion={SUSPICION_LABELS[suspicions[p.id]] || SUSPICION_LABELS.neutral}
+                    suspicionLevel={suspicions[p.id] || 'neutral'}
+                    suspectedRole={suspectedRoles[p.id]}
                     onPress={() => cycleSuspicion(p.id)}
                     disabled={false}
                   />
@@ -56,9 +58,15 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                     },
                   ]}
                 >
-                  <Text style={styles.rolePickerEmoji}>
-                    {suspectedRoles[p.id] ? ROLE_DEFINITIONS[suspectedRoles[p.id]].emoji : '🎭'}
-                  </Text>
+                  {suspectedRoles[p.id] && ROLE_ICONS[suspectedRoles[p.id]] ? (
+                    <Image
+                      source={ROLE_ICONS[suspectedRoles[p.id]]}
+                      style={styles.rolePickerIcon}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text style={styles.rolePickerEmoji}>🎭</Text>
+                  )}
                   <Text style={[styles.rolePickerText, { color: suspectedRoles[p.id] ? theme.text : theme.textMuted }]} numberOfLines={1}>
                     {suspectedRoles[p.id] ? ROLE_DEFINITIONS[suspectedRoles[p.id]].name : 'Suspect'}
                   </Text>
@@ -97,9 +105,16 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                 onPress={() => { setSuspectedRole(rolePickerFor, r); setRolePickerFor(null); }}
                 style={[styles.roleOption, { borderColor: theme.border }]}
               >
-                <Text style={[styles.roleOptionText, { color: theme.text }]}>
-                  {ROLE_DEFINITIONS[r].emoji} {ROLE_DEFINITIONS[r].name}
-                </Text>
+                <View style={styles.roleOptionRow}>
+                  {ROLE_ICONS[r] ? (
+                    <Image source={ROLE_ICONS[r]} style={styles.roleOptionIcon} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.roleOptionEmoji}>{ROLE_DEFINITIONS[r].emoji}</Text>
+                  )}
+                  <Text style={[styles.roleOptionText, { color: theme.text }]}>
+                    {ROLE_DEFINITIONS[r].name}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
             <TouchableOpacity onPress={() => { setSuspectedRole(rolePickerFor, null); setRolePickerFor(null); }}>
@@ -139,15 +154,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  title: {
-    ...FONTS.heading,
-  },
-  closeBtn: {
-    padding: SPACING.xs,
-  },
-  closeText: {
-    fontSize: 20,
-  },
+  title: { ...FONTS.heading },
+  closeBtn: { padding: SPACING.xs },
+  closeText: { fontSize: 20 },
   section: {
     ...FONTS.caption,
     textTransform: 'uppercase',
@@ -169,9 +178,7 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     marginBottom: SPACING.xs,
   },
-  playerCardWrap: {
-    flex: 1,
-  },
+  playerCardWrap: { flex: 1 },
   rolePicker: {
     width: 68,
     borderWidth: 1.5,
@@ -182,10 +189,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'stretch',
   },
-  rolePickerEmoji: {
-    fontSize: 20,
-    marginBottom: 2,
-  },
+  rolePickerIcon: { width: 28, height: 28, marginBottom: 2 },
+  rolePickerEmoji: { fontSize: 22, marginBottom: 2 },
   rolePickerText: {
     ...FONTS.caption,
     fontWeight: '700',
@@ -212,9 +217,14 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
   },
-  roleOptionText: {
-    ...FONTS.body,
+  roleOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
+  roleOptionIcon: { width: 24, height: 24 },
+  roleOptionEmoji: { fontSize: 22, width: 24, textAlign: 'center' },
+  roleOptionText: { ...FONTS.body },
   clearRole: {
     ...FONTS.caption,
     textAlign: 'center',

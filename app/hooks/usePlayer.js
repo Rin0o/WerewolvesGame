@@ -1,13 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SUSPICION_LABELS } from '../constants/icons';
 
 const SUSPICION_LEVELS = ['innocent', 'neutral', 'suspicious', 'very_suspicious'];
-const SUSPICION_LABELS = {
-  innocent: '😇 Innocent',
-  neutral: '😐 Neutral',
-  suspicious: '🤔 Suspicious',
-  very_suspicious: '⚠️ Very Suspicious',
-};
 
 /**
  * Manages per-player local state:

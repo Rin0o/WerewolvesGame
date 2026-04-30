@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import { updateRoom } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE_ICONS } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
@@ -99,7 +101,11 @@ export default function GameOverScreen({ route, navigation }) {
                 styles.playerReveal,
                 { backgroundColor: t.surface, borderColor: isWinner ? t.success : t.border },
               ]}>
-                <Text style={styles.revealEmoji}>{roleDef.emoji}</Text>
+                {ROLE_ICONS[role] ? (
+                  <Image source={ROLE_ICONS[role]} style={styles.revealIcon} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.revealEmoji}>{roleDef.emoji}</Text>
+                )}
                 <View style={styles.revealInfo}>
                   <Text style={[styles.revealName, { color: t.text }]}>
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
@@ -181,6 +187,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: SPACING.sm,
   },
+  revealIcon: { width: 32, height: 32 },
   revealEmoji: { fontSize: 28 },
   revealInfo: { flex: 1 },
   revealName: { ...FONTS.body, fontWeight: '600' },
