@@ -46,6 +46,8 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [lastLynchResult, setLastLynchResult] = useState(null);
   const [accuseTarget, setAccuseTarget] = useState(null);
   const botVoteRef = useRef(null);
+  const roomRef = useRef(null);
+  const resolvingRef = useRef(false);
 
   const t = DAY;
 
@@ -149,6 +151,9 @@ export default function DayPhaseScreen({ route, navigation }) {
     if (room?.accusedPlayerId) setLastLynchResult(null);
   }, [room?.accusedPlayerId]);
 
+  roomRef.current = room;
+  resolvingRef.current = resolving;
+
   if (loading || !room) {
     return (
       <View style={[styles.center, { backgroundColor: t.background }]}>
@@ -180,6 +185,24 @@ export default function DayPhaseScreen({ route, navigation }) {
     await startNextNight(roomId, phase);
   }
 
+  async function handleDefenseTimerExpire() {
+    if (!gs.isHost || resolvingRef.current || !roomRef.current?.accusedPlayerId) return;
+    const currentRoom = roomRef.current;
+    const votesCopy = { ...(currentRoom.votes || {}) };
+    const tally = tallyVotes(votesCopy);
+    const accused = currentRoom.players?.find((p) => p.id === currentRoom.accusedPlayerId);
+    setLastLynchResult({
+      accusedId: currentRoom.accusedPlayerId,
+      accusedNickname: accused?.nickname,
+      votes: votesCopy,
+      lynched: tally.winner === 'lynch',
+    });
+    setResolving(true);
+    resolveLynch(roomId, currentRoom, currentRoom.accusedPlayerId)
+      .catch(() => setResolving(false))
+      .then(({ winner }) => { if (!winner) setResolving(false); });
+  }
+
   async function handleHunterShoot() {
     if (!hunterTarget) return;
     await hunterShoot(roomId, room, hunterTarget);
@@ -207,7 +230,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         </View>
         <Text style={[styles.title, { color: t.primary }]}>☀️ The Village Awakens</Text>
         {!accusedPlayerId && (
-          <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={() => {}} theme={t} />
+          <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleNightEnd : () => {}} theme={t} />
         )}
       </View>
 
@@ -292,7 +315,7 @@ export default function DayPhaseScreen({ route, navigation }) {
             {!votesRevealed && (
               <>
                 <Text style={[styles.defenseLabel, { color: t.textSecondary }]}>Defense time:</Text>
-                <Timer totalSeconds={DEFENSE_SECONDS} onExpire={() => {}} theme={t} />
+                <Timer totalSeconds={DEFENSE_SECONDS} onExpire={gs.isHost ? handleDefenseTimerExpire : () => {}} theme={t} />
               </>
             )}
 

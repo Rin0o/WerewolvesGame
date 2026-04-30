@@ -49,6 +49,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [showTransition, setShowTransition] = useState(true);
   const botNightRef = useRef(null);
   const pendingDay = useRef(false);
+  const roomRef = useRef(null);
+  const resolvingRef = useRef(false);
 
   const t = NIGHT;
 
@@ -140,6 +142,25 @@ export default function NightPhaseScreen({ route, navigation }) {
       resolveNight(roomId, room).catch(() => setResolving(false));
     }
   }, [room?.nightActions]);
+
+  useEffect(() => {
+    if (!gs.isHost || !room || room.status !== 'night') return;
+    const startedAt = room.phaseStartedAt ? new Date(room.phaseStartedAt).getTime() : Date.now();
+    const deadline = startedAt + (ACTION_TIMER + 5) * 1000;
+    const delay = Math.max(0, deadline - Date.now());
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      if (cancelled || resolvingRef.current) return;
+      const currentRoom = roomRef.current;
+      if (!currentRoom || currentRoom.status !== 'night') return;
+      setResolving(true);
+      resolveNight(roomId, currentRoom).catch(() => setResolving(false));
+    }, delay);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [room?.phase, room?.status]);
+
+  roomRef.current = room;
+  resolvingRef.current = resolving;
 
   if (loading || !room) {
     return (
