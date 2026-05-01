@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Image } from 'react-native';
 import useSoundEffect from '../hooks/useSoundEffect';
+
+const DAWN_BANNER = require('../../assets/dawn_banner.png');
+const NIGHT_BANNER = require('../../assets/night_banner.png');
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -64,9 +67,9 @@ export default function PhaseTransition({ phase, onComplete }) {
         start={{ x: 0.5, y: isNight ? 0 : 1 }}
         end={{ x: 0.5, y: isNight ? 1 : 0 }}
       />
-      <Animated.Text style={[styles.icon, iconStyle]}>
-        {isNight ? '🌙' : '🌅'}
-      </Animated.Text>
+      <Animated.View style={[styles.bannerWrapper, iconStyle]}>
+        <Image source={isNight ? NIGHT_BANNER : DAWN_BANNER} style={styles.bannerImg} resizeMode="contain" />
+      </Animated.View>
       <Animated.Text style={[styles.label, { color: isNight ? '#C8A8FF' : '#FFF8F0' }, iconStyle]}>
         {isNight ? 'Night Falls...' : 'Dawn Breaks...'}
       </Animated.Text>
@@ -81,9 +84,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
   },
-  icon: {
-    fontSize: 80,
-  },
+  bannerWrapper: { alignItems: 'center' },
+  bannerImg: { width: 300, height: 140 },
   label: {
     fontSize: 26,
     fontWeight: '700',

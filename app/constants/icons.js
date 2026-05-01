@@ -15,6 +15,8 @@ export const SUSPICION_ICONS = {
   very_suspicious: require('../../assets/suspicion_level_icons/very_suspicious.png'),
 };
 
+export const DEAD_ICON = require('../../assets/suspicion_level_icons/dead.png');
+
 export const SUSPICION_LABELS = {
   innocent:       'Innocent',
   neutral:        'Neutral',

@@ -104,9 +104,9 @@ export async function resolveNight(roomId, roomData) {
     }
   }
 
-  let eliminatedId = nightActions.werewolf || null;
+  let eliminatedId = phase === 1 ? null : (nightActions.werewolf || null);
   const witchSaved = nightActions.witchSave === eliminatedId;
-  const witchKilled = nightActions.witchPoison || null;
+  const witchKilled = phase === 1 ? null : (nightActions.witchPoison || null);
   const newLovers = nightActions.cupid || lovers || null;
 
   if (witchSaved && eliminatedId) {
@@ -121,6 +121,8 @@ export async function resolveNight(roomId, roomData) {
     events.push(`Night ${phase}: ${victim?.nickname || 'Someone'} was eliminated by the werewolves.`);
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, newLovers, events, `Night ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
+  } else if (phase === 1) {
+    events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
   } else if (!witchSaved) {
     events.push(`Night ${phase}: The village was peaceful — no one was eliminated.`);
   }
@@ -162,7 +164,7 @@ export async function resolveNight(roomId, roomData) {
     status: winner ? 'ended' : 'day',
     winner: winner || null,
     roles: updatedRoles,
-    eliminatedThisNight: eliminatedId,
+    eliminatedThisNight: [...allEliminated],
     witchPotions: updatedPotions,
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},

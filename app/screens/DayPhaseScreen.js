@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Image,
+  ImageBackground,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -13,7 +14,6 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import PhaseTransition from '../components/PhaseTransition';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
@@ -25,7 +25,16 @@ import Timer from '../components/Timer';
 import VotePanel from '../components/VotePanel';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
-import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
+
+const DAY_BACKGROUND = require('../../assets/day_background.png');
+const EXIT_GAME_ICON = require('../../assets/leave.png');
+const END_DAY_ICON = require('../../assets/end_day.png');
+const DAWN_BANNER = require('../../assets/dawn_banner.png');
+const DAY_TIMER = require('../../assets/day_timer.png');
+const NOTES_ICON  = require('../../assets/notes.png');
+const ACCEPT_ICON = require('../../assets/accept.png');
+const CANCEL_ICON = require('../../assets/cancel.png');
 import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS } from '../constants/icons';
 import { BOT_CONFIG } from '../constants/devConfig';
@@ -50,6 +59,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const resolvingRef = useRef(false);
 
   const t = DAY;
+  const tr = DAY_TIMER_THEME;
 
   // Reconnect when screen gains focus (returning player)
   useEffect(() => {
@@ -168,7 +178,8 @@ export default function DayPhaseScreen({ route, navigation }) {
   const votesRevealed = allVotesIn(votes, players.filter((p) => p.isAlive), disconnected);
 
   // Night announcement
-  const nightVictim = eliminatedThisNight ? players.find((p) => p.id === eliminatedThisNight) : null;
+  const nightVictimIds = Array.isArray(eliminatedThisNight) ? eliminatedThisNight : (eliminatedThisNight ? [eliminatedThisNight] : []);
+  const nightVictims = nightVictimIds.map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
   function handleAccuse(targetId) {
     if (!gs.isAlive) return;
@@ -210,13 +221,8 @@ export default function DayPhaseScreen({ route, navigation }) {
   }
 
   return (
+    <ImageBackground source={DAY_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
     <SafeAreaView style={styles.safe}>
-      <LinearGradient
-        colors={['#FF8C42', '#D4651A', '#FFF8F0']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.4 }}
-      />
       {showTransition && (
         <PhaseTransition phase="day" onComplete={() => setShowTransition(false)} />
       )}
@@ -225,19 +231,24 @@ export default function DayPhaseScreen({ route, navigation }) {
         <View style={styles.headerRow}>
           <Text style={[styles.phase, { color: t.textMuted }]}>Day {phase}</Text>
           <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
-            <Text style={[styles.exitText, { color: t.textMuted }]}>✕ Leave</Text>
+            <Image source={EXIT_GAME_ICON} style={styles.exitGameImg} resizeMode="contain" />
           </TouchableOpacity>
         </View>
-        <Text style={[styles.title, { color: t.primary }]}>☀️ The Village Awakens</Text>
-        {!accusedPlayerId && (
-          <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleNightEnd : () => {}} theme={t} />
-        )}
+        <Text style={[styles.title, { color: t.text }]}>The Village Awakens</Text>
+        <View style={styles.timerBox}>
+          <Image source={DAY_TIMER} style={styles.dayTimerImg} resizeMode="contain" />
+          {!accusedPlayerId && (
+            <View style={styles.timerOverlay}>
+              <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleNightEnd : () => {}} theme={tr} />
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.scroll}>
         {/* Lover reveal banner — shown once lovers are set */}
         {gs.isLover && gs.myLover && (
-          <View style={[styles.announcement, { backgroundColor: '#FFF0F8', borderColor: '#E85090' }]}>
+          <View style={[styles.announcement, { backgroundColor: 'rgba(255,240,248,0.92)', borderColor: '#E85090' }]}>
             <Text style={styles.announcementEmoji}>💘</Text>
             <Text style={[styles.announcementTitle, { color: '#E85090' }]}>You are in love!</Text>
             <Text style={[styles.announcementText, { color: t.text }]}>
@@ -248,25 +259,21 @@ export default function DayPhaseScreen({ route, navigation }) {
         )}
 
         {/* Night announcement */}
-        {nightVictim ? (
-          <View style={[styles.announcement, { backgroundColor: '#FFF0DC', borderColor: t.danger }]}>
-            <Text style={styles.announcementEmoji}>🌅</Text>
-            <Text style={[styles.announcementTitle, { color: t.danger }]}>Dawn breaks...</Text>
-            <Text style={[styles.announcementText, { color: t.text }]}>
-              {nightVictim.nickname} was found dead. They were a {roles[nightVictim.id] || '?'}.
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.announcement, { backgroundColor: '#F0FFF4', borderColor: t.success }]}>
-            <Text style={styles.announcementEmoji}>🌅</Text>
-            <Text style={[styles.announcementTitle, { color: t.success }]}>The village was peaceful!</Text>
-            <Text style={[styles.announcementText, { color: t.text }]}>No one was eliminated last night.</Text>
-          </View>
-        )}
+        <View style={[styles.dawnBannerBox, { backgroundColor: 'rgba(255,248,240,0.88)', borderRadius: RADIUS.md }]}>
+          {nightVictims.length > 0 ? (
+            nightVictims.map((v) => (
+              <Text key={v.id} style={[styles.announcementText, { color: t.text }]}>
+                {v.nickname} was found dead. They were a {roles[v.id] || '?'}.
+              </Text>
+            ))
+          ) : (
+            <Text style={[styles.announcementText, { color: t.textSecondary }]}>No one was eliminated last night.</Text>
+          )}
+        </View>
 
         {/* Hunter mode */}
         {hunterTriggered && (
-          <View style={[styles.hunterBox, { backgroundColor: '#FFF8F0', borderColor: t.accent }]}>
+          <View style={[styles.hunterBox, { backgroundColor: 'rgba(255,248,240,0.92)', borderColor: t.accent }]}>
             <View style={styles.actionTitleRow}>
               <Image source={ROLE_ICONS.hunter} style={styles.actionTitleIcon} resizeMode="contain" />
               <Text style={[styles.hunterTitle, { color: t.primary }]}>The Hunter's Final Shot</Text>
@@ -308,7 +315,7 @@ export default function DayPhaseScreen({ route, navigation }) {
 
         {/* Active Accusation + Defense + Vote */}
         {accusedPlayerId && (
-          <View style={[styles.voteSection, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <View style={[styles.voteSection, { backgroundColor: 'rgba(255,245,230,0.93)', borderColor: t.border }]}>
             <Text style={[styles.voteSectionTitle, { color: t.text }]}>
               ⚖️ {accusedPlayer?.nickname} is on trial!
             </Text>
@@ -347,7 +354,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           <View style={[
             styles.lynchResult,
             { borderColor: lastLynchResult.lynched ? t.danger : t.success,
-              backgroundColor: lastLynchResult.lynched ? '#FFF0DC' : '#F0FFF4' }
+              backgroundColor: lastLynchResult.lynched ? 'rgba(255,240,220,0.93)' : 'rgba(240,255,244,0.93)' }
           ]}>
             <Text style={[styles.lynchResultVerdict, { color: lastLynchResult.lynched ? t.danger : t.success }]}>
               {lastLynchResult.lynched ? '⚔️ Lynched' : '🛡️ Spared'}
@@ -426,18 +433,12 @@ export default function DayPhaseScreen({ route, navigation }) {
       {/* Bottom toolbar — Notes always visible; End Discussion when host can act */}
       <View style={[styles.bottomBar, { borderTopColor: 'rgba(212,101,26,0.3)', backgroundColor: 'rgba(255,248,240,0.97)' }]}>
         {gs.isHost && !accusedPlayerId && !hunterTriggered && (
-          <TouchableOpacity
-            style={[styles.nightBtn, { flex: 1 }]}
-            onPress={handleNightEnd}
-          >
-            <Text style={styles.nightBtnText}>🌙 End Discussion</Text>
+          <TouchableOpacity style={{ flex: 1 }} onPress={handleNightEnd}>
+            <Image source={END_DAY_ICON} style={styles.endDayImg} resizeMode="contain" />
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          style={[styles.notesBtn, { backgroundColor: t.primary, flex: 1 }]}
-          onPress={() => setNotesOpen(true)}
-        >
-          <Text style={styles.notesBtnText}>📓 Notes</Text>
+        <TouchableOpacity style={styles.notesBtn} onPress={() => setNotesOpen(true)}>
+          <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
         </TouchableOpacity>
       </View>
 
@@ -499,17 +500,14 @@ export default function DayPhaseScreen({ route, navigation }) {
                 </Text>
 
                 <View style={styles.accuseBtns}>
-                  <TouchableOpacity
-                    style={[styles.accuseBtn, { backgroundColor: t.surfaceAlt, borderColor: t.border, borderWidth: 1 }]}
-                    onPress={() => setAccuseTarget(null)}
-                  >
-                    <Text style={[styles.accuseBtnText, { color: t.textSecondary }]}>Cancel</Text>
+                  <TouchableOpacity style={styles.accuseImgBtn} onPress={() => setAccuseTarget(null)}>
+                    <Image source={CANCEL_ICON} style={styles.accuseImgIcon} resizeMode="contain" />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.accuseBtn, { backgroundColor: t.danger }]}
+                    style={styles.accuseImgBtn}
                     onPress={() => { setAccuseTarget(null); accusePlayer(roomId, accuseTarget); }}
                   >
-                    <Text style={[styles.accuseBtnText, { color: '#fff' }]}>Accuse</Text>
+                    <Image source={ACCEPT_ICON} style={styles.accuseImgIcon} resizeMode="contain" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -518,11 +516,13 @@ export default function DayPhaseScreen({ route, navigation }) {
         );
       })()}
     </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  backgroundImg: { transform: [{ scale: 1 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     padding: SPACING.md,
@@ -531,20 +531,39 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  timerBox: { 
+    flexDirection: 'row',
+    position: 'relative', // important: makes children position relative to this
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%'
+  },
+  dayTimerImg: {
+    width: '110%',
+    height: 220, // or whatever fits your layout
+  },
+  timerOverlay: {
+    position: 'absolute',
+    top: '77%',
+    left: '50%',
+    transform: [
+      { translateX: -50 }, // half of element width (adjust if needed)
+      { translateY: -50 }, // half of element height
+    ],
+    zIndex: 1,
+  },
   exitBtn: { padding: SPACING.xs },
-  exitText: { ...FONTS.caption },
+  exitGameImg: { width: 80, height: 66 },
   phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   title: { ...FONTS.heading },
   scroll: { flex: 1 },
-  announcement: {
+  dawnBannerBox: {
     margin: SPACING.md,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    borderWidth: 1.5,
     alignItems: 'center',
+    gap: SPACING.xs,
+    padding: SPACING.md,
   },
-  announcementEmoji: { fontSize: 36, marginBottom: SPACING.sm },
-  announcementTitle: { ...FONTS.heading, marginBottom: SPACING.xs },
+  dawnBannerImg: { width: '100%', height: 220 },
   announcementText: { ...FONTS.body, textAlign: 'center' },
   hunterBox: {
     margin: SPACING.md,
@@ -581,7 +600,7 @@ const styles = StyleSheet.create({
   actionTitleIcon: { width: 40, height: 40 },
   btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   btnIcon: { width: 26, height: 26 },
-  playerSection: { padding: SPACING.md },
+  playerSection: { padding: SPACING.md, backgroundColor: 'rgba(255,248,240,0.82)', borderRadius: RADIUS.lg, margin: SPACING.md },
   sectionTitle: {
     ...FONTS.caption,
     textTransform: 'uppercase',
@@ -589,13 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: SPACING.sm,
   },
-  nightBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    backgroundColor: '#1a0a2e',
-  },
-  nightBtnText: { ...FONTS.button, color: '#fff' },
+  endDayImg: { width: '100%', height: 70 },
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,
@@ -607,14 +620,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     padding: SPACING.sm,
-    borderTopWidth: 1,
+    borderTopWidth: 1
   },
-  notesBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  notesBtnText: { ...FONTS.button, color: '#fff' },
+  notesBtn: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  notesIcon: { width: 56, height: 56 },
   accuseOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -670,14 +679,9 @@ const styles = StyleSheet.create({
   },
   accuseBtns: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    gap: SPACING.md,
     marginTop: SPACING.xs,
   },
-  accuseBtn: {
-    flex: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  accuseBtnText: { ...FONTS.button },
+  accuseImgBtn: { flex: 1, alignItems: 'center' },
+  accuseImgIcon: { width: 130, height: 130 },
 });

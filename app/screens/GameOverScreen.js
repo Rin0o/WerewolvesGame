@@ -14,9 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import { updateRoom } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
-import { ROLE_ICONS } from '../constants/icons';
+import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
+
+const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.png');
+const WEREWOLVES_WIN_BANNER = require('../../assets/werewolves_win.png');
+const LOVERS_WIN_BANNER = require('../../assets/lovers_win.png');
+const LEAVE_ICON = require('../../assets/exit_game.png');
+const PLAY_AGAIN_ICON = require('../../assets/play_again.png');
 
 export default function GameOverScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -70,19 +76,11 @@ export default function GameOverScreen({ route, navigation }) {
     <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Winner banner */}
-        <View style={[styles.banner, { backgroundColor: t.surface, borderColor: isLovers ? '#E85090' : isVillagers ? t.success : t.danger }]}>
-          <Text style={styles.bannerEmoji}>{isLovers ? '💘' : isVillagers ? '🏡' : '🐺'}</Text>
-          <Text style={[styles.bannerTitle, { color: isLovers ? '#E85090' : isVillagers ? t.success : t.danger }]}>
-            {isLovers ? 'The Lovers Win!' : isVillagers ? 'Villagers Win!' : 'Werewolves Win!'}
-          </Text>
-          <Text style={[styles.bannerSub, { color: t.textSecondary }]}>
-            {isLovers
-              ? 'Bound by Cupid\'s arrow, the two lovers outlasted everyone else!'
-              : isVillagers
-              ? 'The village has driven out all werewolves!'
-              : 'The werewolves have taken over Miller\'s Hollow!'}
-          </Text>
-        </View>
+        <Image
+          source={isLovers ? LOVERS_WIN_BANNER : isVillagers ? VILLAGERS_WIN_BANNER : WEREWOLVES_WIN_BANNER}
+          style={styles.winnerBanner}
+          resizeMode="contain"
+        />
 
         {/* Player roles reveal */}
         <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>All Roles Revealed</Text>
@@ -111,7 +109,12 @@ export default function GameOverScreen({ route, navigation }) {
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
                   </Text>
                   <Text style={[styles.revealRole, { color: t.textMuted }]}>{roleDef.name}</Text>
-                  {!item.isAlive && <Text style={[styles.revealDead, { color: t.danger }]}>☠️ Eliminated</Text>}
+                  {!item.isAlive && (
+                    <View style={styles.revealDeadRow}>
+                      <Image source={DEAD_ICON} style={styles.revealDeadIcon} resizeMode="contain" />
+                      <Text style={[styles.revealDead, { color: t.danger }]}>Eliminated</Text>
+                    </View>
+                  )}
                 </View>
                 {isWinner && <Text style={styles.winBadge}>🏆</Text>}
               </View>
@@ -136,18 +139,12 @@ export default function GameOverScreen({ route, navigation }) {
         {/* Actions */}
         <View style={styles.actions}>
           {isHost && (
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: t.primary }]}
-              onPress={handlePlayAgain}
-            >
-              <Text style={styles.btnText}>🔄 Play Again</Text>
+            <TouchableOpacity style={styles.playAgainBtn} onPress={handlePlayAgain}>
+              <Image source={PLAY_AGAIN_ICON} style={styles.playAgainIcon} resizeMode="contain" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            style={[styles.btn, styles.btnOutline, { borderColor: t.primary }]}
-            onPress={handleLeave}
-          >
-            <Text style={[styles.btnText, { color: t.primary }]}>🚪 Leave</Text>
+          <TouchableOpacity onPress={handleLeave} style={styles.leaveBtn}>
+            <Image source={LEAVE_ICON} style={styles.leaveIcon} resizeMode="contain" />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -159,17 +156,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
-  banner: {
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    borderWidth: 2,
-    marginBottom: SPACING.lg,
-    marginTop: SPACING.md,
+  winnerBanner: {
+    width: '100%',
+    height: 220,
+    marginBottom: SPACING.xs,
+    marginTop: SPACING.xs,
   },
-  bannerEmoji: { fontSize: 64, marginBottom: SPACING.sm },
-  bannerTitle: { ...FONTS.title, marginBottom: SPACING.xs },
-  bannerSub: { ...FONTS.body, textAlign: 'center' },
   sectionTitle: {
     ...FONTS.caption,
     textTransform: 'uppercase',
@@ -192,6 +184,8 @@ const styles = StyleSheet.create({
   revealInfo: { flex: 1 },
   revealName: { ...FONTS.subheading, fontWeight: '600' },
   revealRole: { ...FONTS.body },
+  revealDeadRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  revealDeadIcon: { width: 18, height: 18 },
   revealDead: { ...FONTS.body, fontWeight: '600' },
   winBadge: { fontSize: 26 },
   eventLog: {
@@ -206,12 +200,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   eventText: { ...FONTS.caption, lineHeight: 18 },
-  actions: { gap: SPACING.sm, marginTop: SPACING.xl },
-  btn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  btnOutline: { backgroundColor: 'transparent', borderWidth: 2 },
-  btnText: { ...FONTS.button, color: '#fff' },
+  actions: { gap: SPACING.md, marginTop: SPACING.xs, alignItems: 'center', flexDirection: 'row' },
+  playAgainBtn: { alignItems: 'center' },
+  playAgainIcon: { width: 160, height: 80, marginLeft: 20 },
+  leaveBtn: { alignItems: 'center' },
+  leaveIcon: { width: 160, height: 80 },
 });

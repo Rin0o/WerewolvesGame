@@ -28,18 +28,6 @@ export default function RoleCard({ role, fellowWolves = [], players = [] }) {
       ) : (
         <Text style={styles.emoji}>{info.emoji}</Text>
       )}
-      <Text style={styles.name}>{info.name}</Text>
-      <View style={styles.divider} />
-      <Text style={styles.label}>Description</Text>
-      <Text style={styles.text}>{info.description}</Text>
-      <Text style={styles.label}>Your Goal</Text>
-      <Text style={styles.text}>{info.goal}</Text>
-      {info.ability && (
-        <>
-          <Text style={styles.label}>Special Ability</Text>
-          <Text style={styles.text}>{info.ability}</Text>
-        </>
-      )}
       {wolves.length > 0 && (
         <View style={styles.wolvesBox}>
           <View style={styles.wolvesLabelRow}>
@@ -59,8 +47,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: NIGHT.surface,
     borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    margin: SPACING.md,
+    padding: SPACING.md,
+    margin: SPACING.xs,
     borderWidth: 2,
     borderColor: NIGHT.primary,
     shadowColor: NIGHT.primary,
@@ -71,38 +59,14 @@ const styles = StyleSheet.create({
   },
   roleImage: {
     width: '100%',
-    height: 260,
-    marginBottom: SPACING.md,
+    height: 480,
+    marginBottom: SPACING.xs,
     borderRadius: RADIUS.md,
   },
   emoji: {
     fontSize: 64,
     textAlign: 'center',
     marginBottom: SPACING.md,
-  },
-  name: {
-    ...FONTS.title,
-    color: NIGHT.accent,
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: NIGHT.border,
-    marginVertical: SPACING.md,
-  },
-  label: {
-    ...FONTS.caption,
-    color: NIGHT.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.xs,
-  },
-  text: {
-    ...FONTS.body,
-    color: NIGHT.text,
-    lineHeight: 22,
   },
   wolvesBox: {
     marginTop: SPACING.lg,

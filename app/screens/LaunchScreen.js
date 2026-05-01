@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   playBtn: {
-    width: width * 1,
+    width: width * 0.8,
     height: undefined,
     aspectRatio: 2,
   },

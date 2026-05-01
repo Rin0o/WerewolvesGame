@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Image,
+  ImageBackground,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -13,7 +14,6 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
@@ -22,14 +22,22 @@ import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
 import PlayerCard from '../components/PlayerCard';
 import PhaseTransition from '../components/PhaseTransition';
-import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { NIGHT, FONTS, RADIUS, SPACING, NIGHT_TIMER_THEME } from '../constants/theme';
 import { ROLE } from '../constants/roles';
-import { ROLE_ICONS } from '../constants/icons';
+import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import { getRoleInfo } from '../game-logic/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 import RoleCard from '../components/RoleCard';
 
 const ACTION_TIMER = 60;
+
+const NIGHT_BACKGROUND   = require('../../assets/night_background.png');
+const EXIT_GAME_ICON     = require('../../assets/exit_game.png');
+const NIGHT_BANNER       = require('../../assets/night_banner.png');
+const NIGHT_TIMER        = require('../../assets/night_timer.png');
+const WITCH_LIVE_POTION  = require('../../assets/role_actions/live_potion.png');
+const WITCH_DEATH_POTION = require('../../assets/role_actions/death_potion.png');
+const WITCH_DO_NOTHING   = require('../../assets/role_actions/witch_do_nothing.png');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -53,6 +61,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const resolvingRef = useRef(false);
 
   const t = NIGHT;
+  const tr = NIGHT_TIMER_THEME;
 
   // Reconnect when screen gains focus (returning player)
   useEffect(() => {
@@ -109,6 +118,7 @@ export default function NightPhaseScreen({ route, navigation }) {
     botNightRef.current = room.phase;
 
     const { players = [], roles = {}, nightActions = {} } = room;
+    if (room.phase === 1) return;
     const aliveBots = players.filter((p) => p.isBot && p.isAlive);
     for (const bot of aliveBots) {
       if (roles[bot.id] === ROLE.WEREWOLF && !nightActions.werewolf) {
@@ -131,9 +141,9 @@ export default function NightPhaseScreen({ route, navigation }) {
     const activeCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID && !disconnected.includes(p.id));
     const activeThief = players.find((p) => p.isAlive && roles[p.id] === ROLE.THIEF && !disconnected.includes(p.id));
 
-    const wolfDone = !!nightActions.werewolf || activeWolves.length === 0;
+    const wolfDone = room.phase === 1 || !!nightActions.werewolf || activeWolves.length === 0;
     const seerDone = !!nightActions.seer || !activeSeer;
-    const witchDone = nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !activeWitch;
+    const witchDone = room.phase === 1 || nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !activeWitch;
     const cupidDone = !!nightActions.cupid || !activeCupid || room.phase > 1;
     const thiefDone = !!nightActions.thief || !activeThief || room.phase > 1 || gs.availableThiefRoles?.length === 0;
 
@@ -238,11 +248,11 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   async function handleTimerExpire() {
     if (myActionDone) return;
-    if (gs.myRole === ROLE.WEREWOLF && !nightActions.werewolf) {
+    if (gs.myRole === ROLE.WEREWOLF && !nightActions.werewolf && room.phase > 1) {
       await submitNightAction(roomId, 'werewolf', alivePlayers[0]?.id || null);
     } else if (gs.myRole === ROLE.SEER && !nightActions.seer) {
       await submitNightAction(roomId, 'seer', alivePlayers[0]?.id || null);
-    } else if (gs.myRole === ROLE.WITCH) {
+    } else if (gs.myRole === ROLE.WITCH && room.phase > 1) {
       await submitWitchSkip();
     } else if (gs.myRole === ROLE.CUPID && room.phase === 1) {
       const targets = alivePlayers.slice(0, 2).map((p) => p.id);
@@ -258,7 +268,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const alreadyActed =
     (gs.myRole === ROLE.WEREWOLF && !!nightActions.werewolf) ||
     (gs.myRole === ROLE.SEER && !!nightActions.seer) ||
-    (gs.myRole === ROLE.WITCH && (nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip)) ||
+    (gs.myRole === ROLE.WITCH && (room?.phase === 1 || nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip)) ||
     (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1)) ||
     (gs.myRole === ROLE.THIEF && (!!nightActions.thief || room?.phase > 1 || gs.availableThiefRoles?.length === 0));
 
@@ -266,24 +276,27 @@ export default function NightPhaseScreen({ route, navigation }) {
     (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER));
 
   return (
+    <ImageBackground source={NIGHT_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
     <SafeAreaView style={styles.safe}>
-      <LinearGradient
-        colors={['#050210', '#0D0820', '#1A1035']}
-        style={StyleSheet.absoluteFill}
-      />
       {showTransition && (
         <PhaseTransition phase="night" onComplete={() => setShowTransition(false)} />
       )}
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
         <View style={styles.headerRow}>
-          <Text style={[styles.phase, { color: t.textMuted }]}>Night {phase}</Text>
+          <Text style={[styles.phase, { color: t.textSecondary }]}>Night {phase}</Text>
           <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
-            <Text style={[styles.exitText, { color: t.textMuted }]}>✕ Leave</Text>
+            <Image source={EXIT_GAME_ICON} style={styles.exitGameImg} resizeMode="contain" />
           </TouchableOpacity>
         </View>
-        <Text style={[styles.title, { color: t.text }]}>🌙 The Village Sleeps</Text>
-        {!showWaiting && <Timer totalSeconds={ACTION_TIMER} onExpire={handleTimerExpire} theme={t} />}
+        <View style={styles.timerBox}>
+          <Image source={NIGHT_TIMER} style={styles.nightTimerImg} resizeMode="contain" />
+          {!showWaiting && (
+            <View style={styles.timerOverlay}>
+              <Timer totalSeconds={ACTION_TIMER} onExpire={handleTimerExpire} theme={tr} />
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.scroll}>
@@ -310,8 +323,16 @@ export default function NightPhaseScreen({ route, navigation }) {
           <View style={styles.actionBox}>
             <View style={styles.actionTitleRow}>
               <Image source={ROLE_ICONS.werewolf} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose a Victim</Text>
+              <Text style={[styles.actionTitle, { color: t.accent }]}>
+                {phase === 1 ? 'First Night — Observe' : 'Choose a Victim'}
+              </Text>
             </View>
+            {phase === 1 ? (
+              <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+                The first night is for watching. No hunt tonight — coordinate with your pack.
+              </Text>
+            ) : (
+              <>
             <Text style={[styles.actionSub, { color: t.textSecondary }]}>
               Pick a player to eliminate tonight.
             </Text>
@@ -335,8 +356,10 @@ export default function NightPhaseScreen({ route, navigation }) {
             >
               <Text style={styles.submitText}>Confirm Kill</Text>
             </TouchableOpacity>
+              </>
+            )}
 
-            {/* Wolf chat */}
+            {/* Wolf chat — always visible to wolves */}
             <TouchableOpacity
               style={[styles.chatBtn, { borderColor: t.primary }]}
               onPress={() => setChatVisible(true)}
@@ -422,47 +445,72 @@ export default function NightPhaseScreen({ route, navigation }) {
               <Text style={[styles.actionSub, { color: t.textSecondary }]}>No one was killed tonight.</Text>
             )}
 
-            <View style={styles.witchBtns}>
-              {myWitchPotions.save && victimPlayer && (
-                <TouchableOpacity
-                  style={[styles.witchBtn, { backgroundColor: t.success }]}
-                  onPress={submitWitchSave}
-                >
-                  <Text style={styles.witchBtnText}>🧪 Save {victimPlayer.nickname}</Text>
-                </TouchableOpacity>
-              )}
-              {myWitchPotions.poison && (
-                <View>
-                  <Text style={[styles.actionSub, { color: t.textSecondary, marginTop: SPACING.md }]}>Poison someone:</Text>
-                  <FlatList
-                    data={alivePlayers.filter((p) => p.id !== victimId)}
-                    keyExtractor={(p) => p.id}
-                    scrollEnabled={false}
-                    renderItem={({ item }) => (
-                      <PlayerCard
-                        player={item}
-                        theme={t}
-                        selected={witchPoisonTarget === item.id}
-                        onPress={() => setWitchPoisonTarget(item.id)}
-                      />
-                    )}
-                  />
-                  <TouchableOpacity
-                    style={[styles.witchBtn, { backgroundColor: witchPoisonTarget ? t.danger : t.border }]}
-                    onPress={submitWitchPoison}
-                    disabled={!witchPoisonTarget}
-                  >
-                    <Text style={styles.witchBtnText}>☠️ Poison</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+            <View style={styles.witchActionRow}>
               <TouchableOpacity
-                style={[styles.witchBtn, { backgroundColor: t.surfaceAlt, borderColor: t.border, borderWidth: 1 }]}
+                style={[styles.witchActionBtn, (!myWitchPotions.save || !victimPlayer) && styles.witchActionDimmed]}
+                onPress={submitWitchSave}
+                disabled={!myWitchPotions.save || !victimPlayer}
+              >
+                <Image source={WITCH_LIVE_POTION} style={styles.witchActionImg} resizeMode="contain" />
+                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>
+                  {myWitchPotions.save ? 'Save' : 'Used'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.witchActionBtn,
+                  !myWitchPotions.poison && styles.witchActionDimmed,
+                  witchChoice === 'poison' && { borderColor: t.danger, borderWidth: 2 },
+                ]}
+                onPress={() => { setWitchChoice(witchChoice === 'poison' ? null : 'poison'); setWitchPoisonTarget(null); }}
+                disabled={!myWitchPotions.poison}
+              >
+                <Image source={WITCH_DEATH_POTION} style={styles.witchActionImg} resizeMode="contain" />
+                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>
+                  {myWitchPotions.poison ? 'Poison' : 'Used'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.witchActionBtn}
                 onPress={submitWitchSkip}
               >
-                <Text style={[styles.witchBtnText, { color: t.textMuted }]}>Skip (use no potions)</Text>
+                <Image source={WITCH_DO_NOTHING} style={styles.witchActionImg} resizeMode="contain" />
+                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>Do Nothing</Text>
               </TouchableOpacity>
             </View>
+
+            {witchChoice === 'poison' && myWitchPotions.poison && (
+              <>
+                <Text style={[styles.actionSub, { color: t.textSecondary, marginTop: SPACING.md }]}>
+                  Choose who to poison:
+                </Text>
+                <FlatList
+                  data={alivePlayers.filter((p) => p.id !== victimId)}
+                  keyExtractor={(p) => p.id}
+                  scrollEnabled={false}
+                  renderItem={({ item }) => (
+                    <PlayerCard
+                      player={item}
+                      theme={t}
+                      selected={witchPoisonTarget === item.id}
+                      onPress={() => setWitchPoisonTarget(item.id)}
+                    />
+                  )}
+                />
+                <TouchableOpacity
+                  style={[styles.submitBtn, { backgroundColor: witchPoisonTarget ? t.danger : t.border, marginTop: SPACING.sm }]}
+                  onPress={submitWitchPoison}
+                  disabled={!witchPoisonTarget}
+                >
+                  <View style={styles.btnIconRow}>
+                    <Image source={DEAD_ICON} style={styles.btnIcon} resizeMode="contain" />
+                    <Text style={styles.submitText}>Confirm Poison</Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
 
@@ -603,11 +651,13 @@ export default function NightPhaseScreen({ route, navigation }) {
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  backgroundImg: { transform: [{ scale: 1.12 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     padding: SPACING.md,
@@ -615,12 +665,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     alignItems: 'center',
     gap: SPACING.xs,
+    backgroundColor: 'rgba(13,8,32,0.45)',
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   exitBtn: { padding: SPACING.xs },
-  exitText: { ...FONTS.caption },
+  exitGameImg: { width: 80, height: 66 },
   phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
-  title: { ...FONTS.heading },
+  timerBox: {
+    flexDirection: 'row',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  nightTimerImg: {
+    width: '110%',
+    height: 220,
+  },
+  timerOverlay: {
+    position: 'absolute',
+    top: '73%',
+    left: '50%',
+    transform: [
+      { translateX: -50 },
+      { translateY: -50 },
+    ],
+    zIndex: 1,
+  },
   scroll: { flex: 1 },
   waitContainer: {
     flex: 1,
@@ -628,11 +699,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: SPACING.xxl,
     paddingTop: SPACING.xxl * 2,
+    backgroundColor: 'rgba(10,5,28,0.55)',
   },
   moonBig: { fontSize: 72, marginBottom: SPACING.lg },
   waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
   waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
-  actionBox: { padding: SPACING.md },
+  actionBox: {
+    margin: SPACING.md,
+    marginTop: 0,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(10,5,28,0.78)',
+    borderRadius: RADIUS.lg,
+  },
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
@@ -662,13 +740,11 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   seerResultText: { ...FONTS.heading, textAlign: 'center' },
-  witchBtns: { gap: SPACING.sm, marginTop: SPACING.md },
-  witchBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  witchBtnText: { ...FONTS.button, color: '#fff' },
+  witchActionRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
+  witchActionBtn: { flex: 1, alignItems: 'center', borderRadius: RADIUS.md, padding: SPACING.xs },
+  witchActionImg: { width: '100%', height: 100 },
+  witchActionLabel: { ...FONTS.caption, marginTop: 4, fontWeight: '600' },
+  witchActionDimmed: { opacity: 0.3 },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

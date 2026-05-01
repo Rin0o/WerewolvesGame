@@ -49,12 +49,37 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   /constants/
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
                                getCompositionForCount(), buildCustomComposition()
-    theme.js                 — DAY and NIGHT theme objects + FONTS, RADIUS, SPACING
+    theme.js                 — DAY, NIGHT, DAY_TIMER_THEME, NIGHT_TIMER_THEME theme objects
+                               + FONTS, RADIUS, SPACING
     devConfig.js             — BOT_CONFIG: enable/disable test bots and their roles
 /assets/
   game_icon.png              — App icon (set in app.json for iOS + Android)
-  home_page.png              — LaunchScreen background
-  play_btn.png               — LaunchScreen play button
+  home_page.png              — LaunchScreen full-screen background (stained-glass werewolf art)
+  play_btn.png               — LaunchScreen play button (stained-glass style)
+  day_background.png         — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
+  night_background.png       — NightPhaseScreen full-screen ImageBackground (deep purple castle)
+  day_timer.png              — Day timer banner image; dark bar in centre holds the Timer overlay
+  night_timer.png            — Night timer banner image; same dark-bar pattern as day_timer
+  dawn_banner.png            — PhaseTransition banner for day transitions (red/gold stained glass)
+  night_banner.png           — PhaseTransition banner for night transitions (blue/purple stained glass)
+  end_day.png                — "End Discussion" button image (DayPhaseScreen host toolbar)
+  leave.png                  — Leave/exit button image (DayPhaseScreen)
+  exit_game.png              — Leave/exit button image (NightPhaseScreen)
+  notes.png                  — Notes button image (DayPhaseScreen toolbar)
+  accept.png                 — Confirm button for accusation modal
+  cancel.png                 — Cancel button for accusation modal
+  play_again.png             — Play Again button (GameOverScreen, host only)
+  villagers_win.png          — Winner banner for villager victory (GameOverScreen)
+  werewolves_win.png         — Winner banner for werewolf victory (GameOverScreen)
+  lovers_win.png             — Winner banner for lovers victory (GameOverScreen)
+  /role_actions/
+    live_potion.png          — Witch save action button
+    death_potion.png         — Witch poison action button
+    witch_do_nothing.png     — Witch skip action button
+  /role_icons/               — PNG role icons (werewolf, seer, witch, hunter, cupid, thief,
+                               villager, bear_tamer); used in player lists and action headers
+  /suspicion_level_icons/    — PNG suspicion icons (neutral, innocent, suspicious,
+                               very_suspicious, dead); used in NotesPanel and PlayerCard
   /roles/                    — PNG role card images (villager, werewolf, seer, witch,
                                hunter, thief, cupid); shown in RoleCard component
 ```
@@ -168,7 +193,13 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. It calls `navigation.replace('Home')` on press so the back button can never return to it.
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire.
 - **No comments in code**: Code is self-documenting via naming.
-- **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly.
+- **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly. `DAY_TIMER_THEME` and `NIGHT_TIMER_THEME` mirror their parent themes but with `border: 'transparent'`; they are passed to the `Timer` component so the countdown text uses `t.accent` (amber/lavender) and is visible against the dark bar on the timer banner images.
+- **Full-screen backgrounds**: `DayPhaseScreen` and `NightPhaseScreen` use `<ImageBackground>` as the root element with `resizeMode="cover"` and `imageStyle={{ transform: [{ scale: 1.08 }] }}` to bleed edge-to-edge. `<SafeAreaView>` is nested inside. All header and toolbar backgrounds are transparent so the artwork shows through.
+- **Glass-card pattern**: UI sections (vote panel, hunter box, player list, action boxes) use semi-transparent `rgba(...)` backgrounds rather than solid colours so the background image remains visible. Day cards use warm cream `rgba(255,245,230,0.93)`; night action boxes use dark `rgba(10,5,28,0.78)`.
+- **Timer overlay pattern**: Both phase screens wrap the timer banner image and the `<Timer>` component together in a `timerBox` (position: relative). The `<Timer>` sits inside `timerOverlay` (position: absolute, top: 77%, left: 50%, translateX/Y: -50) so it appears centred on the dark bar cut into the banner image.
+- **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.png` (day) or `night_banner.png` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
+- **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` PNG — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature").
+- **Visual style**: Stained-glass medieval fantasy aesthetic consistent across all assets. Dark stone frames, jewel-toned panels, castle motifs. UI chrome (cards, overlays) should blend with this palette.
 
 ## Firebase Setup (Required Before Running)
 
