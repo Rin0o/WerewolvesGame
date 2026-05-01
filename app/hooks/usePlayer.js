@@ -55,6 +55,12 @@ export default function usePlayer(roomId) {
     persist({ notes, suspicions, suspectedRoles: updated });
   }
 
+  async function clearGameData() {
+    setSuspicions({});
+    setSuspectedRoles({});
+    await persist({ notes, suspicions: {}, suspectedRoles: {} });
+  }
+
   return {
     notes,
     updateNotes,
@@ -62,6 +68,7 @@ export default function usePlayer(roomId) {
     cycleSuspicion,
     suspectedRoles,
     setSuspectedRole,
+    clearGameData,
     SUSPICION_LABELS,
   };
 }

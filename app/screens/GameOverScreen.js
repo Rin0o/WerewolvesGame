@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
+import usePlayer from '../hooks/usePlayer';
 import { updateRoom } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
@@ -27,6 +28,7 @@ const PLAY_AGAIN_ICON = require('../../assets/play_again.png');
 export default function GameOverScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  const { clearGameData } = usePlayer(roomId);
 
   const winner = room?.winner;
   const isVillagers = winner === 'villagers';
@@ -50,6 +52,7 @@ export default function GameOverScreen({ route, navigation }) {
       Alert.alert('Only the host can restart the game.');
       return;
     }
+    await clearGameData();
     await updateRoom(roomId, {
       status: 'lobby',
       phase: 0,
