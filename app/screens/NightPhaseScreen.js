@@ -6,7 +6,6 @@ import {
   ImageBackground,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   ScrollView,
   Modal,
   ActivityIndicator,
@@ -20,24 +19,21 @@ import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from
 import { resolveNight } from '../game-logic/gameManager';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
-import PlayerCard from '../components/PlayerCard';
 import PhaseTransition from '../components/PhaseTransition';
+import WerewolfAction from '../components/night-actions/WerewolfAction';
+import SeerAction from '../components/night-actions/SeerAction';
+import WitchAction from '../components/night-actions/WitchAction';
+import CupidAction from '../components/night-actions/CupidAction';
+import ThiefAction from '../components/night-actions/ThiefAction';
 import { NIGHT, FONTS, RADIUS, SPACING, NIGHT_TIMER_THEME } from '../constants/theme';
 import { ROLE } from '../constants/roles';
-import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
-import { getRoleInfo } from '../game-logic/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
-import RoleCard from '../components/RoleCard';
 
 const ACTION_TIMER = 60;
 
-const NIGHT_BACKGROUND   = require('../../assets/night_background.png');
-const EXIT_GAME_ICON     = require('../../assets/exit_game.png');
-const NIGHT_BANNER       = require('../../assets/night_banner.png');
-const NIGHT_TIMER        = require('../../assets/night_timer.png');
-const WITCH_LIVE_POTION  = require('../../assets/role_actions/live_potion.png');
-const WITCH_DEATH_POTION = require('../../assets/role_actions/death_potion.png');
-const WITCH_DO_NOTHING   = require('../../assets/role_actions/witch_do_nothing.png');
+const NIGHT_BACKGROUND     = require('../../assets/night_background.png');
+const NIGHT_TIMER          = require('../../assets/night_timer.png');
+const NIGHT_SQUARE_CONTAINER = require('../../assets/night_square_container.png');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -63,7 +59,6 @@ export default function NightPhaseScreen({ route, navigation }) {
   const t = NIGHT;
   const tr = NIGHT_TIMER_THEME;
 
-  // Reconnect when screen gains focus (returning player)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       reconnectPlayer(roomId, playerId);
@@ -71,7 +66,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Block hardware back (Android) and swipe-back gesture (iOS)
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => true);
     navigation.setOptions({ gestureEnabled: false });
@@ -96,7 +90,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     );
   }
 
-  // Navigate when game transitions — defer day navigation if seer is reading their result
   useEffect(() => {
     if (!room) return;
     if (room.status === 'day') {
@@ -111,7 +104,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }, [room?.status]);
 
-  // Host auto-submits bot night actions at the start of each night
   useEffect(() => {
     if (!room || !gs.isHost || room.status !== 'night' || !BOT_CONFIG.enabled) return;
     if (botNightRef.current === room.phase) return;
@@ -131,7 +123,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }, [room?.phase, room?.status]);
 
-  // Host resolves night when all role actions are in
   useEffect(() => {
     if (!room || !gs.isHost || resolving) return;
     const { nightActions = {}, players = [], roles = {}, disconnectedPlayers: disconnected = [] } = room;
@@ -186,21 +177,18 @@ export default function NightPhaseScreen({ route, navigation }) {
   const victimId = nightActions.werewolf;
   const victimPlayer = victimId ? players.find((p) => p.id === victimId) : null;
 
-  // ── Werewolf Action ──────────────────────────────────────────────────────
   async function submitWolfKill() {
     if (!wolfTarget) return;
     await submitNightAction(roomId, 'werewolf', wolfTarget);
     setMyActionDone(true);
   }
 
-  // ── Seer Action ──────────────────────────────────────────────────────────
   async function submitSeerReveal() {
     if (!seerTarget) return;
     const revealed = roles[seerTarget];
     const isWolf = revealed === ROLE.WEREWOLF;
     setSeerResult(isWolf ? '🐺 They are a Werewolf!' : '✅ They are NOT a Werewolf.');
     await submitNightAction(roomId, 'seer', seerTarget);
-    // Don't setMyActionDone yet — wait for player to dismiss the result
   }
 
   function dismissSeerResult() {
@@ -211,7 +199,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }
 
-  // ── Witch Action ──────────────────────────────────────────────────────────
   async function submitWitchSave() {
     await submitNightAction(roomId, 'witchSave', victimId);
     setMyActionDone(true);
@@ -242,7 +229,7 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   function toggleCupidTarget(id) {
     setCupidTargets((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : prev.length < 2 ? [...prev, id] : prev
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : prev
     );
   }
 
@@ -263,7 +250,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     setMyActionDone(true);
   }
 
-  // ── Spectator / waiting view ─────────────────────────────────────────────
   const isSpectator = !gs.isAlive;
   const alreadyActed =
     (gs.myRole === ROLE.WEREWOLF && !!nightActions.werewolf) ||
@@ -281,13 +267,13 @@ export default function NightPhaseScreen({ route, navigation }) {
       {showTransition && (
         <PhaseTransition phase="night" onComplete={() => setShowTransition(false)} />
       )}
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.border }]}>
+
+      <View style={[styles.header, { borderBottomColor: t.border, backgroundColor: t.glassHeader }]}>
         <View style={styles.headerRow}>
-          <Text style={[styles.phase, { color: t.textSecondary }]}>Night {phase}</Text>
-          <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
-            <Image source={EXIT_GAME_ICON} style={styles.exitGameImg} resizeMode="contain" />
-          </TouchableOpacity>
+          <ImageBackground source={NIGHT_SQUARE_CONTAINER} style={styles.phaseContainerBg} resizeMode="contain">
+            <Text style={[styles.phase, { color: t.textSecondary }]}>Night {phase}</Text>
+          </ImageBackground>
+          <Text style={[styles.title, { color: t.text, flex: 1, marginLeft: SPACING.sm }]}>The Village goes to sleep</Text>
         </View>
         <View style={styles.timerBox}>
           <Image source={NIGHT_TIMER} style={styles.nightTimerImg} resizeMode="contain" />
@@ -300,9 +286,8 @@ export default function NightPhaseScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scroll}>
-        {/* WAITING SCREEN */}
         {showWaiting && (
-          <View style={styles.waitContainer}>
+          <View style={[styles.waitContainer, { backgroundColor: t.glassWait }]}>
             <Text style={styles.moonBig}>🌕</Text>
             <Text style={[styles.waitTitle, { color: t.text }]}>Night is falling...</Text>
             <Text style={[styles.waitSub, { color: t.textMuted }]}>
@@ -312,328 +297,76 @@ export default function NightPhaseScreen({ route, navigation }) {
                 ? 'Your action has been submitted. Waiting for others...'
                 : 'You have no night action. Wait for dawn.'}
             </Text>
-            {resolving && (
-              <ActivityIndicator color={t.accent} style={{ marginTop: SPACING.lg }} />
-            )}
+            {resolving && <ActivityIndicator color={t.accent} style={{ marginTop: SPACING.lg }} />}
           </View>
         )}
 
-        {/* WEREWOLF ACTION */}
         {!showWaiting && gs.myRole === ROLE.WEREWOLF && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.werewolf} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>
-                {phase === 1 ? 'First Night — Observe' : 'Choose a Victim'}
-              </Text>
-            </View>
-            {phase === 1 ? (
-              <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-                The first night is for watching. No hunt tonight — coordinate with your pack.
-              </Text>
-            ) : (
-              <>
-            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-              Pick a player to eliminate tonight.
-            </Text>
-            <FlatList
-              data={alivePlayers.filter((p) => roles[p.id] !== ROLE.WEREWOLF)}
-              keyExtractor={(p) => p.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <PlayerCard
-                  player={item}
-                  theme={t}
-                  selected={wolfTarget === item.id}
-                  onPress={() => setWolfTarget(item.id)}
-                />
-              )}
-            />
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: wolfTarget ? t.danger : t.border }]}
-              onPress={submitWolfKill}
-              disabled={!wolfTarget}
-            >
-              <Text style={styles.submitText}>Confirm Kill</Text>
-            </TouchableOpacity>
-              </>
-            )}
-
-            {/* Wolf chat — always visible to wolves */}
-            <TouchableOpacity
-              style={[styles.chatBtn, { borderColor: t.primary }]}
-              onPress={() => setChatVisible(true)}
-            >
-              <View style={styles.btnIconRow}>
-                <Image source={ROLE_ICONS.werewolf} style={styles.btnIcon} resizeMode="contain" />
-                <Text style={[styles.chatBtnText, { color: t.accent }]}>Open Wolf Chat</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <WerewolfAction
+            theme={t}
+            players={alivePlayers.filter((p) => roles[p.id] !== ROLE.WEREWOLF)}
+            phase={phase}
+            wolfTarget={wolfTarget}
+            onSelectTarget={setWolfTarget}
+            onSubmit={submitWolfKill}
+            onOpenChat={() => setChatVisible(true)}
+          />
         )}
 
-        {/* SEER RESULT — shown independently so navigation can be deferred */}
-        {seerResult && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Your Vision</Text>
-            </View>
-            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-              {players.find((p) => p.id === seerTarget)?.nickname || 'That player'} is...
-            </Text>
-            <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
-              <Text style={[styles.seerResultText, { color: t.text }]}>{seerResult}</Text>
-            </View>
-            <Text style={[styles.actionSub, { color: t.textMuted, marginTop: SPACING.sm }]}>
-              Remember this. Dawn will come soon.
-            </Text>
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: t.primary, marginTop: SPACING.md }]}
-              onPress={dismissSeerResult}
-            >
-              <Text style={styles.submitText}>Got it — I'm ready</Text>
-            </TouchableOpacity>
-          </View>
+        {(seerResult || (!showWaiting && gs.myRole === ROLE.SEER && !seerResult)) && (
+          <SeerAction
+            theme={t}
+            players={alivePlayers}
+            seerTarget={seerTarget}
+            onSelectTarget={setSeerTarget}
+            onSubmit={submitSeerReveal}
+            seerResult={seerResult}
+            onDismissResult={dismissSeerResult}
+          />
         )}
 
-        {/* SEER ACTION */}
-        {!showWaiting && gs.myRole === ROLE.SEER && !seerResult && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose Someone to Reveal</Text>
-            </View>
-            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-              You will learn if they are a Werewolf.
-            </Text>
-            <FlatList
-              data={alivePlayers}
-              keyExtractor={(p) => p.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <PlayerCard
-                  player={item}
-                  theme={t}
-                  selected={seerTarget === item.id}
-                  onPress={() => setSeerTarget(item.id)}
-                />
-              )}
-            />
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: seerTarget ? t.primary : t.border }]}
-              onPress={submitSeerReveal}
-              disabled={!seerTarget}
-            >
-              <Text style={styles.submitText}>Reveal Their Nature</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* WITCH ACTION */}
         {!showWaiting && gs.myRole === ROLE.WITCH && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.witch} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Witch's Turn</Text>
-            </View>
-            {victimPlayer ? (
-              <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-                The werewolves killed: {victimPlayer.nickname}
-              </Text>
-            ) : (
-              <Text style={[styles.actionSub, { color: t.textSecondary }]}>No one was killed tonight.</Text>
-            )}
-
-            <View style={styles.witchActionRow}>
-              <TouchableOpacity
-                style={[styles.witchActionBtn, (!myWitchPotions.save || !victimPlayer) && styles.witchActionDimmed]}
-                onPress={submitWitchSave}
-                disabled={!myWitchPotions.save || !victimPlayer}
-              >
-                <Image source={WITCH_LIVE_POTION} style={styles.witchActionImg} resizeMode="contain" />
-                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>
-                  {myWitchPotions.save ? 'Save' : 'Used'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.witchActionBtn,
-                  !myWitchPotions.poison && styles.witchActionDimmed,
-                  witchChoice === 'poison' && { borderColor: t.danger, borderWidth: 2 },
-                ]}
-                onPress={() => { setWitchChoice(witchChoice === 'poison' ? null : 'poison'); setWitchPoisonTarget(null); }}
-                disabled={!myWitchPotions.poison}
-              >
-                <Image source={WITCH_DEATH_POTION} style={styles.witchActionImg} resizeMode="contain" />
-                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>
-                  {myWitchPotions.poison ? 'Poison' : 'Used'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.witchActionBtn}
-                onPress={submitWitchSkip}
-              >
-                <Image source={WITCH_DO_NOTHING} style={styles.witchActionImg} resizeMode="contain" />
-                <Text style={[styles.witchActionLabel, { color: t.textSecondary }]}>Do Nothing</Text>
-              </TouchableOpacity>
-            </View>
-
-            {witchChoice === 'poison' && myWitchPotions.poison && (
-              <>
-                <Text style={[styles.actionSub, { color: t.textSecondary, marginTop: SPACING.md }]}>
-                  Choose who to poison:
-                </Text>
-                <FlatList
-                  data={alivePlayers.filter((p) => p.id !== victimId)}
-                  keyExtractor={(p) => p.id}
-                  scrollEnabled={false}
-                  renderItem={({ item }) => (
-                    <PlayerCard
-                      player={item}
-                      theme={t}
-                      selected={witchPoisonTarget === item.id}
-                      onPress={() => setWitchPoisonTarget(item.id)}
-                    />
-                  )}
-                />
-                <TouchableOpacity
-                  style={[styles.submitBtn, { backgroundColor: witchPoisonTarget ? t.danger : t.border, marginTop: SPACING.sm }]}
-                  onPress={submitWitchPoison}
-                  disabled={!witchPoisonTarget}
-                >
-                  <View style={styles.btnIconRow}>
-                    <Image source={DEAD_ICON} style={styles.btnIcon} resizeMode="contain" />
-                    <Text style={styles.submitText}>Confirm Poison</Text>
-                  </View>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          <WitchAction
+            theme={t}
+            players={alivePlayers}
+            victimPlayer={victimPlayer}
+            victimId={victimId}
+            witchPotions={myWitchPotions}
+            witchChoice={witchChoice}
+            witchPoisonTarget={witchPoisonTarget}
+            onSelectChoice={setWitchChoice}
+            onSelectPoisonTarget={setWitchPoisonTarget}
+            onSave={submitWitchSave}
+            onPoison={submitWitchPoison}
+            onSkip={submitWitchSkip}
+          />
         )}
 
-        {/* CUPID ACTION */}
         {!showWaiting && gs.myRole === ROLE.CUPID && room?.phase === 1 && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.cupid} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose Two Lovers</Text>
-            </View>
-            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-              Select exactly 2 players to bind together. If one dies, the other follows.
-              {cupidTargets.length > 0 ? ` (${cupidTargets.length}/2 selected)` : ''}
-            </Text>
-            <FlatList
-              data={players.filter((p) => p.isAlive)}
-              keyExtractor={(p) => p.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <PlayerCard
-                  player={item}
-                  theme={t}
-                  selected={cupidTargets.includes(item.id)}
-                  onPress={() => toggleCupidTarget(item.id)}
-                />
-              )}
-            />
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: cupidTargets.length === 2 ? t.accent : t.border }]}
-              onPress={submitCupidChoice}
-              disabled={cupidTargets.length !== 2}
-            >
-              <View style={styles.btnIconRow}>
-                <Image source={ROLE_ICONS.cupid} style={styles.btnIcon} resizeMode="contain" />
-                <Text style={styles.submitText}>Bind Their Hearts</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <CupidAction
+            theme={t}
+            players={players.filter((p) => p.isAlive)}
+            cupidTargets={cupidTargets}
+            onToggleTarget={toggleCupidTarget}
+            onSubmit={submitCupidChoice}
+          />
         )}
 
-        {/* THIEF ACTION */}
-        {!showWaiting && gs.myRole === ROLE.THIEF && room?.phase === 1 && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.thief} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>Choose a Role to Steal</Text>
-            </View>
-            {gs.availableThiefRoles?.length === 0 ? (
-              <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-                No roles are available to steal. You remain a Thief and side with the villagers.
-              </Text>
-            ) : (
-              <>
-                <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-                  These roles are not assigned to any player. Pick one — you will become it immediately.
-                </Text>
-                {gs.availableThiefRoles.map((role) => {
-                  const info = getRoleInfo(role);
-                  return (
-                    <TouchableOpacity
-                      key={role}
-                      style={[
-                        styles.thiefRoleCard,
-                        {
-                          backgroundColor: thiefChoice === role ? t.primary : t.surfaceAlt,
-                          borderColor: thiefChoice === role ? t.accent : t.border,
-                        },
-                      ]}
-                      onPress={() => setThiefChoice(role)}
-                    >
-                      {ROLE_ICONS[role] ? (
-                        <Image source={ROLE_ICONS[role]} style={styles.thiefRoleIcon} resizeMode="contain" />
-                      ) : (
-                        <Text style={styles.thiefRoleEmoji}>{info.emoji}</Text>
-                      )}
-                      <View style={styles.thiefRoleInfo}>
-                        <Text style={[styles.thiefRoleName, { color: t.text }]}>{info.name}</Text>
-                        <Text style={[styles.thiefRoleDesc, { color: t.textMuted }]} numberOfLines={2}>
-                          {info.ability || info.description}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity
-                  style={[styles.submitBtn, { backgroundColor: thiefChoice ? t.primary : t.border }]}
-                  onPress={submitThiefChoice}
-                  disabled={!thiefChoice}
-                >
-                  <View style={styles.btnIconRow}>
-                <Image source={ROLE_ICONS.thief} style={styles.btnIcon} resizeMode="contain" />
-                <Text style={styles.submitText}>Steal This Role</Text>
-              </View>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        )}
-
-        {/* THIEF STOLEN ROLE REVEAL */}
-        {thiefStolenRole && (
-          <View style={styles.actionBox}>
-            <View style={styles.actionTitleRow}>
-              <Image source={ROLE_ICONS.thief} style={styles.actionTitleIcon} resizeMode="contain" />
-              <Text style={[styles.actionTitle, { color: t.accent }]}>You stole a role!</Text>
-            </View>
-            <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-              From this moment on, you play as:
-            </Text>
-            <RoleCard role={thiefStolenRole} />
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: t.primary, marginTop: SPACING.sm }]}
-              onPress={() => { setMyActionDone(true); setThiefStolenRole(null); }}
-            >
-              <Text style={styles.submitText}>I understand my new role ✓</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {(!showWaiting && gs.myRole === ROLE.THIEF && room?.phase === 1) || thiefStolenRole ? (
+          <ThiefAction
+            theme={t}
+            availableRoles={gs.availableThiefRoles || []}
+            thiefChoice={thiefChoice}
+            thiefStolenRole={thiefStolenRole}
+            onSelectRole={setThiefChoice}
+            onSubmit={submitThiefChoice}
+            onDismissReveal={() => { setMyActionDone(true); setThiefStolenRole(null); }}
+          />
+        ) : null}
 
         <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
-      {/* Wolf Chat Modal */}
       <Modal visible={chatVisible} animationType="slide" onRequestClose={() => setChatVisible(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
           <View style={styles.chatHeader}>
@@ -665,11 +398,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     alignItems: 'center',
     gap: SPACING.xs,
-    backgroundColor: 'rgba(13,8,32,0.45)',
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
-  exitBtn: { padding: SPACING.xs },
-  exitGameImg: { width: 80, height: 66 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
+  title: { ...FONTS.heading },
   phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   timerBox: {
     flexDirection: 'row',
@@ -678,19 +409,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  nightTimerImg: {
-    width: '110%',
-    height: 220,
-  },
+  nightTimerImg: { width: '110%', height: 220 },
   timerOverlay: {
     position: 'absolute',
     top: '73%',
     left: '50%',
-    transform: [
-      { translateX: -50 },
-      { translateY: -50 },
-    ],
+    transform: [{ translateX: -50 }, { translateY: -50 }],
     zIndex: 1,
+  },
+  phaseContainerBg: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: { flex: 1 },
   waitContainer: {
@@ -699,52 +430,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: SPACING.xxl,
     paddingTop: SPACING.xxl * 2,
-    backgroundColor: 'rgba(10,5,28,0.55)',
   },
   moonBig: { fontSize: 72, marginBottom: SPACING.lg },
   waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
   waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    backgroundColor: 'rgba(10,5,28,0.78)',
-    borderRadius: RADIUS.lg,
-  },
-  actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
-  actionTitleIcon: { width: 40, height: 40 },
-  actionTitle: { ...FONTS.heading },
-  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  btnIcon: { width: 26, height: 26 },
-  actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  submitBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  submitText: { ...FONTS.button, color: '#fff' },
-  chatBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-    borderWidth: 1.5,
-  },
-  chatBtnText: { ...FONTS.button },
-  seerResult: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    borderWidth: 2,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  seerResultText: { ...FONTS.heading, textAlign: 'center' },
-  witchActionRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
-  witchActionBtn: { flex: 1, alignItems: 'center', borderRadius: RADIUS.md, padding: SPACING.xs },
-  witchActionImg: { width: '100%', height: 100 },
-  witchActionLabel: { ...FONTS.caption, marginTop: 4, fontWeight: '600' },
-  witchActionDimmed: { opacity: 0.3 },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -753,18 +442,4 @@ const styles = StyleSheet.create({
   },
   chatTitle: { ...FONTS.heading },
   closeBtn: { ...FONTS.body },
-  thiefRoleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.xs,
-    borderWidth: 1.5,
-    gap: SPACING.md,
-  },
-  thiefRoleIcon: { width: 44, height: 44 },
-  thiefRoleEmoji: { fontSize: 40 },
-  thiefRoleInfo: { flex: 1 },
-  thiefRoleName: { ...FONTS.subheading, fontWeight: '600' },
-  thiefRoleDesc: { ...FONTS.body, lineHeight: 20 },
 });

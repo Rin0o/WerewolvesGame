@@ -14,6 +14,14 @@ export const DAY = {
   shadow: 'rgba(44,24,16,0.15)',
   cardGradient: ['#FFF8F0', '#FFE8CC'],
   overlay: 'rgba(255,248,240,0.95)',
+  glassBorder: 'rgba(212,101,26,0.3)',
+  glassCard: 'rgba(255,245,230,0.93)',
+  glassBg: 'rgba(255,248,240,0.88)',
+  glassSection: 'rgba(255,248,240,0.82)',
+  glassToolbar: 'rgba(255,248,240,0.97)',
+  glassLynched: 'rgba(255,240,220,0.93)',
+  glassSpared: 'rgba(240,255,244,0.93)',
+  modalOverlay: 'rgba(0,0,0,0.55)',
 };
 
 export const DAY_TIMER_THEME = {
@@ -50,6 +58,10 @@ export const NIGHT = {
   shadow: 'rgba(0,0,20,0.6)',
   cardGradient: ['#1A1035', '#0D0820'],
   overlay: 'rgba(13,8,32,0.95)',
+  glassHeader: 'rgba(13,8,32,0.45)',
+  glassCard: 'rgba(10,5,28,0.78)',
+  glassWait: 'rgba(10,5,28,0.55)',
+  modalOverlay: 'rgba(0,0,0,0.5)',
 };
 
 export const NIGHT_TIMER_THEME = {

@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
   roleText: { ...FONTS.body, fontWeight: '700', letterSpacing: 1 },
   suspicionLabel: { ...FONTS.caption, marginTop: 3 },
   suspicionBadge: { marginLeft: SPACING.sm },
-  suspicionBadgeIcon: { width: 38, height: 38 },
+  suspicionBadgeIcon: { width: 50, height: 50 },
   check: { fontSize: 20, fontWeight: '700', marginLeft: SPACING.sm },
 });
