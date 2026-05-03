@@ -14,6 +14,9 @@ export default function PlayerCard({
   suspicionLevel,
   suspectedRole,
   disabled,
+  noDeadOpacity,
+  avatarIcon,
+  avatarIconSize = 40,
 }) {
   const { nickname, isAlive, isHost } = player;
   const role = roleMap?.[player.id];
@@ -27,14 +30,20 @@ export default function PlayerCard({
       style={[
         styles.card,
         { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.border },
-        dead && styles.dead,
+        dead && !noDeadOpacity && styles.dead,
         selected && { borderWidth: 2, shadowColor: theme.primary, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6 },
       ]}
     >
       <View style={styles.row}>
-        <View style={[styles.avatar, { backgroundColor: dead ? theme.border : theme.primary }]}>
-          <Text style={styles.avatarText}>{nickname?.[0]?.toUpperCase() || '?'}</Text>
-        </View>
+        {avatarIcon ? (
+          <Image source={avatarIcon} style={[styles.avatarRoleIcon, { width: avatarIconSize, height: avatarIconSize }]} resizeMode="contain" />
+        ) : dead && role && ROLE_ICONS[role] ? (
+          <Image source={ROLE_ICONS[role]} style={styles.avatarRoleIcon} resizeMode="contain" />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: dead ? theme.border : theme.primary }]}>
+            <Text style={styles.avatarText}>{nickname?.[0]?.toUpperCase() || '?'}</Text>
+          </View>
+        )}
 
         <View style={styles.info}>
           <View style={styles.nameRow}>
@@ -56,7 +65,7 @@ export default function PlayerCard({
             </View>
           )}
 
-          {suspicionLevel && suspicionLevel !== 'neutral' && (
+          {suspicionLevel && suspicionLevel !== 'neutral' && suspicionLevel !== 'dead' && (
             <Text style={[styles.suspicionLabel, { color: theme.textSecondary }]}>
               {SUSPICION_LABELS[suspicionLevel]}
             </Text>
@@ -97,6 +106,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
   },
   avatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  avatarRoleIcon: { width: 40, height: 40, marginRight: SPACING.sm },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { ...FONTS.subheading },

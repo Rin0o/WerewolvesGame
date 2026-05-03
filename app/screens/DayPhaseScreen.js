@@ -38,7 +38,10 @@ const END_DAY_ICON        = require('../../assets/end_day.png');
 const DAY_TIMER           = require('../../assets/day_timer.png');
 const NOTES_ICON          = require('../../assets/notes.png');
 const PLAYER_ROW_DAY      = require('../../assets/player_row_day.png');
+const PLAYER_ROW_DEAD      = require('../../assets/player_row_dead.png');
 const DAY_SQUARE_CONTAINER = require('../../assets/day_square_container.png');
+const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.png');
+const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.png');
 
 const DISCUSSION_SECONDS = 240;
 const DEFENSE_SECONDS = 30;
@@ -223,7 +226,8 @@ export default function DayPhaseScreen({ route, navigation }) {
       <View style={[styles.header, { borderBottomColor: t.glassBorder, backgroundColor: 'transparent' }]}>
         <View style={styles.headerRow}>
           <ImageBackground source={DAY_SQUARE_CONTAINER} style={styles.phaseContainerBg} resizeMode="contain">
-            <Text style={[styles.phase, { color: t.textMuted }]}>Day {phase}</Text>
+            <Text style={[styles.phaseLabel, { color: t.textMuted }]}>Day</Text>
+            <Text style={[styles.phaseNumber, { color: t.textMuted }]}>{phase}</Text>
           </ImageBackground>
           <Text style={[styles.title, { color: t.text, flex: 1, marginLeft: SPACING.sm }]}>The Village Awakens</Text>
         </View>
@@ -309,14 +313,20 @@ export default function DayPhaseScreen({ route, navigation }) {
               keyExtractor={(p) => p.id}
               scrollEnabled={false}
               renderItem={({ item }) => (
-                <ImageBackground source={PLAYER_ROW_DAY} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+                <ImageBackground source={item.isAlive ? PLAYER_ROW_DAY : PLAYER_ROW_DEAD} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
                   <PlayerCard
                     player={item}
-                    theme={{ ...t, surface: 'transparent', border: 'transparent' }}
+                    theme={item.isAlive
+                      ? { ...t, surface: 'transparent', border: 'transparent' }
+                      : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
+                    }
                     onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && handleAccuse(item.id)}
                     disabled={!gs.isAlive || item.id === playerId || !item.isAlive}
                     roleMap={!item.isAlive ? roles : {}}
                     showRole={!item.isAlive}
+                    noDeadOpacity={!item.isAlive}
+                    avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
+                    avatarIconSize={56}
                   />
                 </ImageBackground>
               )}
@@ -395,7 +405,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
+  phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
+  phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
   title: { ...FONTS.heading },
   scroll: { flex: 1 },
   loverAnnouncement: {

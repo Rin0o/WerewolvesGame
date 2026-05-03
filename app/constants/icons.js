@@ -9,10 +9,11 @@ export const ROLE_ICONS = {
 };
 
 export const SUSPICION_ICONS = {
-  innocent:       require('../../assets/suspicion_level_icons/innocent.png'),
-  neutral:        require('../../assets/suspicion_level_icons/neutral.png'),
-  suspicious:     require('../../assets/suspicion_level_icons/suspicious.png'),
+  innocent:        require('../../assets/suspicion_level_icons/innocent.png'),
+  neutral:         require('../../assets/suspicion_level_icons/neutral.png'),
+  suspicious:      require('../../assets/suspicion_level_icons/suspicious.png'),
   very_suspicious: require('../../assets/suspicion_level_icons/very_suspicious.png'),
+  dead:            require('../../assets/suspicion_level_icons/dead.png'),
 };
 
 export const DEAD_ICON = require('../../assets/suspicion_level_icons/dead.png');

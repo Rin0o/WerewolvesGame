@@ -19,6 +19,9 @@ import { ROLE_ICONS } from '../constants/icons';
 
 const PLAYER_ROW_BG = require('../../assets/player_row.png');
 const PLAYER_SUSPICION_BTN_BG = require('../../assets/player_suspicion_btn.png');
+const AVATAR_UNKNOWN = require('../../assets/role_icons/unknown.png');
+const AVATAR_DEAD = require('../../assets/suspicion_level_icons/dead.png');
+const SUSPECT_ICON = require('../../assets/suspicion_level_icons/suspect.png');
 const ROLE_OPTIONS = Object.keys(ROLE_DEFINITIONS);
 
 export default function NotesPanel({ visible, onClose, theme, players, events, playerHooks }) {
@@ -51,10 +54,13 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                   <PlayerCard
                     player={p}
                     theme={{ ...theme, surface: 'transparent', border: 'transparent' }}
-                    suspicionLevel={suspicions[p.id] || 'neutral'}
+                    suspicionLevel={p.isAlive ? (suspicions[p.id] || 'neutral') : null}
                     suspectedRole={suspectedRoles[p.id]}
-                    onPress={() => cycleSuspicion(p.id)}
+                    avatarIcon={!p.isAlive ? AVATAR_DEAD : AVATAR_UNKNOWN}
+                    avatarIconSize={56}
+                    onPress={p.isAlive ? () => cycleSuspicion(p.id) : null}
                     disabled={false}
+                    noDeadOpacity
                   />
                 </ImageBackground>
                 <TouchableOpacity
@@ -73,7 +79,7 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.rolePickerEmoji}>🎭</Text>
+                      <Image source={SUSPECT_ICON} style={styles.rolePickerIcon} resizeMode="contain" />
                     )}
                   </ImageBackground>
                 </TouchableOpacity>

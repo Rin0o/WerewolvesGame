@@ -271,7 +271,8 @@ export default function NightPhaseScreen({ route, navigation }) {
       <View style={[styles.header, { borderBottomColor: t.border, backgroundColor: t.glassHeader }]}>
         <View style={styles.headerRow}>
           <ImageBackground source={NIGHT_SQUARE_CONTAINER} style={styles.phaseContainerBg} resizeMode="contain">
-            <Text style={[styles.phase, { color: t.textSecondary }]}>Night {phase}</Text>
+            <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>Night</Text>
+            <Text style={[styles.phaseNumber, { color: t.textSecondary }]}>{phase}</Text>
           </ImageBackground>
           <Text style={[styles.title, { color: t.text, flex: 1, marginLeft: SPACING.sm }]}>The Village goes to sleep</Text>
         </View>
@@ -401,7 +402,8 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
   title: { ...FONTS.heading },
-  phase: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
+  phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
+  phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
   timerBox: {
     flexDirection: 'row',
     position: 'relative',
