@@ -71,6 +71,7 @@ export async function startGame(roomId, players, customComposition = null) {
     lovers: null,
     hunterTriggered: null,
     disconnectedPlayers: [],
+    saviourLastProtected: null,
   });
 }
 
@@ -104,10 +105,18 @@ export async function resolveNight(roomId, roomData) {
     }
   }
 
+  const saviourProtected = nightActions.saviour || null;
   let eliminatedId = phase === 1 ? null : (nightActions.werewolf || null);
   const witchSaved = nightActions.witchSave === eliminatedId;
   const witchKilled = phase === 1 ? null : (nightActions.witchPoison || null);
   const newLovers = nightActions.cupid || lovers || null;
+
+  let saviourBlocked = false;
+  if (eliminatedId && eliminatedId === saviourProtected) {
+    events.push(`Night ${phase}: The saviour shielded someone from the wolves' attack.`);
+    eliminatedId = null;
+    saviourBlocked = true;
+  }
 
   if (witchSaved && eliminatedId) {
     events.push(`Night ${phase}: The witch saved the werewolves' victim.`);
@@ -123,7 +132,7 @@ export async function resolveNight(roomId, roomData) {
     ids.forEach((id) => allEliminated.add(id));
   } else if (phase === 1) {
     events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
-  } else if (!witchSaved) {
+  } else if (!witchSaved && !saviourBlocked) {
     events.push(`Night ${phase}: The village was peaceful — no one was eliminated.`);
   }
 
@@ -171,6 +180,7 @@ export async function resolveNight(roomId, roomData) {
     lovers: newLovers,
     hunterTriggered: hunterTriggered || null,
     disconnectedPlayers: [],
+    saviourLastProtected: saviourProtected,
     events: arrayUnion(...events),
   });
 

@@ -25,6 +25,7 @@ import SeerAction from '../components/night-actions/SeerAction';
 import WitchAction from '../components/night-actions/WitchAction';
 import CupidAction from '../components/night-actions/CupidAction';
 import ThiefAction from '../components/night-actions/ThiefAction';
+import SaviourAction from '../components/night-actions/SaviourAction';
 import { NIGHT, FONTS, RADIUS, SPACING, NIGHT_TIMER_THEME } from '../constants/theme';
 import { ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
@@ -48,6 +49,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [cupidTargets, setCupidTargets] = useState([]);
   const [thiefChoice, setThiefChoice] = useState(null);
   const [thiefStolenRole, setThiefStolenRole] = useState(null);
+  const [saviourTarget, setSaviourTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
@@ -131,14 +133,16 @@ export default function NightPhaseScreen({ route, navigation }) {
     const activeWitch = players.find((p) => p.isAlive && roles[p.id] === ROLE.WITCH && !disconnected.includes(p.id));
     const activeCupid = players.find((p) => p.isAlive && roles[p.id] === ROLE.CUPID && !disconnected.includes(p.id));
     const activeThief = players.find((p) => p.isAlive && roles[p.id] === ROLE.THIEF && !disconnected.includes(p.id));
+    const activeSaviour = players.find((p) => p.isAlive && roles[p.id] === ROLE.SAVIOUR && !disconnected.includes(p.id));
 
     const wolfDone = room.phase === 1 || !!nightActions.werewolf || activeWolves.length === 0;
     const seerDone = !!nightActions.seer || !activeSeer;
     const witchDone = room.phase === 1 || nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip || !activeWitch;
     const cupidDone = !!nightActions.cupid || !activeCupid || room.phase > 1;
     const thiefDone = !!nightActions.thief || !activeThief || room.phase > 1 || gs.availableThiefRoles?.length === 0;
+    const saviourDone = !!nightActions.saviour || !activeSaviour;
 
-    if (wolfDone && seerDone && witchDone && cupidDone && thiefDone) {
+    if (wolfDone && seerDone && witchDone && cupidDone && thiefDone && saviourDone) {
       setResolving(true);
       resolveNight(roomId, room).catch(() => setResolving(false));
     }
@@ -171,7 +175,7 @@ export default function NightPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, nightActions = {}, phase, witchPotions = {} } = room;
+  const { players = [], roles = {}, nightActions = {}, phase, witchPotions = {}, saviourLastProtected = null } = room;
   const alivePlayers = players.filter((p) => p.isAlive && p.id !== playerId);
   const myWitchPotions = witchPotions[playerId] || { save: false, poison: false };
   const victimId = nightActions.werewolf;
@@ -227,6 +231,12 @@ export default function NightPhaseScreen({ route, navigation }) {
     setThiefStolenRole(thiefChoice);
   }
 
+  async function submitSaviourProtect() {
+    if (!saviourTarget) return;
+    await submitNightAction(roomId, 'saviour', saviourTarget);
+    setMyActionDone(true);
+  }
+
   function toggleCupidTarget(id) {
     setCupidTargets((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : prev
@@ -246,6 +256,11 @@ export default function NightPhaseScreen({ route, navigation }) {
       await submitNightAction(roomId, 'cupid', targets);
     } else if (gs.myRole === ROLE.THIEF && room.phase === 1 && gs.availableThiefRoles?.length > 0) {
       await submitNightAction(roomId, 'thief', gs.availableThiefRoles[0]);
+    } else if (gs.myRole === ROLE.SAVIOUR && !nightActions.saviour) {
+      const validTargets = players.filter((p) => p.isAlive && p.id !== saviourLastProtected);
+      if (validTargets.length > 0) {
+        await submitNightAction(roomId, 'saviour', validTargets[0].id);
+      }
     }
     setMyActionDone(true);
   }
@@ -256,7 +271,8 @@ export default function NightPhaseScreen({ route, navigation }) {
     (gs.myRole === ROLE.SEER && !!nightActions.seer) ||
     (gs.myRole === ROLE.WITCH && (room?.phase === 1 || nightActions.witchSave !== undefined || nightActions.witchPoison || nightActions.witchSkip)) ||
     (gs.myRole === ROLE.CUPID && (!!nightActions.cupid || room?.phase > 1)) ||
-    (gs.myRole === ROLE.THIEF && (!!nightActions.thief || room?.phase > 1 || gs.availableThiefRoles?.length === 0));
+    (gs.myRole === ROLE.THIEF && (!!nightActions.thief || room?.phase > 1 || gs.availableThiefRoles?.length === 0)) ||
+    (gs.myRole === ROLE.SAVIOUR && !!nightActions.saviour);
 
   const showWaiting = !thiefStolenRole && !seerResult && (isSpectator || alreadyActed || myActionDone ||
     (gs.myRole === ROLE.VILLAGER || gs.myRole === ROLE.HUNTER));
@@ -364,6 +380,16 @@ export default function NightPhaseScreen({ route, navigation }) {
             onDismissReveal={() => { setMyActionDone(true); setThiefStolenRole(null); }}
           />
         ) : null}
+
+        {!showWaiting && gs.myRole === ROLE.SAVIOUR && (
+          <SaviourAction
+            theme={t}
+            players={players.filter((p) => p.isAlive && p.id !== saviourLastProtected)}
+            saviourTarget={saviourTarget}
+            onSelectTarget={setSaviourTarget}
+            onSubmit={submitSaviourProtect}
+          />
+        )}
 
         <View style={{ height: SPACING.xl }} />
       </ScrollView>

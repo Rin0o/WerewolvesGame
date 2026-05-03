@@ -6,6 +6,7 @@ export const ROLE = {
   HUNTER: 'hunter',
   CUPID: 'cupid',
   THIEF: 'thief',
+  SAVIOUR: 'saviour',
 };
 
 export const ROLE_DEFINITIONS = {
@@ -65,6 +66,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Steal a role not yet taken by anyone else and play as that role for the rest of the game.',
     ability: 'On the first night only, you see all roles not assigned to any player. You must pick one and immediately become that role — including its team and abilities. If no roles are available, you remain a Thief (and side with the villagers).',
   },
+  [ROLE.SAVIOUR]: {
+    name: 'Saviour',
+    emoji: '🛡️',
+    team: 'villagers',
+    description: 'A brave guardian who watches over the village through the night.',
+    goal: 'Protect villagers from the werewolves. Help eliminate all wolves.',
+    ability: 'Each night, choose one player to protect from the werewolves. You cannot protect the same player two nights in a row.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -76,10 +85,10 @@ export const ROLE_COMPOSITIONS = {
   6:  [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
   7:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
   8:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER],
-  9:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
-  10: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER],
-  11: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
-  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
+  9:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.VILLAGER],
+  10: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.VILLAGER],
+  11: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.VILLAGER, ROLE.VILLAGER],
+  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.VILLAGER, ROLE.VILLAGER, ROLE.VILLAGER],
 };
 
 export function getCompositionForCount(count) {
@@ -90,7 +99,7 @@ export function getCompositionForCount(count) {
   return [...base, ...extra];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (seer) comp.push(ROLE.SEER);
@@ -98,6 +107,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (hunter) comp.push(ROLE.HUNTER);
   if (cupid) comp.push(ROLE.CUPID);
   if (thief) comp.push(ROLE.THIEF);
+  if (saviour) comp.push(ROLE.SAVIOUR);
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);
   return comp;
