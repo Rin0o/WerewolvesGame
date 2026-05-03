@@ -22,9 +22,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     DayPhaseScreen.js        — Day discussion, accusation, voting, lynch result
     GameOverScreen.js        — Winner reveal, full role dump, event log
   /components/
-    PlayerCard.js            — Reusable player row with suspicion/role chip display
+    PlayerCard.js            — Reusable player row with suspicion/role chip display;
+                               props: avatarIcon (overrides letter avatar), avatarIconSize (default 40),
+                               noDeadOpacity (suppresses opacity:0.45 on dead rows)
     VotePanel.js             — Lynch/Spare buttons + revealed vote counts
-    NotesPanel.js            — Slide-up modal: player board, notepad, clue log
+    NotesPanel.js            — Slide-up modal: player board, notepad, clue log;
+                               does NOT receive roles prop (role reveal is day-screen-only)
     WerewolfChat.js          — Real-time Firestore chat (wolves only, night only)
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
     RoleCard.js              — Role card with PNG image (assets/roles/), description,
@@ -62,6 +65,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   night_timer.png            — Night timer banner image; same dark-bar pattern as day_timer
   dawn_banner.png            — PhaseTransition banner for day transitions (red/gold stained glass)
   night_banner.png           — PhaseTransition banner for night transitions (blue/purple stained glass)
+  player_row_day.png         — DayPhaseScreen player list row background for alive players
+  player_row_dead.png        — DayPhaseScreen player list row background for dead players (dark purple)
   end_day.png                — "End Discussion" button image (DayPhaseScreen host toolbar)
   leave.png                  — Leave/exit button image (DayPhaseScreen)
   exit_game.png              — Leave/exit button image (NightPhaseScreen)
@@ -77,9 +82,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     death_potion.png         — Witch poison action button
     witch_do_nothing.png     — Witch skip action button
   /role_icons/               — PNG role icons (werewolf, seer, witch, hunter, cupid, thief,
-                               villager, bear_tamer); used in player lists and action headers
+                               villager, bear_tamer); unknown.png shown as avatar for alive
+                               players whose role is not revealed (day screen + NotesPanel)
   /suspicion_level_icons/    — PNG suspicion icons (neutral, innocent, suspicious,
-                               very_suspicious, dead); used in NotesPanel and PlayerCard
+                               very_suspicious, dead); dead.png used as avatar for dead
+                               players in day screen and NotesPanel; suspect.png is the
+                               default role-picker icon in NotesPanel when no role is set
   /roles/                    — PNG role card images (villager, werewolf, seer, witch,
                                hunter, thief, cupid); shown in RoleCard component
 ```
@@ -199,6 +207,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Timer overlay pattern**: Both phase screens wrap the timer banner image and the `<Timer>` component together in a `timerBox` (position: relative). The `<Timer>` sits inside `timerOverlay` (position: absolute, top: 77%, left: 50%, translateX/Y: -50) so it appears centred on the dark bar cut into the banner image.
 - **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.png` (day) or `night_banner.png` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
 - **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` PNG — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature").
+- **Phase counter 2-line format**: The phase counter in both DayPhaseScreen and NightPhaseScreen is split across two `<Text>` elements — `phaseLabel` (caption style, uppercase, letter-spaced) on line 1 shows "Day"/"Night", and `phaseNumber` (fontSize: 22, fontWeight: '700') on line 2 shows the cycle number. Both sit inside the square container image.
+- **Dead player row pattern**: In DayPhaseScreen, dead player rows use `player_row_dead.png` instead of `player_row_day.png`. Because the dead background is dark purple, a purple-toned theme override is passed inline to PlayerCard (`text: '#F0ECFF'`, `textMuted: '#B0A0D0'`, `textSecondary: '#C0A8E0'`, `primary: '#7050B8'`, `accent: '#D0A8FF'`). `noDeadOpacity` is set to prevent the 0.45 opacity from washing out the already-light text.
+- **PlayerCard avatar slots**: `avatarIcon` prop takes full precedence over the letter-circle and dead-role-icon fallbacks. Day screen passes `unknown.png` for alive players and `dead.png` for dead players (56×56); role is already shown below the name for dead players so the role icon is not used in the avatar slot. NotesPanel follows the same logic. `avatarIconSize` defaults to 40; both screens set it to 56.
+- **Suspicion badge in NotesPanel**: Dead player rows in NotesPanel receive `suspicionLevel={null}`, which suppresses both the suspicion icon badge and the label inside PlayerCard. The role picker button on the right remains visible for all players (alive and dead).
 - **Visual style**: Stained-glass medieval fantasy aesthetic consistent across all assets. Dark stone frames, jewel-toned panels, castle motifs. UI chrome (cards, overlays) should blend with this palette.
 
 ## Firebase Setup (Required Before Running)
