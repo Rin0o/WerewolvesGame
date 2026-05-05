@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import usePlayer from '../hooks/usePlayer';
-import { updateRoom } from '../firebase/roomService';
+import { updateRoom, clearDayChat } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
@@ -53,6 +53,7 @@ export default function GameOverScreen({ route, navigation }) {
       return;
     }
     await clearGameData();
+    await clearDayChat(roomId);
     await updateRoom(roomId, {
       status: 'lobby',
       phase: 0,
@@ -61,7 +62,6 @@ export default function GameOverScreen({ route, navigation }) {
       eliminatedThisNight: null,
       events: [],
       votes: {},
-      accusedPlayerId: null,
       winner: null,
       witchPotions: {},
       hunterTriggered: null,

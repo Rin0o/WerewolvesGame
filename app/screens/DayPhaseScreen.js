@@ -6,7 +6,6 @@ import {
   ImageBackground,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -17,34 +16,31 @@ import PhaseTransition from '../components/PhaseTransition';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
-import { accusePlayer, submitVote, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
+import { confirmDayVote, closeVoting, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveLynch, startNextNight, hunterShoot } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
 import Timer from '../components/Timer';
-import VotePanel from '../components/VotePanel';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
+import DayChat from '../components/day/DayChat';
 import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
-import LynchResultCard from '../components/day/LynchResultCard';
-import AccusationModal from '../components/day/AccusationModal';
+import LynchResultModal from '../components/day/LynchResultModal';
 import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE_DEFINITIONS } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
-const DAY_BACKGROUND      = require('../../assets/day_background.png');
-const EXIT_GAME_ICON      = require('../../assets/leave.png');
-const END_DAY_ICON        = require('../../assets/end_day.png');
-const DAY_TIMER           = require('../../assets/day_timer.png');
-const NOTES_ICON          = require('../../assets/notes.png');
-const PLAYER_ROW_DAY      = require('../../assets/player_row_day.png');
+const DAY_BACKGROUND       = require('../../assets/day_background.png');
+const EXIT_GAME_ICON       = require('../../assets/leave.png');
+const DAY_TIMER            = require('../../assets/day_timer.png');
+const NOTES_ICON           = require('../../assets/notes.png');
+const DAY_CHAT_ICON        = require('../../assets/day_chat.png');
+const PLAYER_ROW_DAY       = require('../../assets/player_row_day.png');
 const PLAYER_ROW_DEAD      = require('../../assets/player_row_dead.png');
 const DAY_SQUARE_CONTAINER = require('../../assets/day_square_container.png');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.png');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.png');
 
 const DISCUSSION_SECONDS = 240;
-const DEFENSE_SECONDS = 30;
 
 export default function DayPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -52,13 +48,16 @@ export default function DayPhaseScreen({ route, navigation }) {
   const gs = useGameState(room, playerId);
   const playerHooks = usePlayer(roomId);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
   const [lastLynchResult, setLastLynchResult] = useState(null);
-  const [accuseTarget, setAccuseTarget] = useState(null);
-  const botVoteRef = useRef(null);
+  const [resultModalVisible, setResultModalVisible] = useState(false);
+  const [myVoteTarget, setMyVoteTarget] = useState(null);
+  const botVotedRef = useRef(false);
+  const shownResultRef = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
 
@@ -110,53 +109,39 @@ export default function DayPhaseScreen({ route, navigation }) {
   }, [room?.status, room?.hunterTriggered]);
 
   useEffect(() => {
-    if (!room || !gs.isHost || !room.accusedPlayerId || !BOT_CONFIG.enabled) return;
-    if (botVoteRef.current === room.accusedPlayerId) return;
-    botVoteRef.current = room.accusedPlayerId;
-
-    const { players = [], votes = {} } = room;
+    if (!room || !gs.isHost || room.status !== 'day' || !BOT_CONFIG.enabled || botVotedRef.current) return;
+    botVotedRef.current = true;
+    const { players = [] } = room;
     const aliveBots = players.filter((p) => p.isBot && p.isAlive);
     for (const bot of aliveBots) {
-      if (!votes[bot.id]) {
-        const vote = Math.random() > 0.5 ? 'lynch' : 'spare';
-        submitVote(roomId, bot.id, vote);
+      const targets = players.filter((p) => p.isAlive && p.id !== bot.id);
+      if (targets.length > 0) {
+        const target = targets[Math.floor(Math.random() * targets.length)];
+        confirmDayVote(roomId, bot.id, target.id);
       }
     }
-  }, [room?.accusedPlayerId]);
+  }, [room?.status]);
 
-  useEffect(() => {
-    if (!room || !gs.isHost || resolving) return;
-    if (!room.accusedPlayerId) return;
-    const { votes = {}, players = [], disconnectedPlayers: disconnected = [] } = room;
-    if (allVotesIn(votes, players, disconnected)) {
-      setResolving(true);
-      resolveLynch(roomId, room, room.accusedPlayerId)
-        .catch(() => setResolving(false))
-        .then(({ winner }) => {
-          if (!winner) setResolving(false);
-        });
-    }
-  }, [room?.votes]);
-
+  const alivePlayers = room?.players?.filter((p) => p.isAlive) || [];
+  const disconnected = room?.disconnectedPlayers || [];
   const allIn = room
-    ? allVotesIn(room.votes || {}, (room.players || []).filter((p) => p.isAlive), room.disconnectedPlayers || [])
+    ? allVotesIn(room.votes || {}, alivePlayers, disconnected)
     : false;
-  useEffect(() => {
-    if (!allIn || !room?.accusedPlayerId || !room?.votes) return;
-    const votesCopy = { ...room.votes };
-    const tally = tallyVotes(votesCopy);
-    const accused = room.players?.find((p) => p.id === room.accusedPlayerId);
-    setLastLynchResult({
-      accusedId: room.accusedPlayerId,
-      accusedNickname: accused?.nickname,
-      votes: votesCopy,
-      lynched: tally.winner === 'lynch',
-    });
-  }, [allIn]);
 
   useEffect(() => {
-    if (room?.accusedPlayerId) setLastLynchResult(null);
-  }, [room?.accusedPlayerId]);
+    if (!room || shownResultRef.current) return;
+    const { votesClosed, votes = {} } = room;
+    if (!votesClosed && !allIn) return;
+    shownResultRef.current = true;
+    const votesCopy = { ...votes };
+    const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy);
+    setLastLynchResult({ tallyMap, eliminatedId, tie, votes: votesCopy });
+    setResultModalVisible(true);
+  }, [room?.votesClosed, allIn]);
+
+  useEffect(() => {
+    if (room?.hunterTriggered) setResultModalVisible(false);
+  }, [room?.hunterTriggered]);
 
   roomRef.current = room;
   resolvingRef.current = resolving;
@@ -169,43 +154,35 @@ export default function DayPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, phase, accusedPlayerId, votes = {}, events = [], eliminatedThisNight, hunterTriggered, disconnectedPlayers: disconnected = [] } = room;
-  const accusedPlayer = accusedPlayerId ? players.find((p) => p.id === accusedPlayerId) : null;
-  const voteResults = Object.keys(votes).length > 0 ? tallyVotes(votes) : null;
-  const votesRevealed = allVotesIn(votes, players.filter((p) => p.isAlive), disconnected);
+  const { players = [], roles = {}, phase, events = [], eliminatedThisNight, hunterTriggered } = room;
+  const votes = room.votes || {};
+
+  const myVoteEntry = votes[playerId];
+  const myVoteConfirmed = myVoteEntry?.confirmed === true;
 
   const nightVictimIds = Array.isArray(eliminatedThisNight) ? eliminatedThisNight : (eliminatedThisNight ? [eliminatedThisNight] : []);
   const nightVictims = nightVictimIds.map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
-  function handleAccuse(targetId) {
-    if (!gs.isAlive) return;
-    setAccuseTarget(targetId);
+  function handleSelectVote(targetId) {
+    if (myVoteConfirmed) return;
+    setMyVoteTarget((prev) => (prev === targetId ? null : targetId));
   }
 
-  async function handleVote(vote) {
-    if (!gs.isAlive || gs.myVote) return;
-    await submitVote(roomId, playerId, vote);
+  async function handleConfirmVote() {
+    if (!myVoteTarget || myVoteConfirmed) return;
+    await confirmDayVote(roomId, playerId, myVoteTarget);
   }
 
-  async function handleNightEnd() {
-    if (!gs.isHost) return;
-    await startNextNight(roomId, phase);
+  async function handleTimerExpire() {
+    if (!gs.isHost || resolvingRef.current) return;
+    await closeVoting(roomId);
   }
 
-  async function handleDefenseTimerExpire() {
-    if (!gs.isHost || resolvingRef.current || !roomRef.current?.accusedPlayerId) return;
-    const currentRoom = roomRef.current;
-    const votesCopy = { ...(currentRoom.votes || {}) };
-    const tally = tallyVotes(votesCopy);
-    const accused = currentRoom.players?.find((p) => p.id === currentRoom.accusedPlayerId);
-    setLastLynchResult({
-      accusedId: currentRoom.accusedPlayerId,
-      accusedNickname: accused?.nickname,
-      votes: votesCopy,
-      lynched: tally.winner === 'lynch',
-    });
+  async function handleResultExpire() {
+    if (!gs.isHost || resolvingRef.current) return;
+    setResultModalVisible(false);
     setResolving(true);
-    resolveLynch(roomId, currentRoom, currentRoom.accusedPlayerId)
+    resolveLynch(roomId, roomRef.current)
       .catch(() => setResolving(false))
       .then(({ winner }) => { if (!winner) setResolving(false); });
   }
@@ -215,6 +192,13 @@ export default function DayPhaseScreen({ route, navigation }) {
     await hunterShoot(roomId, room, hunterTarget);
     setHunterMode(false);
   }
+
+  const selectedTarget = myVoteConfirmed
+    ? players.find((p) => p.id === myVoteEntry?.target)
+    : players.find((p) => p.id === myVoteTarget);
+
+  const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
+  const totalEligible = alivePlayers.filter((p) => !disconnected.includes(p.id)).length;
 
   return (
     <ImageBackground source={DAY_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
@@ -233,15 +217,15 @@ export default function DayPhaseScreen({ route, navigation }) {
         </View>
         <View style={styles.timerBox}>
           <Image source={DAY_TIMER} style={styles.dayTimerImg} resizeMode="contain" />
-          {!accusedPlayerId && (
+          {!lastLynchResult && (
             <View style={styles.timerOverlay}>
-              <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleNightEnd : () => {}} theme={tr} />
+              <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={tr} />
             </View>
           )}
         </View>
       </View>
 
-      <ScrollView style={styles.scroll}>
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         {gs.isLover && gs.myLover && (
           <View style={[styles.loverAnnouncement, { backgroundColor: 'rgba(255,240,248,0.92)', borderColor: '#E85090' }]}>
             <Text style={styles.loverEmoji}>💘</Text>
@@ -267,71 +251,87 @@ export default function DayPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {accusedPlayerId && (
-          <View style={[styles.voteSection, { backgroundColor: t.glassCard, borderColor: t.border }]}>
-            <Text style={[styles.voteSectionTitle, { color: t.text }]}>
-              ⚖️ {accusedPlayer?.nickname} is on trial!
-            </Text>
-            {!votesRevealed && (
-              <>
-                <Text style={[styles.defenseLabel, { color: t.textSecondary }]}>Defense time:</Text>
-                <Timer totalSeconds={DEFENSE_SECONDS} onExpire={gs.isHost ? handleDefenseTimerExpire : () => {}} theme={t} />
-              </>
-            )}
-            {!gs.isSpectator && !votesRevealed && (
-              <VotePanel
-                theme={t}
-                onVote={handleVote}
-                myVote={gs.myVote}
-                accusedNickname={accusedPlayer?.nickname}
-                disabled={!gs.isAlive}
-              />
-            )}
-            {votesRevealed && voteResults && (
-              <VotePanel
-                theme={t}
-                revealed
-                voteCounts={voteResults}
-                accusedNickname={accusedPlayer?.nickname}
-              />
-            )}
-            {resolving && <ActivityIndicator color={t.primary} style={{ marginTop: SPACING.sm }} />}
-          </View>
-        )}
+        {!lastLynchResult && !hunterTriggered && (
+          <>
+            <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
+              <View style={styles.voteSectionHeader}>
+                <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
+                  {gs.isAlive ? 'Tap a player to vote for them' : 'Players (spectating)'}
+                </Text>
+                <Text style={[styles.voteProgress, { color: t.textMuted }]}>
+                  {confirmedCount}/{totalEligible} confirmed
+                </Text>
+              </View>
 
-        {lastLynchResult && !accusedPlayerId && !hunterTriggered && (
-          <LynchResultCard theme={t} result={lastLynchResult} players={players} roles={roles} />
-        )}
+              {players.map((item) => {
+                const isSelected = !myVoteConfirmed && myVoteTarget === item.id;
+                const isMyConfirmedTarget = myVoteConfirmed && myVoteEntry?.target === item.id;
+                const theyConfirmed = votes[item.id]?.confirmed === true;
+                return (
+                  <ImageBackground
+                    key={item.id}
+                    source={item.isAlive ? PLAYER_ROW_DAY : PLAYER_ROW_DEAD}
+                    style={styles.playerRowBg}
+                    imageStyle={styles.playerRowImg}
+                    resizeMode="stretch"
+                  >
+                    <View style={styles.playerRowInner}>
+                      <View style={styles.playerCardWrap}>
+                        <PlayerCard
+                          player={item}
+                          theme={item.isAlive
+                            ? { ...t, surface: 'transparent', border: 'transparent' }
+                            : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
+                          }
+                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && handleSelectVote(item.id)}
+                          disabled={!gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed}
+                          selected={isSelected || isMyConfirmedTarget}
+                          roleMap={!item.isAlive ? roles : {}}
+                          showRole={!item.isAlive}
+                          noDeadOpacity={!item.isAlive}
+                          avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
+                          avatarIconSize={56}
+                        />
+                      </View>
+                      {item.isAlive && theyConfirmed && (
+                        <View style={[styles.confirmedBadge, { backgroundColor: t.success }]}>
+                          <Text style={styles.confirmedText}>✓</Text>
+                        </View>
+                      )}
+                    </View>
+                  </ImageBackground>
+                );
+              })}
+            </View>
 
-        {!accusedPlayerId && (
-          <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
-            <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-              {gs.isAlive ? 'Tap a player to accuse them' : 'Players (spectating)'}
-            </Text>
-            <FlatList
-              data={players}
-              keyExtractor={(p) => p.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <ImageBackground source={item.isAlive ? PLAYER_ROW_DAY : PLAYER_ROW_DEAD} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
-                  <PlayerCard
-                    player={item}
-                    theme={item.isAlive
-                      ? { ...t, surface: 'transparent', border: 'transparent' }
-                      : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
-                    }
-                    onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && handleAccuse(item.id)}
-                    disabled={!gs.isAlive || item.id === playerId || !item.isAlive}
-                    roleMap={!item.isAlive ? roles : {}}
-                    showRole={!item.isAlive}
-                    noDeadOpacity={!item.isAlive}
-                    avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
-                    avatarIconSize={56}
-                  />
-                </ImageBackground>
-              )}
-            />
-          </View>
+            {gs.isAlive && (
+              <View style={[styles.confirmSection, { backgroundColor: t.glassCard, borderColor: t.glassBorder }]}>
+                {myVoteConfirmed ? (
+                  <Text style={[styles.voteLocked, { color: t.success }]}>
+                    ✓ Vote locked in for {selectedTarget?.nickname || '?'}
+                  </Text>
+                ) : myVoteTarget ? (
+                  <View style={styles.confirmRow}>
+                    <Text style={[styles.confirmLabel, { color: t.text }]}>
+                      Voting for <Text style={{ fontWeight: '700', color: t.danger }}>{selectedTarget?.nickname}</Text>
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.confirmBtn, { backgroundColor: t.danger }]}
+                      onPress={handleConfirmVote}
+                    >
+                      <Text style={styles.confirmBtnText}>Confirm Vote</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={[styles.confirmLabel, { color: t.textMuted }]}>
+                    Select a player above to vote
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {resolving && <ActivityIndicator color={t.primary} style={{ marginVertical: SPACING.md }} />}
+          </>
         )}
 
         <View style={{ height: SPACING.xl }} />
@@ -341,15 +341,22 @@ export default function DayPhaseScreen({ route, navigation }) {
         <TouchableOpacity onPress={handleExit} style={styles.exitBtnBottom}>
           <Image source={EXIT_GAME_ICON} style={styles.exitGameImg} resizeMode="contain" />
         </TouchableOpacity>
-        {gs.isHost && !accusedPlayerId && !hunterTriggered && (
-          <TouchableOpacity style={{ flex: 1 }} onPress={handleNightEnd}>
-            <Image source={END_DAY_ICON} style={styles.endDayImg} resizeMode="contain" />
-          </TouchableOpacity>
-        )}
         <TouchableOpacity style={styles.notesBtn} onPress={() => setNotesOpen(true)}>
           <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.chatBtn} onPress={() => setChatOpen(true)}>
+          <Image source={DAY_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
+        </TouchableOpacity>
       </View>
+
+      <LynchResultModal
+        visible={resultModalVisible}
+        onExpire={handleResultExpire}
+        theme={t}
+        result={lastLynchResult}
+        players={players}
+        roles={roles}
+      />
 
       <NotesPanel
         visible={notesOpen}
@@ -360,14 +367,14 @@ export default function DayPhaseScreen({ route, navigation }) {
         playerHooks={playerHooks}
       />
 
-      <AccusationModal
-        visible={!!accuseTarget}
-        target={players.find((p) => p.id === accuseTarget) || null}
+      <DayChat
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
         theme={t}
-        suspicion={playerHooks.suspicions[accuseTarget]}
-        suspectedRole={playerHooks.suspectedRoles[accuseTarget]}
-        onConfirm={() => { accusePlayer(roomId, accuseTarget); setAccuseTarget(null); }}
-        onCancel={() => setAccuseTarget(null)}
+        roomId={roomId}
+        playerId={playerId}
+        nickname={nickname}
+        isAlive={gs.isAlive}
       />
     </SafeAreaView>
     </ImageBackground>
@@ -420,24 +427,44 @@ const styles = StyleSheet.create({
   loverEmoji: { fontSize: 32 },
   loverTitle: { ...FONTS.subheading, fontWeight: '700' },
   announcementText: { ...FONTS.body, textAlign: 'center' },
-  voteSection: {
-    margin: SPACING.md,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    borderWidth: 1,
-  },
-  voteSectionTitle: { ...FONTS.subheading, textAlign: 'center', marginBottom: SPACING.sm },
-  defenseLabel: { ...FONTS.caption, textAlign: 'center', marginBottom: SPACING.xs },
-  playerSection: { padding: SPACING.md, borderRadius: RADIUS.lg, margin: SPACING.md },
+  playerSection: { padding: SPACING.md, borderRadius: RADIUS.lg, margin: SPACING.md, marginTop: SPACING.sm },
+  voteSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   sectionTitle: {
     ...FONTS.caption,
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontWeight: '700',
-    marginBottom: SPACING.sm,
   },
+  voteProgress: { ...FONTS.caption },
   playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
   playerRowImg: { borderRadius: RADIUS.md },
+  playerRowInner: { flexDirection: 'row', alignItems: 'center' },
+  playerCardWrap: { flex: 1 },
+  confirmedBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  confirmedText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  confirmSection: {
+    margin: SPACING.md,
+    marginTop: 0,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+  },
+  confirmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm },
+  confirmLabel: { ...FONTS.body, flex: 1 },
+  confirmBtn: {
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  confirmBtnText: { ...FONTS.button, color: '#fff' },
+  voteLocked: { ...FONTS.body, fontWeight: '600', textAlign: 'center' },
   bottomBar: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -446,7 +473,8 @@ const styles = StyleSheet.create({
   },
   exitBtnBottom: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   exitGameImg: { width: '100%', height: 70 },
-  endDayImg: { width: '100%', height: 70 },
   notesBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notesIcon: { width: '100%', height: 70 },
+  chatBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  chatBtnImg: { width: '100%', height: 70 },
 });

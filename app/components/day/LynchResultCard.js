@@ -5,58 +5,55 @@ import { ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 export default function LynchResultCard({ theme: t, result, players, roles }) {
-  const { lynched, accusedNickname, accusedId, votes } = result;
+  const { tallyMap, eliminatedId, tie, votes } = result;
+
+  const sortedEntries = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
+  const verdict = eliminatedId ? '⚔️ Lynched' : tie ? '⚖️ Tied — No Verdict' : '🌫️ No Votes Cast';
+  const eliminatedPlayer = eliminatedId ? players.find((p) => p.id === eliminatedId) : null;
+  const roleKey = eliminatedId ? roles?.[eliminatedId] : null;
+  const roleInfo = roleKey ? ROLE_DEFINITIONS[roleKey] : null;
 
   return (
-    <View style={[
-      styles.card,
-      {
-        borderColor: lynched ? t.danger : t.success,
-        backgroundColor: lynched ? t.glassLynched : t.glassSpared,
-      },
-    ]}>
-      <Text style={[styles.verdict, { color: lynched ? t.danger : t.success }]}>
-        {lynched ? '⚔️ Lynched' : '🛡️ Spared'}
+    <View style={[styles.card, { borderColor: eliminatedId ? t.danger : t.textSecondary, backgroundColor: eliminatedId ? t.glassLynched : t.glassCard }]}>
+      <Text style={[styles.verdict, { color: eliminatedId ? t.danger : t.textSecondary }]}>
+        {verdict}
       </Text>
-      <Text style={[styles.name, { color: t.text }]}>{accusedNickname}</Text>
 
-      <View style={styles.tally}>
-        <Text style={[styles.tallyItem, { color: t.danger }]}>
-          ⚔️ {Object.values(votes).filter((v) => v === 'lynch').length} lynch
-        </Text>
-        <Text style={[styles.tallyItem, { color: t.success }]}>
-          🛡️ {Object.values(votes).filter((v) => v === 'spare').length} spare
-        </Text>
-      </View>
+      {eliminatedPlayer && (
+        <Text style={[styles.name, { color: t.text }]}>{eliminatedPlayer.nickname}</Text>
+      )}
 
-      {['lynch', 'spare'].map((decision) => {
-        const names = Object.entries(votes)
-          .filter(([, v]) => v === decision)
-          .map(([id]) => players.find((p) => p.id === id)?.nickname || '?')
-          .join(', ');
-        if (!names) return null;
-        return (
-          <Text key={decision} style={[styles.voterRow, { color: decision === 'lynch' ? t.danger : t.success }]}>
-            {decision === 'lynch' ? '⚔️' : '🛡️'} {names}
-          </Text>
-        );
-      })}
+      {roleInfo && (
+        <View style={styles.roleRow}>
+          <Text style={[styles.roleLabel, { color: t.textSecondary }]}>They were the</Text>
+          {ROLE_ICONS[roleKey] ? (
+            <Image source={ROLE_ICONS[roleKey]} style={styles.roleIcon} resizeMode="contain" />
+          ) : (
+            <Text style={[styles.roleLabel, { color: t.textSecondary }]}>{roleInfo.emoji}</Text>
+          )}
+          <Text style={[styles.roleLabel, { color: t.textSecondary }]}>{roleInfo.name}</Text>
+        </View>
+      )}
 
-      {lynched && roles[accusedId] && (() => {
-        const roleKey = roles[accusedId];
-        const info = ROLE_DEFINITIONS[roleKey];
-        return (
-          <View style={styles.roleRow}>
-            <Text style={[styles.roleLabel, { color: t.textSecondary }]}>They were</Text>
-            {ROLE_ICONS[roleKey] ? (
-              <Image source={ROLE_ICONS[roleKey]} style={styles.roleIcon} resizeMode="contain" />
-            ) : (
-              <Text style={[styles.roleLabel, { color: t.textSecondary }]}>{info?.emoji}</Text>
-            )}
-            <Text style={[styles.roleLabel, { color: t.textSecondary }]}>{info?.name}</Text>
-          </View>
-        );
-      })()}
+      {sortedEntries.length > 0 && (
+        <View style={[styles.tallySection, { borderTopColor: t.border }]}>
+          {sortedEntries.map(([targetId, count]) => {
+            const targetName = players.find((p) => p.id === targetId)?.nickname || '?';
+            const voterNames = Object.entries(votes)
+              .filter(([, v]) => v?.confirmed && v?.target === targetId)
+              .map(([vid]) => players.find((p) => p.id === vid)?.nickname || '?')
+              .join(', ');
+            return (
+              <View key={targetId} style={styles.tallyRow}>
+                <Text style={[styles.tallyName, { color: targetId === eliminatedId ? t.danger : t.text }]}>
+                  {targetName} — {count} vote{count !== 1 ? 's' : ''}
+                </Text>
+                <Text style={[styles.voterNames, { color: t.textMuted }]}>{voterNames}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -71,10 +68,11 @@ const styles = StyleSheet.create({
   },
   verdict: { ...FONTS.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   name: { ...FONTS.heading },
-  tally: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
-  tallyItem: { ...FONTS.subheading, fontWeight: '700' },
-  voterRow: { ...FONTS.caption, lineHeight: 18 },
-  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.xs },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   roleIcon: { width: 26, height: 26 },
   roleLabel: { ...FONTS.body },
+  tallySection: { marginTop: SPACING.xs, paddingTop: SPACING.xs, borderTopWidth: 1, gap: SPACING.xs },
+  tallyRow: { gap: 2 },
+  tallyName: { ...FONTS.body, fontWeight: '600' },
+  voterNames: { ...FONTS.caption, lineHeight: 16 },
 });

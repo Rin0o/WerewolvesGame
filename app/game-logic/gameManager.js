@@ -1,6 +1,7 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
+import { tallyVotes } from './voteManager';
 import {
   updateRoom,
   eliminatePlayer,
@@ -67,7 +68,7 @@ export async function startGame(roomId, players, customComposition = null) {
     events: [`Game started with ${allPlayers.length} players.`],
     winner: null,
     votes: {},
-    accusedPlayerId: null,
+    votesClosed: false,
     lovers: null,
     hunterTriggered: null,
     disconnectedPlayers: [],
@@ -194,32 +195,31 @@ export async function startNextNight(roomId, currentPhase) {
     phase: currentPhase + 1,
     phaseStartedAt: new Date().toISOString(),
     eliminatedThisNight: null,
-    accusedPlayerId: null,
     votes: {},
+    votesClosed: false,
     hunterTriggered: null,
   });
 }
 
-export async function resolveLynch(roomId, roomData, accusedId) {
+export async function resolveLynch(roomId, roomData) {
   const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
-  const voteValues = Object.values(votes);
-  const lynchCount = voteValues.filter((v) => v === 'lynch').length;
-  const spareCount = voteValues.filter((v) => v === 'spare').length;
   const events = [];
 
-  events.push(`Day ${phase}: Vote results — ${lynchCount} lynch, ${spareCount} spare.`);
+  const { tallyMap, eliminatedId, tie } = tallyVotes(votes);
 
   const allEliminated = new Set();
-  let eliminatedId = null;
 
-  if (lynchCount > spareCount) {
-    eliminatedId = accusedId;
-    const victim = players.find((p) => p.id === accusedId);
-    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched. (Role: ${roles[accusedId] || '?'})`);
-    const ids = await eliminateWithLoverChain(roomId, accusedId, players, lovers, events, `Day ${phase}`);
+  if (eliminatedId) {
+    const victim = players.find((p) => p.id === eliminatedId);
+    const voteCount = tallyMap[eliminatedId];
+    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roles[eliminatedId] || '?'}`);
+    const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, lovers, events, `Day ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
+  } else if (tie) {
+    const tiedNames = Object.keys(tallyMap).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ');
+    events.push(`Day ${phase}: The vote ended in a tie (${tiedNames}) — no one was eliminated.`);
   } else {
-    events.push(`Day ${phase}: ${players.find((p) => p.id === accusedId)?.nickname || 'Someone'} was spared.`);
+    events.push(`Day ${phase}: No votes were confirmed — the village remains divided.`);
   }
 
   for (const pid of disconnectedPlayers) {
@@ -237,14 +237,14 @@ export async function resolveLynch(roomId, roomData, accusedId) {
 
   const winner = checkWinCondition(updatedPlayers, roles, lovers);
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
-  const advanceToNight = !!eliminatedId && !winner && !hunterTriggered;
+  const advanceToNight = !winner && !hunterTriggered;
 
   await updateRoom(roomId, {
     winner: winner || null,
     status: winner ? 'ended' : (advanceToNight ? 'night' : 'day'),
     hunterTriggered: hunterTriggered || null,
     votes: {},
-    accusedPlayerId: null,
+    votesClosed: false,
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),

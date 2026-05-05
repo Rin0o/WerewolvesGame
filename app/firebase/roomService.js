@@ -4,6 +4,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   arrayUnion,
   arrayRemove,
@@ -38,7 +39,6 @@ export async function createRoom(hostId, hostNickname) {
     eliminatedThisNight: null,
     events: [],
     votes: {},
-    accusedPlayerId: null,
     winner: null,
     createdAt: serverTimestamp(),
     phaseStartedAt: null,
@@ -131,18 +131,45 @@ export async function clearNightActions(roomId) {
 
 // ─── Voting ───────────────────────────────────────────────────────────────────
 
-export async function submitVote(roomId, voterId, vote) {
+export async function selectDayVote(roomId, voterId, targetId) {
   await updateDoc(doc(db, 'rooms', roomId), {
-    [`votes.${voterId}`]: vote,
+    [`votes.${voterId}`]: { target: targetId, confirmed: false },
+  });
+}
+
+export async function confirmDayVote(roomId, voterId, targetId) {
+  await updateDoc(doc(db, 'rooms', roomId), {
+    [`votes.${voterId}`]: { target: targetId, confirmed: true },
   });
 }
 
 export async function clearVotes(roomId) {
-  await updateDoc(doc(db, 'rooms', roomId), { votes: {}, accusedPlayerId: null });
+  await updateDoc(doc(db, 'rooms', roomId), { votes: {} });
 }
 
-export async function accusePlayer(roomId, accusedPlayerId) {
-  await updateDoc(doc(db, 'rooms', roomId), { accusedPlayerId });
+export async function closeVoting(roomId) {
+  await updateDoc(doc(db, 'rooms', roomId), { votesClosed: true });
+}
+
+// ─── Day chat ─────────────────────────────────────────────────────────────────
+
+export async function clearDayChat(roomId) {
+  const chatRef = collection(db, 'rooms', roomId, 'dayChat');
+  const snap = await getDocs(chatRef);
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+}
+
+export async function sendDayMessage(roomId, senderId, senderNickname, text) {
+  const chatRef = collection(db, 'rooms', roomId, 'dayChat');
+  await addDoc(chatRef, { senderId, senderNickname, text, createdAt: serverTimestamp() });
+}
+
+export function subscribeToDayChat(roomId, callback) {
+  const chatRef = collection(db, 'rooms', roomId, 'dayChat');
+  const q = query(chatRef, orderBy('createdAt', 'asc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
 }
 
 // ─── Werewolf chat ────────────────────────────────────────────────────────────

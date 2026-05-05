@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Modal,
   ActivityIndicator,
   Alert,
   BackHandler,
@@ -394,22 +393,14 @@ export default function NightPhaseScreen({ route, navigation }) {
         <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
-      <Modal visible={chatVisible} animationType="slide" onRequestClose={() => setChatVisible(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: t.background }}>
-          <View style={styles.chatHeader}>
-            <Text style={[styles.chatTitle, { color: t.text }]}>Wolf Pack Chat</Text>
-            <TouchableOpacity onPress={() => setChatVisible(false)}>
-              <Text style={[styles.closeBtn, { color: t.textMuted }]}>✕ Close</Text>
-            </TouchableOpacity>
-          </View>
-          <WerewolfChat
-            roomId={roomId}
-            currentPlayerId={playerId}
-            currentNickname={nickname}
-            isNight={room.status === 'night'}
-          />
-        </SafeAreaView>
-      </Modal>
+      <WerewolfChat
+        visible={chatVisible}
+        onClose={() => setChatVisible(false)}
+        roomId={roomId}
+        playerId={playerId}
+        nickname={nickname}
+        isAlive={gs.isAlive}
+      />
     </SafeAreaView>
     </ImageBackground>
   );
@@ -462,12 +453,4 @@ const styles = StyleSheet.create({
   moonBig: { fontSize: 72, marginBottom: SPACING.lg },
   waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
   waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-  },
-  chatTitle: { ...FONTS.heading },
-  closeBtn: { ...FONTS.body },
 });

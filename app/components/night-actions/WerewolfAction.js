@@ -5,6 +5,7 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const PLAYER_ROW_NIGHT = require('../../../assets/player_row_night.png');
+const NIGHT_CHAT_ICON  = require('../../../assets/night_chat.png');
 
 export default function WerewolfAction({ theme: t, players, phase, wolfTarget, onSelectTarget, onSubmit, onOpenChat }) {
   return (
@@ -50,14 +51,8 @@ export default function WerewolfAction({ theme: t, players, phase, wolfTarget, o
         </>
       )}
 
-      <TouchableOpacity
-        style={[styles.chatBtn, { borderColor: t.primary }]}
-        onPress={onOpenChat}
-      >
-        <View style={styles.btnIconRow}>
-          <Image source={ROLE_ICONS.werewolf} style={styles.btnIcon} resizeMode="contain" />
-          <Text style={[styles.chatBtnText, { color: t.accent }]}>Open Wolf Chat</Text>
-        </View>
+      <TouchableOpacity style={styles.chatBtn} onPress={onOpenChat}>
+        <Image source={NIGHT_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
       </TouchableOpacity>
     </View>
   );
@@ -83,14 +78,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   submitText: { ...FONTS.button, color: '#fff' },
-  chatBtn: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.sm,
-    borderWidth: 1.5,
-  },
-  btnIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  btnIcon: { width: 26, height: 26 },
-  chatBtnText: { ...FONTS.button },
+  chatBtn: { alignItems: 'center', marginTop: SPACING.sm },
+  chatBtnImg: { width: '100%', height: 70 },
 });

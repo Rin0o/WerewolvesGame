@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Modal,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -14,10 +15,11 @@ import { subscribeToWerewolfChat, sendWerewolfMessage } from '../firebase/roomSe
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
-export default function WerewolfChat({ roomId, currentPlayerId, currentNickname, isNight }) {
+export default function WerewolfChat({ visible, onClose, roomId, playerId, nickname, isAlive }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
-  const flatRef = useRef(null);
+
+  const t = NIGHT;
 
   useEffect(() => {
     if (!roomId) return;
@@ -27,141 +29,179 @@ export default function WerewolfChat({ roomId, currentPlayerId, currentNickname,
 
   async function send() {
     const trimmed = text.trim();
-    if (!trimmed || !isNight) return;
+    if (!trimmed || !isAlive) return;
     setText('');
-    await sendWerewolfMessage(roomId, currentPlayerId, currentNickname, trimmed);
+    await sendWerewolfMessage(roomId, playerId, nickname, trimmed);
   }
 
+  const reversed = [...messages].reverse();
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <View style={styles.headerRow}>
-        <Image source={ROLE_ICONS.werewolf} style={styles.headerIcon} resizeMode="contain" />
-        <Text style={styles.header}>Wolf Pack Chat</Text>
-      </View>
-      <FlatList
-        ref={flatRef}
-        data={messages}
-        keyExtractor={(m) => m.id}
-        onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
-        style={styles.list}
-        renderItem={({ item }) => {
-          const isMe = item.senderId === currentPlayerId;
-          return (
-            <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-              {!isMe && (
-                <Text style={styles.sender}>{item.senderNickname}</Text>
-              )}
-              <Text style={[styles.msgText, { color: isMe ? '#fff' : NIGHT.text }]}>{item.text}</Text>
-            </View>
-          );
-        }}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No messages yet. Wolves only.</Text>
-        }
-      />
-      {isNight && (
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Whisper to the pack..."
-            placeholderTextColor={NIGHT.textMuted}
-            onSubmitEditing={send}
-            returnKeyType="send"
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
+        <View style={[styles.panel, { backgroundColor: t.surface, borderColor: t.primary }]}>
+          <View style={styles.handle} />
+
+          <View style={styles.headerRow}>
+            <Image source={ROLE_ICONS.werewolf} style={styles.headerIcon} resizeMode="contain" />
+            <Text style={[styles.title, { color: t.accent }]}>Wolf Pack Chat</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Text style={[styles.closeText, { color: t.textMuted }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={reversed}
+            keyExtractor={(m) => m.id}
+            inverted
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <Text style={[styles.empty, { color: t.textMuted }]}>
+                No messages yet. Wolves only.
+              </Text>
+            }
+            renderItem={({ item }) => {
+              const isMe = item.senderId === playerId;
+              return (
+                <View style={[styles.row, isMe ? styles.rowMe : styles.rowOther]}>
+                  {!isMe && (
+                    <Text style={[styles.sender, { color: t.accent }]}>{item.senderNickname}</Text>
+                  )}
+                  <View style={[
+                    styles.bubble,
+                    isMe
+                      ? [styles.bubbleMe, { backgroundColor: t.primary }]
+                      : [styles.bubbleOther, { backgroundColor: t.surfaceAlt, borderColor: t.border }],
+                  ]}>
+                    <Text style={[styles.msgText, { color: isMe ? '#fff' : t.text }]}>{item.text}</Text>
+                  </View>
+                </View>
+              );
+            }}
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={send}>
-            <Text style={styles.sendText}>↑</Text>
-          </TouchableOpacity>
+
+          {isAlive ? (
+            <View style={[styles.inputRow, { borderTopColor: t.border }]}>
+              <TextInput
+                style={[styles.input, { backgroundColor: t.surfaceAlt, borderColor: t.border, color: t.text }]}
+                value={text}
+                onChangeText={setText}
+                placeholder="Whisper to the pack..."
+                placeholderTextColor={t.textMuted}
+                onSubmitEditing={send}
+                returnKeyType="send"
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity
+                style={[styles.sendBtn, { backgroundColor: t.primary }]}
+                onPress={send}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.sendText}>↑</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.spectatingRow, { borderTopColor: t.border }]}>
+              <Text style={[styles.spectatingText, { color: t.textMuted }]}>
+                🐺 You are dead — watching from the shadows
+              </Text>
+            </View>
+          )}
         </View>
-      )}
-      {!isNight && (
-        <Text style={styles.locked}>🔒 Chat locked during day phase</Text>
-      )}
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: NIGHT.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: NIGHT.primary,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
-  headerIcon: { width: 32, height: 32 },
-  header: { ...FONTS.subheading, color: NIGHT.accent },
-  list: {
-    flex: 1,
+  panel: {
+    height: '82%',
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    borderTopWidth: 2,
+    paddingTop: SPACING.sm,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#555',
+    borderRadius: 2,
+    alignSelf: 'center',
     marginBottom: SPACING.sm,
   },
-  bubble: {
-    maxWidth: '80%',
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
-    marginVertical: 2,
-  },
-  bubbleMe: {
-    backgroundColor: NIGHT.primary,
-    alignSelf: 'flex-end',
-  },
-  bubbleOther: {
-    backgroundColor: NIGHT.surfaceAlt,
-    alignSelf: 'flex-start',
-  },
-  sender: {
-    ...FONTS.caption,
-    color: NIGHT.accent,
-    marginBottom: 2,
-    fontWeight: '600',
-  },
-  msgText: {
-    ...FONTS.body,
-  },
-  inputRow: {
+  headerRow: {
     flexDirection: 'row',
-    gap: SPACING.xs,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+    gap: SPACING.sm,
   },
-  input: {
-    flex: 1,
-    backgroundColor: NIGHT.surfaceAlt,
-    borderRadius: RADIUS.md,
+  headerIcon: { width: 28, height: 28 },
+  title: { ...FONTS.heading, flex: 1 },
+  closeBtn: { padding: SPACING.xs },
+  closeText: { fontSize: 20 },
+  list: { flex: 1 },
+  listContent: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    color: NIGHT.text,
-    borderWidth: 1,
-    borderColor: NIGHT.border,
-    ...FONTS.body,
-  },
-  sendBtn: {
-    backgroundColor: NIGHT.primary,
-    borderRadius: RADIUS.md,
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
   },
   empty: {
     ...FONTS.caption,
-    color: NIGHT.textMuted,
     fontStyle: 'italic',
     textAlign: 'center',
-    marginTop: SPACING.lg,
+    marginTop: SPACING.xl,
   },
-  locked: {
-    ...FONTS.caption,
-    color: NIGHT.textMuted,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
+  row: { marginVertical: 3 },
+  rowMe: { alignItems: 'flex-end' },
+  rowOther: { alignItems: 'flex-start' },
+  sender: { ...FONTS.caption, fontWeight: '600', marginBottom: 2, marginLeft: 2 },
+  bubble: {
+    maxWidth: '78%',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  bubbleMe: { borderBottomRightRadius: 4 },
+  bubbleOther: { borderBottomLeftRadius: 4 },
+  msgText: { ...FONTS.body },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderTopWidth: 1,
+  },
+  input: {
+    flex: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    ...FONTS.body,
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  spectatingRow: {
+    padding: SPACING.md,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  spectatingText: { ...FONTS.caption },
 });
