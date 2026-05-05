@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
+import usePlayer from '../hooks/usePlayer';
 import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveNight } from '../game-logic/gameManager';
 import Timer from '../components/Timer';
@@ -33,12 +34,12 @@ const ACTION_TIMER = 60;
 
 const NIGHT_BACKGROUND     = require('../../assets/night_background.png');
 const NIGHT_TIMER          = require('../../assets/night_timer.png');
-const NIGHT_SQUARE_CONTAINER = require('../../assets/night_square_container.png');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
   const gs = useGameState(room, playerId);
+  const playerHooks = usePlayer(roomId);
   const [myActionDone, setMyActionDone] = useState(false);
   const [wolfTarget, setWolfTarget] = useState(null);
   const [seerTarget, setSeerTarget] = useState(null);
@@ -283,23 +284,20 @@ export default function NightPhaseScreen({ route, navigation }) {
         <PhaseTransition phase="night" onComplete={() => setShowTransition(false)} />
       )}
 
-      <View style={[styles.header, { borderBottomColor: t.border, backgroundColor: t.glassHeader }]}>
-        <View style={styles.headerRow}>
-          <ImageBackground source={NIGHT_SQUARE_CONTAINER} style={styles.phaseContainerBg} resizeMode="contain">
-            <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>Night</Text>
-            <Text style={[styles.phaseNumber, { color: t.textSecondary }]}>{phase}</Text>
-          </ImageBackground>
-          <Text style={[styles.title, { color: t.text, flex: 1, marginLeft: SPACING.sm }]}>The Village goes to sleep</Text>
+      <ImageBackground source={NIGHT_TIMER} style={[styles.header, { borderBottomColor: t.border }]} resizeMode="stretch">
+        <View style={styles.phaseCounter}>
+          <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>Night</Text>
+          <Text style={[styles.phaseNumber, { color: t.textSecondary }]}>{phase}</Text>
         </View>
-        <View style={styles.timerBox}>
-          <Image source={NIGHT_TIMER} style={styles.nightTimerImg} resizeMode="contain" />
-          {!showWaiting && (
-            <View style={styles.timerOverlay}>
-              <Timer totalSeconds={ACTION_TIMER} onExpire={handleTimerExpire} theme={tr} />
-            </View>
-          )}
+        {!showWaiting && (
+          <View style={styles.timerSlot}>
+            <Timer totalSeconds={ACTION_TIMER} onExpire={handleTimerExpire} theme={tr} />
+          </View>
+        )}
+        <View style={styles.headerTitleSlot}>
+          <Text style={[styles.title, { color: t.text }]}>The Village goes to sleep</Text>
         </View>
-      </View>
+      </ImageBackground>
 
       <ScrollView style={styles.scroll}>
         {showWaiting && (
@@ -326,6 +324,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSelectTarget={setWolfTarget}
             onSubmit={submitWolfKill}
             onOpenChat={() => setChatVisible(true)}
+            suspicions={playerHooks.suspicions}
+            suspectedRoles={playerHooks.suspectedRoles}
           />
         )}
 
@@ -338,6 +338,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSubmit={submitSeerReveal}
             seerResult={seerResult}
             onDismissResult={dismissSeerResult}
+            suspicions={playerHooks.suspicions}
+            suspectedRoles={playerHooks.suspectedRoles}
           />
         )}
 
@@ -355,6 +357,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSave={submitWitchSave}
             onPoison={submitWitchPoison}
             onSkip={submitWitchSkip}
+            suspicions={playerHooks.suspicions}
+            suspectedRoles={playerHooks.suspectedRoles}
           />
         )}
 
@@ -408,40 +412,41 @@ export default function NightPhaseScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  backgroundImg: { transform: [{ scale: 1.12 }] },
+  backgroundImg: { transform: [{ scale: 1 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    padding: SPACING.md,
-    paddingTop: SPACING.sm,
+    height: 200,
     borderBottomWidth: 1,
-    alignItems: 'center',
-    gap: SPACING.xs,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  title: { ...FONTS.heading },
-  phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
-  phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
-  timerBox: {
-    flexDirection: 'row',
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  nightTimerImg: { width: '110%', height: 220 },
-  timerOverlay: {
+  phaseCounter: {
     position: 'absolute',
-    top: '73%',
-    left: '50%',
-    transform: [{ translateX: -50 }, { translateY: -50 }],
-    zIndex: 1,
-  },
-  phaseContainerBg: {
-    width: 80,
-    height: 80,
+    top: '2%',
+    left: '7%',
+    width: '17%',
+    height: '30%',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timerSlot: {
+    position: 'absolute',
+    top: '0',
+    right: '3%',
+    width: '25%',
+    height: '35%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleSlot: {
+    position: 'absolute',
+    left: '17%',
+    right: '17%',
+    bottom: '30%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { ...FONTS.heading, textAlign: 'center' },
+  phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
+  phaseNumber: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
   scroll: { flex: 1 },
   waitContainer: {
     flex: 1,

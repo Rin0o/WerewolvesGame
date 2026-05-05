@@ -2,11 +2,13 @@ import React from 'react';
 import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE_ICONS } from '../../constants/icons';
+import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
+import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const PLAYER_ROW_NIGHT = require('../../../assets/player_row_night.png');
+const PLAYER_ROW_NIGHT  = require('../../../assets/player_row_night.png');
+const NIGHT_CHECK_ICON  = require('../../../assets/night_check.png');
 
-export default function SeerAction({ theme: t, players, seerTarget, onSelectTarget, onSubmit, seerResult, onDismissResult }) {
+export default function SeerAction({ theme: t, players, seerTarget, onSelectTarget, onSubmit, seerResult, onDismissResult, suspicions = {}, suspectedRoles = {} }) {
   if (seerResult) {
     return (
       <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
@@ -39,20 +41,60 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
         <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
         <Text style={[styles.actionTitle, { color: t.accent }]}>Choose Someone to Reveal</Text>
       </View>
-      <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-        You will learn if they are a Werewolf.
-      </Text>
+      <View style={[styles.targetBanner, { borderColor: seerTarget ? t.primary : t.border }]}>
+        {seerTarget ? (
+          <>
+            <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>Revealing</Text>
+            <Text style={[styles.bannerTargetName, { color: t.accent }]}>
+              {players.find((p) => p.id === seerTarget)?.nickname}
+            </Text>
+            {(() => {
+              const lvl = suspicions[seerTarget];
+              const role = suspectedRoles[seerTarget];
+              if (!((lvl && lvl !== 'neutral') || role)) return null;
+              const suspicionColor = lvl === 'innocent' ? t.success : lvl === 'very_suspicious' ? t.danger : t.accent;
+              return (
+                <View style={styles.bannerBadgeRow}>
+                  {lvl && lvl !== 'neutral' && (
+                    <View style={[styles.bannerBadge, { borderColor: suspicionColor }]}>
+                      <Text style={[styles.bannerBadgeText, { color: suspicionColor }]}>{SUSPICION_LABELS[lvl]}</Text>
+                    </View>
+                  )}
+                  {role && (
+                    <View style={[styles.bannerBadge, { borderColor: t.textSecondary }]}>
+                      <Text style={[styles.bannerBadgeText, { color: t.textSecondary }]}>
+                        {ROLE_DEFINITIONS[role]?.name || role}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+          </>
+        ) : (
+          <Text style={[styles.bannerStateLabel, { color: t.textMuted, textAlign: 'center' }]}>
+            Select someone to reveal
+          </Text>
+        )}
+      </View>
       <FlatList
         data={players}
         keyExtractor={(p) => p.id}
         scrollEnabled={false}
         renderItem={({ item }) => (
-          <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+          <ImageBackground
+            source={PLAYER_ROW_NIGHT}
+            style={[styles.playerRowBg, { borderWidth: 3, borderColor: seerTarget === item.id ? t.danger : 'transparent' }]}
+            imageStyle={styles.playerRowImg}
+            resizeMode="stretch"
+          >
             <PlayerCard
               player={item}
               theme={{ ...t, surface: 'transparent', border: 'transparent' }}
               selected={seerTarget === item.id}
               onPress={() => onSelectTarget(item.id)}
+              checkIcon={NIGHT_CHECK_ICON}
+              noSelectionBorder
             />
           </ImageBackground>
         )}
@@ -79,7 +121,42 @@ const styles = StyleSheet.create({
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
+  targetBanner: {
+    borderWidth: 2,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  bannerStateLabel: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  bannerTargetName: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  bannerBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  bannerBadge: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  bannerBadgeText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden', borderRadius: RADIUS.md },
   playerRowImg: { borderRadius: RADIUS.md },
   submitBtn: {
     borderRadius: RADIUS.md,

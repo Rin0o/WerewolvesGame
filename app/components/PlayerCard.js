@@ -17,6 +17,8 @@ export default function PlayerCard({
   noDeadOpacity,
   avatarIcon,
   avatarIconSize = 40,
+  checkIcon,
+  noSelectionBorder,
 }) {
   const { nickname, isAlive, isHost } = player;
   const role = roleMap?.[player.id];
@@ -31,7 +33,7 @@ export default function PlayerCard({
         styles.card,
         { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.border },
         dead && !noDeadOpacity && styles.dead,
-        selected && { borderWidth: 2, shadowColor: theme.primary, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6 },
+        selected && !noSelectionBorder && { borderWidth: 2, shadowColor: theme.primary, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6 },
       ]}
     >
       <View style={styles.row}>
@@ -81,7 +83,9 @@ export default function PlayerCard({
         )}
 
         {selected && !suspicionLevel && (
-          <Text style={[styles.check, { color: theme.primary }]}>✓</Text>
+          checkIcon
+            ? <Image source={checkIcon} style={styles.checkImg} resizeMode="contain" />
+            : <Text style={[styles.check, { color: theme.primary }]}>✓</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -118,4 +122,5 @@ const styles = StyleSheet.create({
   suspicionBadge: { marginLeft: SPACING.sm },
   suspicionBadgeIcon: { width: 50, height: 50 },
   check: { fontSize: 20, fontWeight: '700', marginLeft: SPACING.sm },
+  checkImg: { width: 36, height: 36, marginLeft: SPACING.sm },
 });

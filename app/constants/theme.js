@@ -1,7 +1,7 @@
 export const DAY = {
   background: '#FFF8F0',
   surface: '#FFFFFF',
-  surfaceAlt: '#FFF0DC',
+  surfaceAlt: '#f5d5ab',
   primary: '#D4651A',
   primaryDark: '#A84E10',
   accent: '#E8A020',

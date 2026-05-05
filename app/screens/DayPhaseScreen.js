@@ -27,6 +27,8 @@ import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { SUSPICION_LABELS } from '../constants/icons';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.png');
@@ -36,7 +38,8 @@ const NOTES_ICON           = require('../../assets/notes.png');
 const DAY_CHAT_ICON        = require('../../assets/day_chat.png');
 const PLAYER_ROW_DAY       = require('../../assets/player_row_day.png');
 const PLAYER_ROW_DEAD      = require('../../assets/player_row_dead.png');
-const DAY_SQUARE_CONTAINER = require('../../assets/day_square_container.png');
+const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.png');
+const DAY_CHECK_ICON       = require('../../assets/day_check.png');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.png');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.png');
 
@@ -60,6 +63,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const shownResultRef = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
+  const hunterTargetRef = useRef(null);
 
   const t = DAY;
   const tr = DAY_TIMER_THEME;
@@ -145,6 +149,7 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   roomRef.current = room;
   resolvingRef.current = resolving;
+  hunterTargetRef.current = hunterTarget;
 
   if (loading || !room) {
     return (
@@ -189,7 +194,21 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   async function handleHunterShoot() {
     if (!hunterTarget) return;
-    await hunterShoot(roomId, room, hunterTarget);
+    await hunterShoot(roomId, roomRef.current, hunterTarget);
+    setHunterMode(false);
+  }
+
+  async function handleHunterTimerExpire() {
+    const currentRoom = roomRef.current;
+    if (!currentRoom?.hunterTriggered || currentRoom.hunterTriggered !== playerId) return;
+    let target = hunterTargetRef.current;
+    if (!target) {
+      const eligible = (currentRoom.players || []).filter((p) => p.isAlive && p.id !== currentRoom.hunterTriggered);
+      if (eligible.length === 0) return;
+      target = eligible[Math.floor(Math.random() * eligible.length)].id;
+      setHunterTarget(target);
+    }
+    await hunterShoot(roomId, currentRoom, target);
     setHunterMode(false);
   }
 
@@ -207,23 +226,24 @@ export default function DayPhaseScreen({ route, navigation }) {
         <PhaseTransition phase="day" onComplete={() => setShowTransition(false)} />
       )}
 
-      <View style={[styles.header, { borderBottomColor: t.glassBorder, backgroundColor: 'transparent' }]}>
-        <View style={styles.headerRow}>
-          <ImageBackground source={DAY_SQUARE_CONTAINER} style={styles.phaseContainerBg} resizeMode="contain">
-            <Text style={[styles.phaseLabel, { color: t.textMuted }]}>Day</Text>
-            <Text style={[styles.phaseNumber, { color: t.textMuted }]}>{phase}</Text>
-          </ImageBackground>
-          <Text style={[styles.title, { color: t.text, flex: 1, marginLeft: SPACING.sm }]}>The Village Awakens</Text>
+      <ImageBackground source={DAY_TIMER} style={[styles.header, { borderBottomColor: t.glassBorder }]} resizeMode="stretch">
+        <View style={styles.dayCounter}>
+          <Text style={[styles.phaseLabel, { color: t.textMuted }]}>Day</Text>
+          <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
-        <View style={styles.timerBox}>
-          <Image source={DAY_TIMER} style={styles.dayTimerImg} resizeMode="contain" />
-          {!lastLynchResult && (
-            <View style={styles.timerOverlay}>
-              <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={tr} />
-            </View>
-          )}
+        {hunterTriggered && hunterTriggered === playerId ? (
+          <View style={styles.timerSlot}>
+            <Timer totalSeconds={30} onExpire={handleHunterTimerExpire} theme={tr} />
+          </View>
+        ) : !hunterTriggered && !lastLynchResult ? (
+          <View style={styles.timerSlot}>
+            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={tr} />
+          </View>
+        ) : null}
+        <View style={styles.headerTitleSlot}>
+          <Text style={[styles.title, { color: t.surfaceAlt }]}>The Village Awakens</Text>
         </View>
-      </View>
+      </ImageBackground>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         {gs.isLover && gs.myLover && (
@@ -248,11 +268,61 @@ export default function DayPhaseScreen({ route, navigation }) {
             hunterTarget={hunterTarget}
             onSelectTarget={setHunterTarget}
             onSubmit={handleHunterShoot}
+            suspicions={playerHooks.suspicions}
+            suspectedRoles={playerHooks.suspectedRoles}
           />
         )}
 
         {!lastLynchResult && !hunterTriggered && (
           <>
+            {gs.isAlive && (
+              <View style={[
+                styles.votingForBanner,
+                { backgroundColor: t.glassCard, borderColor: myVoteConfirmed ? t.success : myVoteTarget ? t.primary : t.glassBorder },
+              ]}>
+                {myVoteConfirmed ? (
+                  <>
+                    <Text style={[styles.bannerStateLabel, { color: t.success }]}>Vote locked in</Text>
+                    <View style={styles.bannerLockedRow}>
+                      <Image source={DAY_CHECK_ICON} style={styles.bannerCheckImg} resizeMode="contain" />
+                      <Text style={[styles.bannerTargetName, { color: t.success }]}>{selectedTarget?.nickname || '?'}</Text>
+                    </View>
+                  </>
+                ) : myVoteTarget ? (
+                  <>
+                    <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>Voting for</Text>
+                    <Text style={[styles.bannerTargetName, { color: t.danger }]}>{selectedTarget?.nickname}</Text>
+                    {(() => {
+                      const lvl = playerHooks.suspicions[myVoteTarget];
+                      const role = playerHooks.suspectedRoles[myVoteTarget];
+                      if (!((lvl && lvl !== 'neutral') || role)) return null;
+                      const suspicionColor = lvl === 'innocent' ? t.success : lvl === 'very_suspicious' ? t.danger : t.accent;
+                      return (
+                        <View style={styles.bannerBadgeRow}>
+                          {lvl && lvl !== 'neutral' && (
+                            <View style={[styles.bannerBadge, { borderColor: suspicionColor }]}>
+                              <Text style={[styles.bannerBadgeText, { color: suspicionColor }]}>{SUSPICION_LABELS[lvl]}</Text>
+                            </View>
+                          )}
+                          {role && (
+                            <View style={[styles.bannerBadge, { borderColor: t.textSecondary }]}>
+                              <Text style={[styles.bannerBadgeText, { color: t.textSecondary }]}>
+                                {ROLE_DEFINITIONS[role]?.name || role}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <Text style={[styles.bannerStateLabel, { color: t.textMuted, textAlign: 'center' }]}>
+                    Tap a player above to vote
+                  </Text>
+                )}
+              </View>
+            )}
+
             <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
               <View style={styles.voteSectionHeader}>
                 <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
@@ -271,7 +341,10 @@ export default function DayPhaseScreen({ route, navigation }) {
                   <ImageBackground
                     key={item.id}
                     source={item.isAlive ? PLAYER_ROW_DAY : PLAYER_ROW_DEAD}
-                    style={styles.playerRowBg}
+                    style={[
+                      styles.playerRowBg,
+                      { borderWidth: 5, borderColor: (isSelected || isMyConfirmedTarget) ? t.primary : 'transparent' },
+                    ]}
                     imageStyle={styles.playerRowImg}
                     resizeMode="stretch"
                   >
@@ -285,7 +358,7 @@ export default function DayPhaseScreen({ route, navigation }) {
                           }
                           onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && handleSelectVote(item.id)}
                           disabled={!gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed}
-                          selected={isSelected || isMyConfirmedTarget}
+                          selected={false}
                           roleMap={!item.isAlive ? roles : {}}
                           showRole={!item.isAlive}
                           noDeadOpacity={!item.isAlive}
@@ -294,41 +367,13 @@ export default function DayPhaseScreen({ route, navigation }) {
                         />
                       </View>
                       {item.isAlive && theyConfirmed && (
-                        <View style={[styles.confirmedBadge, { backgroundColor: t.success }]}>
-                          <Text style={styles.confirmedText}>✓</Text>
-                        </View>
+                        <Image source={DAY_CHECK_ICON} style={styles.confirmedBadgeImg} resizeMode="contain" />
                       )}
                     </View>
                   </ImageBackground>
                 );
               })}
             </View>
-
-            {gs.isAlive && (
-              <View style={[styles.confirmSection, { backgroundColor: t.glassCard, borderColor: t.glassBorder }]}>
-                {myVoteConfirmed ? (
-                  <Text style={[styles.voteLocked, { color: t.success }]}>
-                    ✓ Vote locked in for {selectedTarget?.nickname || '?'}
-                  </Text>
-                ) : myVoteTarget ? (
-                  <View style={styles.confirmRow}>
-                    <Text style={[styles.confirmLabel, { color: t.text }]}>
-                      Voting for <Text style={{ fontWeight: '700', color: t.danger }}>{selectedTarget?.nickname}</Text>
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.confirmBtn, { backgroundColor: t.danger }]}
-                      onPress={handleConfirmVote}
-                    >
-                      <Text style={styles.confirmBtnText}>Confirm Vote</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <Text style={[styles.confirmLabel, { color: t.textMuted }]}>
-                    Select a player above to vote
-                  </Text>
-                )}
-              </View>
-            )}
 
             {resolving && <ActivityIndicator color={t.primary} style={{ marginVertical: SPACING.md }} />}
           </>
@@ -347,6 +392,16 @@ export default function DayPhaseScreen({ route, navigation }) {
         <TouchableOpacity style={styles.chatBtn} onPress={() => setChatOpen(true)}>
           <Image source={DAY_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
         </TouchableOpacity>
+        {gs.isAlive && !lastLynchResult && !hunterTriggered && (
+          <TouchableOpacity
+            style={[styles.confirmBtn, { opacity: (myVoteTarget && !myVoteConfirmed) ? 1 : 0.35 }]}
+            onPress={handleConfirmVote}
+            disabled={!myVoteTarget || myVoteConfirmed}
+            activeOpacity={0.8}
+          >
+            <Image source={DAY_CONFIRM_ICON} style={styles.confirmBtnImg} resizeMode="contain" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <LynchResultModal
@@ -386,35 +441,38 @@ const styles = StyleSheet.create({
   backgroundImg: { transform: [{ scale: 1 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    padding: SPACING.md,
-    alignItems: 'center',
+    height: 180,
     borderBottomWidth: 1,
-    gap: SPACING.xs,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  timerBox: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  dayTimerImg: { width: '110%', height: 220 },
-  timerOverlay: {
+  dayCounter: {
     position: 'absolute',
-    top: '77%',
-    left: '50%',
-    transform: [{ translateX: -50 }, { translateY: -50 }],
-    zIndex: 1,
+    top: '5%',
+    left: '6%',
+    width: '17%',
+    height: '35%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  phaseContainerBg: {
-    width: 80,
-    height: 80,
+  timerSlot: {
+    position: 'absolute',
+    top: '5%',
+    right: '3%',
+    width: '25%',
+    height: '35%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleSlot: {
+    position: 'absolute',
+    left: '17%',
+    right: '17%',
+    bottom: '22%',
     alignItems: 'center',
     justifyContent: 'center',
   },
   phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
-  title: { ...FONTS.heading },
+  title: { ...FONTS.heading, textAlign: 'center' },
   scroll: { flex: 1 },
   loverAnnouncement: {
     margin: SPACING.md,
@@ -436,35 +494,55 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   voteProgress: { ...FONTS.caption },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
+  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden', borderRadius: RADIUS.md },
   playerRowImg: { borderRadius: RADIUS.md },
   playerRowInner: { flexDirection: 'row', alignItems: 'center' },
   playerCardWrap: { flex: 1 },
-  confirmedBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.sm,
-  },
-  confirmedText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  confirmSection: {
+  confirmedBadgeImg: { width: 36, height: 36, marginRight: SPACING.sm },
+  votingForBanner: {
     margin: SPACING.md,
-    marginTop: 0,
+    marginBottom: 0,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
+    borderWidth: 2,
+    gap: SPACING.xs,
+  },
+  bannerStateLabel: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  bannerTargetName: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  bannerBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  bannerBadge: {
     borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
   },
-  confirmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm },
-  confirmLabel: { ...FONTS.body, flex: 1 },
-  confirmBtn: {
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+  bannerBadgeText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
-  confirmBtnText: { ...FONTS.button, color: '#fff' },
-  voteLocked: { ...FONTS.body, fontWeight: '600', textAlign: 'center' },
+  bannerLockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  bannerCheckImg: { width: 28, height: 28 },
+  confirmBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  confirmBtnImg: { width: '100%', height: 70 },
   bottomBar: {
     flexDirection: 'row',
     gap: SPACING.sm,

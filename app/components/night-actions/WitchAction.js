@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE_ICONS, DEAD_ICON } from '../../constants/icons';
+import { ROLE_ICONS, DEAD_ICON, SUSPICION_LABELS } from '../../constants/icons';
+import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const PLAYER_ROW_NIGHT = require('../../../assets/player_row_night.png');
+const PLAYER_ROW_NIGHT  = require('../../../assets/player_row_night.png');
+const NIGHT_CHECK_ICON  = require('../../../assets/night_check.png');
 const WITCH_LIVE_POTION  = require('../../../assets/role_actions/live_potion.png');
 const WITCH_DEATH_POTION = require('../../../assets/role_actions/death_potion.png');
 const WITCH_DO_NOTHING   = require('../../../assets/role_actions/witch_do_nothing.png');
@@ -22,6 +24,8 @@ export default function WitchAction({
   onSave,
   onPoison,
   onSkip,
+  suspicions = {},
+  suspectedRoles = {},
 }) {
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
@@ -54,7 +58,7 @@ export default function WitchAction({
           style={[
             styles.witchActionBtn,
             !witchPotions.poison && styles.witchActionDimmed,
-            witchChoice === 'poison' && { borderColor: t.danger, borderWidth: 2 },
+            witchChoice === 'poison' && { borderColor: t.accent, borderWidth: 2 },
           ]}
           onPress={() => onSelectChoice(witchChoice === 'poison' ? null : 'poison')}
           disabled={!witchPotions.poison}
@@ -73,20 +77,60 @@ export default function WitchAction({
 
       {witchChoice === 'poison' && witchPotions.poison && (
         <>
-          <Text style={[styles.actionSub, { color: t.textSecondary, marginTop: SPACING.md }]}>
-            Choose who to poison:
-          </Text>
+          <View style={[styles.targetBanner, { borderColor: witchPoisonTarget ? t.primaryDark : t.accent, marginTop: SPACING.md }]}>
+            {witchPoisonTarget ? (
+              <>
+                <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>Poisoning</Text>
+                <Text style={[styles.bannerTargetName, { color: t.accent }]}>
+                  {players.find((p) => p.id === witchPoisonTarget)?.nickname}
+                </Text>
+                {(() => {
+                  const lvl = suspicions[witchPoisonTarget];
+                  const role = suspectedRoles[witchPoisonTarget];
+                  if (!((lvl && lvl !== 'neutral') || role)) return null;
+                  const suspicionColor = lvl === 'innocent' ? t.success : lvl === 'very_suspicious' ? t.danger : t.primaryDark;
+                  return (
+                    <View style={styles.bannerBadgeRow}>
+                      {lvl && lvl !== 'neutral' && (
+                        <View style={[styles.bannerBadge, { borderColor: suspicionColor }]}>
+                          <Text style={[styles.bannerBadgeText, { color: suspicionColor }]}>{SUSPICION_LABELS[lvl]}</Text>
+                        </View>
+                      )}
+                      {role && (
+                        <View style={[styles.bannerBadge, { borderColor: t.textSecondary }]}>
+                          <Text style={[styles.bannerBadgeText, { color: t.textSecondary }]}>
+                            {ROLE_DEFINITIONS[role]?.name || role}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+              </>
+            ) : (
+              <Text style={[styles.bannerStateLabel, { color: t.textMuted, textAlign: 'center' }]}>
+                Choose who to poison
+              </Text>
+            )}
+          </View>
           <FlatList
             data={players.filter((p) => p.id !== victimId)}
             keyExtractor={(p) => p.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+              <ImageBackground
+                source={PLAYER_ROW_NIGHT}
+                style={[styles.playerRowBg, { borderWidth: 3, borderColor: witchPoisonTarget === item.id ? t.accent : 'transparent' }]}
+                imageStyle={styles.playerRowImg}
+                resizeMode="stretch"
+              >
                 <PlayerCard
                   player={item}
                   theme={{ ...t, surface: 'transparent', border: 'transparent' }}
                   selected={witchPoisonTarget === item.id}
                   onPress={() => onSelectPoisonTarget(item.id)}
+                  checkIcon={NIGHT_CHECK_ICON}
+                  noSelectionBorder
                 />
               </ImageBackground>
             )}
@@ -118,7 +162,42 @@ const styles = StyleSheet.create({
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
+  targetBanner: {
+    borderWidth: 2,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  bannerStateLabel: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  bannerTargetName: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  bannerBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  bannerBadge: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  bannerBadgeText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden', borderRadius: RADIUS.md },
   playerRowImg: { borderRadius: RADIUS.md },
   submitBtn: {
     borderRadius: RADIUS.md,

@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE_ICONS } from '../../constants/icons';
+import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
+import { ROLE_DEFINITIONS } from '../../constants/roles';
 
 const PLAYER_ROW_DAY = require('../../../assets/player_row_day.png');
 
-export default function HunterSection({ theme: t, players, playerId, hunterTriggered, hunterTarget, onSelectTarget, onSubmit }) {
+export default function HunterSection({ theme: t, players, playerId, hunterTriggered, hunterTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
   return (
     <View style={[styles.hunterBox, { backgroundColor: t.glassBg, borderColor: t.accent }]}>
       <View style={styles.actionTitleRow}>
@@ -21,6 +22,42 @@ export default function HunterSection({ theme: t, players, playerId, hunterTrigg
 
       {hunterTriggered === playerId && (
         <>
+          <View style={[styles.targetBanner, { borderColor: hunterTarget ? t.danger : t.border }]}>
+            {hunterTarget ? (
+              <>
+                <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>Taking down</Text>
+                <Text style={[styles.bannerTargetName, { color: t.danger }]}>
+                  {players.find((p) => p.id === hunterTarget)?.nickname}
+                </Text>
+                {(() => {
+                  const lvl = suspicions[hunterTarget];
+                  const role = suspectedRoles[hunterTarget];
+                  if (!((lvl && lvl !== 'neutral') || role)) return null;
+                  const suspicionColor = lvl === 'innocent' ? t.success : lvl === 'very_suspicious' ? t.danger : t.accent;
+                  return (
+                    <View style={styles.bannerBadgeRow}>
+                      {lvl && lvl !== 'neutral' && (
+                        <View style={[styles.bannerBadge, { borderColor: suspicionColor }]}>
+                          <Text style={[styles.bannerBadgeText, { color: suspicionColor }]}>{SUSPICION_LABELS[lvl]}</Text>
+                        </View>
+                      )}
+                      {role && (
+                        <View style={[styles.bannerBadge, { borderColor: t.textSecondary }]}>
+                          <Text style={[styles.bannerBadgeText, { color: t.textSecondary }]}>
+                            {ROLE_DEFINITIONS[role]?.name || role}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+              </>
+            ) : (
+              <Text style={[styles.bannerStateLabel, { color: t.textMuted, textAlign: 'center' }]}>
+                Choose your final target
+              </Text>
+            )}
+          </View>
           <FlatList
             data={players.filter((p) => p.isAlive && p.id !== playerId)}
             keyExtractor={(p) => p.id}
@@ -63,6 +100,41 @@ const styles = StyleSheet.create({
   actionTitleIcon: { width: 40, height: 40 },
   hunterTitle: { ...FONTS.heading, marginBottom: SPACING.xs },
   hunterSub: { ...FONTS.body, marginBottom: SPACING.md },
+  targetBanner: {
+    borderWidth: 2,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  bannerStateLabel: {
+    ...FONTS.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  bannerTargetName: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  bannerBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  bannerBadge: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  bannerBadgeText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
   playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
   playerRowImg: { borderRadius: RADIUS.md },
   submitBtn: {
