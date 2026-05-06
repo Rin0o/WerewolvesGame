@@ -21,9 +21,14 @@ export default function WerewolfAction({ theme: t, players, phase, wolfTarget, o
       </View>
 
       {phase === 1 ? (
-        <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-          The first night is for watching. No hunt tonight — coordinate with your pack.
-        </Text>
+        <>
+          <Text style={[styles.actionSub, { color: t.textSecondary }]}>
+            The first night is for watching. No hunt tonight — coordinate with your pack.
+          </Text>
+          <TouchableOpacity style={styles.submitBtn} onPress={onSubmit} activeOpacity={0.8}>
+            <Image source={NIGHT_CONFIRM_ICON} style={styles.submitBtnImg} resizeMode="contain" />
+          </TouchableOpacity>
+        </>
       ) : (
         <>
           <View style={[styles.targetBanner, { borderColor: wolfTarget ? t.danger : t.border }]}>

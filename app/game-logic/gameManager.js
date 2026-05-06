@@ -18,6 +18,45 @@ function shuffleArr(arr) {
   return a;
 }
 
+export function computeNightSequence(room) {
+  const { players = [], roles = {}, phase, disconnectedPlayers = [], witchPotions = {} } = room;
+  const isActive = (role) =>
+    players.some((p) => p.isAlive && roles[p.id] === role && !disconnectedPlayers.includes(p.id));
+  const witchPlayer = players.find(
+    (p) => p.isAlive && roles[p.id] === ROLE.WITCH && !disconnectedPlayers.includes(p.id)
+  );
+  const potions = witchPlayer ? witchPotions[witchPlayer.id] : null;
+  const witchHasPotions = potions ? (potions.save === true || potions.poison === true) : false;
+
+  if (phase === 1) {
+    const seq = [];
+    if (isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0) seq.push('thief');
+    if (isActive(ROLE.CUPID)) seq.push('cupid');
+    seq.push('werewolf');
+    if (isActive(ROLE.SEER)) seq.push('seer');
+    return seq;
+  }
+  const seq = [];
+  if (isActive(ROLE.SAVIOUR)) seq.push('saviour');
+  if (isActive(ROLE.WEREWOLF)) seq.push('werewolf');
+  if (witchHasPotions) seq.push('witch');
+  if (isActive(ROLE.SEER)) seq.push('seer');
+  return seq;
+}
+
+export function isSubPhaseDone(subPhase, room) {
+  const { nightActions = {}, phase } = room;
+  switch (subPhase) {
+    case 'thief':    return !!nightActions.thief;
+    case 'cupid':    return Array.isArray(nightActions.cupid) && nightActions.cupid.length === 2;
+    case 'werewolf': return phase === 1 ? nightActions.werewolfObserved === true : !!nightActions.werewolf;
+    case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
+    case 'seer':     return !!nightActions.seer;
+    case 'saviour':  return !!nightActions.saviour;
+    default:         return false;
+  }
+}
+
 export async function startGame(roomId, players, customComposition = null) {
   const humanPlayers = players.filter((p) => !p.isBot);
   let allPlayers = humanPlayers;
@@ -56,6 +95,10 @@ export async function startGame(roomId, players, customComposition = null) {
     witchPotions = result.witchPotions;
   }
 
+  const nightSeq = computeNightSequence({
+    players: allPlayers, roles: roleMap, phase: 1, witchPotions, disconnectedPlayers: [],
+  });
+
   await updateRoom(roomId, {
     roles: roleMap,
     witchPotions,
@@ -64,6 +107,7 @@ export async function startGame(roomId, players, customComposition = null) {
     phase: 1,
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},
+    nightSubPhase: nightSeq[0] || 'done',
     eliminatedThisNight: null,
     events: [`Game started with ${allPlayers.length} players.`],
     winner: null,
@@ -188,16 +232,19 @@ export async function resolveNight(roomId, roomData) {
   return { winner, eliminatedId };
 }
 
-export async function startNextNight(roomId, currentPhase) {
+export async function startNextNight(roomId, room) {
+  const newPhase = (room.phase || 1) + 1;
+  const seq = computeNightSequence({ ...room, phase: newPhase, nightActions: {}, disconnectedPlayers: [] });
   await clearNightActions(roomId);
   await updateRoom(roomId, {
     status: 'night',
-    phase: currentPhase + 1,
+    phase: newPhase,
     phaseStartedAt: new Date().toISOString(),
     eliminatedThisNight: null,
     votes: {},
     votesClosed: false,
     hunterTriggered: null,
+    nightSubPhase: seq[0] || 'done',
   });
 }
 
@@ -239,6 +286,13 @@ export async function resolveLynch(roomId, roomData) {
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
   const advanceToNight = !winner && !hunterTriggered;
 
+  let nightSubPhase;
+  if (advanceToNight) {
+    const nextRoom = { ...roomData, players: updatedPlayers, phase: phase + 1, nightActions: {}, disconnectedPlayers: [] };
+    const seq = computeNightSequence(nextRoom);
+    nightSubPhase = seq[0] || 'done';
+  }
+
   await updateRoom(roomId, {
     winner: winner || null,
     status: winner ? 'ended' : (advanceToNight ? 'night' : 'day'),
@@ -248,7 +302,7 @@ export async function resolveLynch(roomId, roomData) {
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
-    ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null }),
+    ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase }),
   });
 
   return { eliminatedId, winner };
