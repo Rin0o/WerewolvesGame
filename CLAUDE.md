@@ -28,12 +28,20 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     VotePanel.js             — Lynch/Spare buttons + revealed vote counts
     NotesPanel.js            — Slide-up modal: player board, notepad, clue log;
                                does NOT receive roles prop (role reveal is day-screen-only)
-    WerewolfChat.js          — Real-time Firestore chat (wolves only, night only)
+    WerewolfChat.js          — Real-time Firestore chat (wolves only + narrator); accepts
+                               isNarrator prop to show observer label instead of input
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
     RoleCard.js              — Role card with PNG image (assets/roles/), description,
                                goal, ability; falls back to emoji if no image
     ClueLog.js               — Scrollable event history list
     PhaseTransition.js       — Animated day/night transition overlay
+  /components/narrator/
+    NarratorNightDashboard.js — Night view for narrator: active sub-phase, submitted
+                               actions summary, full player+role roster, wolf chat
+                               button, and Next/Skip button to drive the sequence
+    NarratorDayDashboard.js  — Day view for narrator: per-voter live breakdown (pending
+                               vs confirmed), tally bar chart with role labels, and
+                               Close Votes button
   /game-logic/
     roles.js                 — assignRoles(players, composition?), checkWinCondition(),
                                getWerewolves(), getLoversPartner(), getAvailableRolesForThief()
@@ -103,7 +111,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   phase: number                   // Cycle count (starts at 1, increments each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
   players: [                      // Array of player objects
-    { id, nickname, isAlive, isHost, isReady, isBot? }
+    { id, nickname, isAlive, isHost, isReady, isBot?, isNarrator? }
   ]
   roles: { [playerId]: role }     // NEVER expose raw to other players
   nightActions: {
@@ -124,7 +132,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
-  gameMode: "normal"|"custom"     // Set by host in lobby; defaults to "normal" if absent
+  gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
   customRoles: {                  // Only used when gameMode === "custom"
     playerCount: number           // Target total players (must equal effectiveCount to start)
     werewolf: number              // Count (min 1)
@@ -195,7 +203,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog.
 - **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
 - **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname, role }] }`. When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Bots can only be `werewolf` or `villager`.
-- **Game modes**: Host selects Normal or Custom in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
+- **Game modes**: Host selects Normal, Custom, or Narrator in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
+- **Narrator mode**: Host is flagged `isNarrator: true` on their player object and excluded from role assignment, win-condition checks, vote eligibility, and the night-action bot-target pool. The narrator skips `RoleRevealScreen` and goes straight to `NightPhaseScreen`. At night they see `NarratorNightDashboard` (full role visibility, submitted actions, manual Next/Skip to advance sub-phases — no auto-timer). At day they see `NarratorDayDashboard` (per-voter live breakdown, tally bars, Close Votes button) and see all roles in the player list. `useGameState` exposes `gs.isNarrator`. The day discussion timer is hidden in narrator mode; `closeVoting()` (sets `votesClosed: true`) is the narrator's trigger to end voting, which then flows into the normal `resolveLynch` path.
 - **Vote feedback**: DayPhaseScreen snapshots the vote map into local `lastLynchResult` state the moment `allVotesIn` becomes true — before `resolveLynch` wipes `votes: {}` from Firestore. The result card (verdict, tally, per-player votes, role reveal if lynched) persists until the next accusation starts.
 - **Role card images**: `RoleCard` component maps role keys to static `require()` calls for PNGs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
 - **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. It calls `navigation.replace('Home')` on press so the back button can never return to it.
