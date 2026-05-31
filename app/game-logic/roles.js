@@ -19,9 +19,10 @@ function shuffle(arr) {
  * Also returns initial witch potions map { playerId: { save: true, poison: true } }
  */
 export function assignRoles(players, composition = null) {
-  const comp = composition || getCompositionForCount(players.length);
+  const eligiblePlayers = players.filter((p) => !p.isNarrator);
+  const comp = composition || getCompositionForCount(eligiblePlayers.length);
   const shuffledRoles = shuffle(comp);
-  const shuffledPlayers = shuffle([...players]);
+  const shuffledPlayers = shuffle([...eligiblePlayers]);
 
   const roleMap = {};
   const witchPotions = {};
@@ -66,7 +67,7 @@ export function getPlayerWithRole(roleMap, role) {
  * Lovers win if they are the last two players alive, regardless of team.
  */
 export function checkWinCondition(players, roleMap, lovers = null) {
-  const alive = players.filter((p) => p.isAlive);
+  const alive = players.filter((p) => p.isAlive && !p.isNarrator);
 
   if (lovers && lovers.length === 2) {
     const aliveIds = alive.map((p) => p.id);

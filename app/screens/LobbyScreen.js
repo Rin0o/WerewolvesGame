@@ -31,7 +31,12 @@ export default function LobbyScreen({ route, navigation }) {
 
   React.useEffect(() => {
     if (room && room.status === 'night') {
-      navigation.replace('RoleReveal', { roomId, playerId, nickname });
+      const me = room.players?.find((p) => p.id === playerId);
+      if (me?.isNarrator) {
+        navigation.replace('NightPhase', { roomId, playerId, nickname });
+      } else {
+        navigation.replace('RoleReveal', { roomId, playerId, nickname });
+      }
     }
   }, [room?.status]);
 
@@ -63,10 +68,13 @@ export default function LobbyScreen({ route, navigation }) {
   const myPlayer = players.find((p) => p.id === playerId);
   const humanPlayers = players.filter((p) => !p.isBot);
   const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
-  const effectiveCount = humanPlayers.length + botCount;
+
+  // In narrator mode the host is excluded from role-play, so subtract 1 from the count
+  const narratorOffset = gameMode === 'narrator' ? 1 : 0;
+  const effectiveCount = humanPlayers.length + botCount - narratorOffset;
 
   // Normal mode derived values
-  const normalComposition = getCompositionForCount(effectiveCount);
+  const normalComposition = getCompositionForCount(Math.max(1, effectiveCount));
   const normalRoleCounts = normalComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
   const normalCanStart = effectiveCount >= MIN_PLAYERS;
 
@@ -79,7 +87,7 @@ export default function LobbyScreen({ route, navigation }) {
   const customComposition = isValidConfig ? buildCustomComposition(cfg) : [];
   const customRoleCounts = customComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
 
-  const canStart = gameMode === 'normal' ? normalCanStart : customCanStart;
+  const canStart = gameMode === 'normal' || gameMode === 'narrator' ? normalCanStart : customCanStart;
 
   async function setMode(mode) {
     await updateRoom(roomId, { gameMode: mode });
@@ -110,8 +118,12 @@ export default function LobbyScreen({ route, navigation }) {
   async function handleStart() {
     if (!canStart) return;
     try {
+      let gamePlayers = players;
+      if (gameMode === 'narrator') {
+        gamePlayers = players.map((p) => (p.id === playerId ? { ...p, isNarrator: true } : p));
+      }
       const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
-      await startGame(roomId, players, composition);
+      await startGame(roomId, gamePlayers, composition);
     } catch (e) {
       Alert.alert('Error', 'Could not start game.');
     }
@@ -134,8 +146,10 @@ export default function LobbyScreen({ route, navigation }) {
   }
 
   function startBtnLabel() {
-    if (gameMode === 'normal') {
-      return normalCanStart ? '🐺 Start Game' : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
+    if (gameMode === 'normal' || gameMode === 'narrator') {
+      return normalCanStart
+        ? `🐺 Start Game${gameMode === 'narrator' ? ' (Narrator)' : ''}`
+        : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
     }
     if (!isValidConfig) return 'Invalid composition';
     if (effectiveCount < cfg.playerCount) return `Waiting for ${cfg.playerCount - effectiveCount} more player(s)`;
@@ -162,7 +176,7 @@ export default function LobbyScreen({ route, navigation }) {
             onPress={() => setMode('normal')}
           >
             <Text style={[styles.modeTabText, { color: gameMode === 'normal' ? '#fff' : t.textMuted }]}>
-              🐺 Normal Game
+              🐺 Normal
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -170,7 +184,15 @@ export default function LobbyScreen({ route, navigation }) {
             onPress={() => setMode('custom')}
           >
             <Text style={[styles.modeTabText, { color: gameMode === 'custom' ? '#fff' : t.textMuted }]}>
-              🎮 Custom Game
+              🎮 Custom
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeTab, gameMode === 'narrator' && { backgroundColor: t.primary }]}
+            onPress={() => setMode('narrator')}
+          >
+            <Text style={[styles.modeTabText, { color: gameMode === 'narrator' ? '#fff' : t.textMuted }]}>
+              📖 Narrator
             </Text>
           </TouchableOpacity>
         </View>
@@ -180,16 +202,16 @@ export default function LobbyScreen({ route, navigation }) {
       {!isHost && (
         <View style={[styles.modeBadge, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.modeBadgeText, { color: t.textSecondary }]}>
-            {gameMode === 'custom' ? '🎮 Custom Game' : '🐺 Normal Game'}
+            {gameMode === 'custom' ? '🎮 Custom Game' : gameMode === 'narrator' ? '📖 Narrator Mode' : '🐺 Normal Game'}
           </Text>
         </View>
       )}
 
-      {/* Normal mode — auto composition preview */}
-      {gameMode === 'normal' && effectiveCount >= MIN_PLAYERS && (
+      {/* Normal / Narrator mode — auto composition preview */}
+      {(gameMode === 'normal' || gameMode === 'narrator') && effectiveCount >= MIN_PLAYERS && (
         <View style={[styles.compBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
-            Roles for {effectiveCount} players
+            Roles for {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}{gameMode === 'narrator' ? ' (host is narrator)' : ''}
           </Text>
           <View style={styles.compRow}>
             {Object.entries(normalRoleCounts).map(([role, count]) => (
@@ -362,7 +384,7 @@ export default function LobbyScreen({ route, navigation }) {
               <Text style={styles.avatarText}>{item.nickname?.[0]?.toUpperCase()}</Text>
             </View>
             <Text style={[styles.playerName, { color: t.text }]}>{item.nickname}</Text>
-            {item.isHost && <Text style={[styles.badge, { color: t.accent }]}>HOST</Text>}
+            {item.isHost && <Text style={[styles.badge, { color: t.accent }]}>{gameMode === 'narrator' ? 'NARRATOR' : 'HOST'}</Text>}
             {item.id === playerId && <Text style={[styles.badge, { color: t.textMuted }]}>YOU</Text>}
             {!item.isHost && (
               <Text style={{ marginLeft: 'auto', fontSize: 18 }}>

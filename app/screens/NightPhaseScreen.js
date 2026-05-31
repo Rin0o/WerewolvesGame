@@ -22,6 +22,7 @@ import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
 import PhaseTransition from '../components/PhaseTransition';
 import WerewolfAction from '../components/night-actions/WerewolfAction';
+import NarratorNightDashboard from '../components/narrator/NarratorNightDashboard';
 import SeerAction from '../components/night-actions/SeerAction';
 import WitchAction from '../components/night-actions/WitchAction';
 import CupidAction from '../components/night-actions/CupidAction';
@@ -127,6 +128,7 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!gs.isHost || !room || room.status !== 'night') return;
+    if (room.gameMode === 'narrator') return;
     const { nightSubPhase } = room;
     if (!nightSubPhase) {
       const seq = computeNightSequence(room);
@@ -159,7 +161,7 @@ export default function NightPhaseScreen({ route, navigation }) {
     } else if (nightSubPhase === 'werewolf' && phase > 1 && !nightActions.werewolf) {
       const botWolves = aliveBots.filter((b) => roles[b.id] === ROLE.WEREWOLF);
       if (botWolves.length > 0) {
-        const targets = players.filter((p) => p.isAlive && roles[p.id] !== ROLE.WEREWOLF);
+        const targets = players.filter((p) => p.isAlive && roles[p.id] !== ROLE.WEREWOLF && !p.isNarrator);
         if (targets.length > 0) {
           submitNightAction(roomId, 'werewolf', targets[Math.floor(Math.random() * targets.length)].id);
         }
@@ -179,7 +181,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   }
 
   const { players = [], roles = {}, nightActions = {}, phase, witchPotions = {}, saviourLastProtected = null } = room;
-  const alivePlayers = players.filter((p) => p.isAlive && p.id !== playerId);
+  const alivePlayers = players.filter((p) => p.isAlive && p.id !== playerId && !p.isNarrator);
   const myWitchPotions = witchPotions[playerId] || { save: false, poison: false };
   const victimId = nightActions.werewolf;
   const victimPlayer = victimId ? players.find((p) => p.id === victimId) : null;
@@ -265,7 +267,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         if (currentRoom.phase === 1) {
           await submitNightAction(roomId, 'werewolfObserved', true);
         } else {
-          const tgts = rPlayers.filter((p) => p.isAlive && rRoles[p.id] !== ROLE.WEREWOLF);
+          const tgts = rPlayers.filter((p) => p.isAlive && rRoles[p.id] !== ROLE.WEREWOLF && !p.isNarrator);
           if (tgts.length > 0) await submitNightAction(roomId, 'werewolf', tgts[0].id);
         }
         break;
@@ -297,14 +299,45 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }
 
+  async function doNarratorAdvance() {
+    const currentRoom = roomRef.current;
+    if (!currentRoom) return;
+    const subPhase = currentRoom.nightSubPhase;
+    const sequence = computeNightSequence(currentRoom);
+    const idx = sequence.indexOf(subPhase);
+    const next = idx === -1 || idx >= sequence.length - 1 ? 'done' : sequence[idx + 1];
+    if (next === 'done') {
+      setResolving(true);
+      resolveNight(roomId, currentRoom).catch(() => setResolving(false));
+    } else {
+      updateRoom(roomId, { nightSubPhase: next });
+    }
+  }
+
+  function handleNarratorAdvance() {
+    const done = isSubPhaseDone(nightSubPhase, room);
+    if (!done) {
+      Alert.alert(
+        'Skip active role?',
+        `The active player hasn't acted yet. Advance anyway?`,
+        [
+          { text: 'Wait', style: 'cancel' },
+          { text: 'Advance', style: 'destructive', onPress: doNarratorAdvance },
+        ]
+      );
+    } else {
+      doNarratorAdvance();
+    }
+  }
+
   const nightSubPhase = room?.nightSubPhase;
   const activeRole = SUBPHASE_TO_ROLE[nightSubPhase];
-  const isMyTurn = gs.isAlive && gs.myRole === activeRole;
   const actionAlreadyInFirestore = nightSubPhase ? isSubPhaseDone(nightSubPhase, room) : false;
+  const isMyTurn = gs.isAlive && !gs.isNarrator && gs.myRole === activeRole;
   const showSeerResult = !!seerResult;
   const showThiefReveal = !!thiefStolenRole;
   const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showSeerResult && !showThiefReveal;
-  const showWaiting = !showAction && !showSeerResult && !showThiefReveal;
+  const showWaiting = !gs.isNarrator && !showAction && !showSeerResult && !showThiefReveal;
 
   return (
     <ImageBackground source={NIGHT_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
@@ -318,7 +351,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>Night</Text>
           <Text style={[styles.phaseNumber, { color: t.textSecondary }]}>{phase}</Text>
         </View>
-        {nightSubPhase && nightSubPhase !== 'done' && !resolving && (
+        {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
           <View style={styles.timerSlot}>
             <Timer key={nightSubPhase} totalSeconds={SUBPHASE_TIMER} onExpire={handleTimerExpire} theme={tr} />
           </View>
@@ -329,6 +362,20 @@ export default function NightPhaseScreen({ route, navigation }) {
       </ImageBackground>
 
       <ScrollView style={styles.scroll}>
+        {gs.isNarrator && (
+          <NarratorNightDashboard
+            theme={t}
+            players={players}
+            roles={roles}
+            nightActions={nightActions}
+            phase={phase}
+            nightSubPhase={nightSubPhase}
+            actionDone={actionAlreadyInFirestore}
+            onAdvance={handleNarratorAdvance}
+            onOpenWolfChat={() => setChatVisible(true)}
+          />
+        )}
+
         {showWaiting && (
           <View style={[styles.waitContainer, { backgroundColor: t.glassWait }]}>
             <Text style={styles.moonBig}>🌕</Text>
@@ -445,7 +492,8 @@ export default function NightPhaseScreen({ route, navigation }) {
         roomId={roomId}
         playerId={playerId}
         nickname={nickname}
-        isAlive={gs.isAlive}
+        isAlive={gs.isAlive && !gs.isNarrator}
+        isNarrator={gs.isNarrator}
       />
     </SafeAreaView>
     </ImageBackground>

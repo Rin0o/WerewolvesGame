@@ -15,7 +15,7 @@ import { subscribeToWerewolfChat, sendWerewolfMessage } from '../firebase/roomSe
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
-export default function WerewolfChat({ visible, onClose, roomId, playerId, nickname, isAlive }) {
+export default function WerewolfChat({ visible, onClose, roomId, playerId, nickname, isAlive, isNarrator = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
 
@@ -103,6 +103,12 @@ export default function WerewolfChat({ visible, onClose, roomId, playerId, nickn
               >
                 <Text style={styles.sendText}>↑</Text>
               </TouchableOpacity>
+            </View>
+          ) : isNarrator ? (
+            <View style={[styles.spectatingRow, { borderTopColor: t.border }]}>
+              <Text style={[styles.spectatingText, { color: t.textMuted }]}>
+                📖 Narrator — observing the wolf pack
+              </Text>
             </View>
           ) : (
             <View style={[styles.spectatingRow, { borderTopColor: t.border }]}>

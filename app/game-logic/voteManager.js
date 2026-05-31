@@ -1,6 +1,6 @@
 export function allVotesIn(votes, players, disconnectedPlayers = []) {
   const aliveIds = players
-    .filter((p) => p.isAlive && !disconnectedPlayers.includes(p.id))
+    .filter((p) => p.isAlive && !p.isNarrator && !disconnectedPlayers.includes(p.id))
     .map((p) => p.id);
   return aliveIds.length > 0 && aliveIds.every((id) => votes[id]?.confirmed === true);
 }

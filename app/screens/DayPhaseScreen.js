@@ -23,11 +23,13 @@ import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import DayChat from '../components/day/DayChat';
+import WerewolfChat from '../components/WerewolfChat';
+import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
 import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { SUSPICION_LABELS } from '../constants/icons';
+import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
@@ -52,6 +54,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const playerHooks = usePlayer(roomId);
   const [notesOpen, setNotesOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [wolfChatOpen, setWolfChatOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
@@ -126,7 +129,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     }
   }, [room?.status]);
 
-  const alivePlayers = room?.players?.filter((p) => p.isAlive) || [];
+  const alivePlayers = room?.players?.filter((p) => p.isAlive && !p.isNarrator) || [];
   const disconnected = room?.disconnectedPlayers || [];
   const allIn = room
     ? allVotesIn(room.votes || {}, alivePlayers, disconnected)
@@ -235,7 +238,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           <View style={styles.timerSlot}>
             <Timer totalSeconds={30} onExpire={handleHunterTimerExpire} theme={tr} />
           </View>
-        ) : !hunterTriggered && !lastLynchResult ? (
+        ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
           <View style={styles.timerSlot}>
             <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={tr} />
           </View>
@@ -259,6 +262,19 @@ export default function DayPhaseScreen({ route, navigation }) {
 
         <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} />
 
+        {gs.isNarrator && (
+          <NarratorDayDashboard
+            theme={t}
+            players={players}
+            roles={roles}
+            votes={votes}
+            phase={phase}
+            onCloseVotes={() => closeVoting(roomId)}
+            lastLynchResult={lastLynchResult}
+            hunterTriggered={hunterTriggered}
+          />
+        )}
+
         {hunterTriggered && (
           <HunterSection
             theme={t}
@@ -275,7 +291,7 @@ export default function DayPhaseScreen({ route, navigation }) {
 
         {!lastLynchResult && !hunterTriggered && (
           <>
-            {gs.isAlive && (
+            {gs.isAlive && !gs.isNarrator && (
               <View style={[
                 styles.votingForBanner,
                 { backgroundColor: t.glassCard, borderColor: myVoteConfirmed ? t.success : myVoteTarget ? t.primary : t.glassBorder },
@@ -326,14 +342,14 @@ export default function DayPhaseScreen({ route, navigation }) {
             <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
               <View style={styles.voteSectionHeader}>
                 <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-                  {gs.isAlive ? 'Tap a player to vote for them' : 'Players (spectating)'}
+                  {gs.isNarrator ? 'Players (narrator view)' : gs.isAlive ? 'Tap a player to vote for them' : 'Players (spectating)'}
                 </Text>
                 <Text style={[styles.voteProgress, { color: t.textMuted }]}>
                   {confirmedCount}/{totalEligible} confirmed
                 </Text>
               </View>
 
-              {players.map((item) => {
+              {players.filter((p) => !p.isNarrator).map((item) => {
                 const isSelected = !myVoteConfirmed && myVoteTarget === item.id;
                 const isMyConfirmedTarget = myVoteConfirmed && myVoteEntry?.target === item.id;
                 const theyConfirmed = votes[item.id]?.confirmed === true;
@@ -356,11 +372,11 @@ export default function DayPhaseScreen({ route, navigation }) {
                             ? { ...t, surface: 'transparent', border: 'transparent' }
                             : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
                           }
-                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && handleSelectVote(item.id)}
-                          disabled={!gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed}
+                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && !gs.isNarrator && handleSelectVote(item.id)}
+                          disabled={gs.isNarrator || !gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed}
                           selected={false}
-                          roleMap={!item.isAlive ? roles : {}}
-                          showRole={!item.isAlive}
+                          roleMap={gs.isNarrator || !item.isAlive ? roles : {}}
+                          showRole={gs.isNarrator || !item.isAlive}
                           noDeadOpacity={!item.isAlive}
                           avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
                           avatarIconSize={56}
@@ -392,7 +408,12 @@ export default function DayPhaseScreen({ route, navigation }) {
         <TouchableOpacity style={styles.chatBtn} onPress={() => setChatOpen(true)}>
           <Image source={DAY_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
         </TouchableOpacity>
-        {gs.isAlive && !lastLynchResult && !hunterTriggered && (
+        {gs.isNarrator && (
+          <TouchableOpacity style={styles.chatBtn} onPress={() => setWolfChatOpen(true)}>
+            <Image source={ROLE_ICONS.werewolf} style={styles.chatBtnImg} resizeMode="contain" />
+          </TouchableOpacity>
+        )}
+        {gs.isAlive && !gs.isNarrator && !lastLynchResult && !hunterTriggered && (
           <TouchableOpacity
             style={[styles.confirmBtn, { opacity: (myVoteTarget && !myVoteConfirmed) ? 1 : 0.35 }]}
             onPress={handleConfirmVote}
@@ -431,6 +452,18 @@ export default function DayPhaseScreen({ route, navigation }) {
         nickname={nickname}
         isAlive={gs.isAlive}
       />
+
+      {gs.isNarrator && (
+        <WerewolfChat
+          visible={wolfChatOpen}
+          onClose={() => setWolfChatOpen(false)}
+          roomId={roomId}
+          playerId={playerId}
+          nickname={nickname}
+          isAlive={false}
+          isNarrator={true}
+        />
+      )}
     </SafeAreaView>
     </ImageBackground>
   );

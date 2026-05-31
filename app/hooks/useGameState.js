@@ -16,6 +16,7 @@ export default function useGameState(room, currentPlayerId) {
     const myPlayer = players.find((p) => p.id === currentPlayerId);
     const isAlive = myPlayer?.isAlive ?? false;
     const isHost = myPlayer?.isHost ?? false;
+    const isNarrator = myPlayer?.isNarrator ?? false;
     const isSpectator = !isAlive;
 
     const alivePlayers = players.filter((p) => p.isAlive);
@@ -64,6 +65,7 @@ export default function useGameState(room, currentPlayerId) {
       myPlayer,
       isAlive,
       isHost,
+      isNarrator,
       isSpectator,
       isWerewolf,
       fellowWolves,

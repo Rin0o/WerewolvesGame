@@ -58,7 +58,8 @@ export function isSubPhaseDone(subPhase, room) {
 }
 
 export async function startGame(roomId, players, customComposition = null) {
-  const humanPlayers = players.filter((p) => !p.isBot);
+  const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
+  const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
   let roleMap = {};
   let witchPotions = {};
@@ -94,6 +95,8 @@ export async function startGame(roomId, players, customComposition = null) {
     roleMap = result.roleMap;
     witchPotions = result.witchPotions;
   }
+
+  if (narratorPlayers.length > 0) allPlayers = [...allPlayers, ...narratorPlayers];
 
   const nightSeq = computeNightSequence({
     players: allPlayers, roles: roleMap, phase: 1, witchPotions, disconnectedPlayers: [],
