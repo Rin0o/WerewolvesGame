@@ -2,6 +2,8 @@ node_modules/
 .expo/
 dist/
 web-build/
+.idea/
+android/app/debug.keystore
 git_key
 git_key.pub
 .claude/
