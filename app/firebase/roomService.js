@@ -95,11 +95,6 @@ export async function updateRoom(roomId, data) {
   await updateDoc(doc(db, 'rooms', roomId), data);
 }
 
-export async function addEvent(roomId, event) {
-  const roomRef = doc(db, 'rooms', roomId);
-  await updateDoc(roomRef, { events: arrayUnion(event) });
-}
-
 export async function disconnectPlayer(roomId, playerId) {
   await updateDoc(doc(db, 'rooms', roomId), { disconnectedPlayers: arrayUnion(playerId) });
 }
@@ -131,20 +126,10 @@ export async function clearNightActions(roomId) {
 
 // ─── Voting ───────────────────────────────────────────────────────────────────
 
-export async function selectDayVote(roomId, voterId, targetId) {
-  await updateDoc(doc(db, 'rooms', roomId), {
-    [`votes.${voterId}`]: { target: targetId, confirmed: false },
-  });
-}
-
 export async function confirmDayVote(roomId, voterId, targetId) {
   await updateDoc(doc(db, 'rooms', roomId), {
     [`votes.${voterId}`]: { target: targetId, confirmed: true },
   });
-}
-
-export async function clearVotes(roomId) {
-  await updateDoc(doc(db, 'rooms', roomId), { votes: {} });
 }
 
 export async function closeVoting(roomId) {

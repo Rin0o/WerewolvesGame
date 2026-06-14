@@ -100,11 +100,4 @@ export function getLoversPartner(playerId, lovers) {
   return lovers.find((id) => id !== playerId) || null;
 }
 
-/**
- * Returns true if the player's role is on the werewolf team.
- */
-export function isWerewolf(role) {
-  return role === ROLE.WEREWOLF;
-}
-
 export { ROLE };

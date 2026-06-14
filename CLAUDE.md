@@ -25,7 +25,6 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     PlayerCard.js            — Reusable player row with suspicion/role chip display;
                                props: avatarIcon (overrides letter avatar), avatarIconSize (default 40),
                                noDeadOpacity (suppresses opacity:0.45 on dead rows)
-    VotePanel.js             — Lynch/Spare buttons + revealed vote counts
     NotesPanel.js            — Slide-up modal: player board, notepad, clue log;
                                does NOT receive roles prop (role reveal is day-screen-only)
     WerewolfChat.js          — Real-time Firestore chat (wolves only + narrator); accepts
@@ -75,7 +74,6 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   night_banner.png           — PhaseTransition banner for night transitions (blue/purple stained glass)
   player_row_day.png         — DayPhaseScreen player list row background for alive players
   player_row_dead.png        — DayPhaseScreen player list row background for dead players (dark purple)
-  end_day.png                — "End Discussion" button image (DayPhaseScreen host toolbar)
   leave.png                  — Leave/exit button image (DayPhaseScreen)
   exit_game.png              — Leave/exit button image (NightPhaseScreen)
   notes.png                  — Notes button image (DayPhaseScreen toolbar)
@@ -127,7 +125,6 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   eliminatedThisNight: playerId|null
   events: string[]                // Append-only game event log (written with arrayUnion)
   votes: { [voterId]: "lynch"|"spare" }
-  accusedPlayerId: string|null
   winner: "villagers"|"werewolves"|"lovers"|null
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
