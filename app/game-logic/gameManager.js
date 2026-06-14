@@ -10,6 +10,16 @@ import {
 } from '../firebase/roomService';
 import { BOT_CONFIG } from '../constants/devConfig';
 
+function computeBearTamerGrowl(alivePlayers, roles) {
+  const idx = alivePlayers.findIndex((p) => roles[p.id] === ROLE.BEAR_TAMER);
+  if (idx === -1) return null;
+  const n = alivePlayers.length;
+  if (n < 2) return false;
+  const left = alivePlayers[(idx - 1 + n) % n];
+  const right = alivePlayers[(idx + 1) % n];
+  return roles[left.id] === ROLE.WEREWOLF || roles[right.id] === ROLE.WEREWOLF;
+}
+
 function shuffleArr(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -122,6 +132,7 @@ export async function startGame(roomId, players, customComposition = null) {
     hunterTriggered: null,
     disconnectedPlayers: [],
     saviourLastProtected: null,
+    bearTamerGrowl: null,
   });
 }
 
@@ -218,6 +229,7 @@ export async function resolveNight(roomId, roomData) {
 
   const winner = checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
+  const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers.filter((p) => p.isAlive), updatedRoles);
 
   await updateRoom(roomId, {
     status: winner ? 'ended' : 'day',
@@ -231,6 +243,7 @@ export async function resolveNight(roomId, roomData) {
     hunterTriggered: hunterTriggered || null,
     disconnectedPlayers: [],
     saviourLastProtected: saviourProtected,
+    bearTamerGrowl,
     events: arrayUnion(...events),
   });
 
@@ -250,6 +263,7 @@ export async function startNextNight(roomId, room) {
     votesClosed: false,
     hunterTriggered: null,
     nightSubPhase: seq[0] || 'done',
+    bearTamerGrowl: null,
   });
 }
 
@@ -307,7 +321,7 @@ export async function resolveLynch(roomId, roomData) {
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
-    ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase }),
+    ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase, bearTamerGrowl: null }),
   });
 
   return { eliminatedId, winner };

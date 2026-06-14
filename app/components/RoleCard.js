@@ -11,7 +11,9 @@ const ROLE_IMAGES = {
   witch: require('../../assets/roles/witch.png'),
   hunter: require('../../assets/roles/hunter.png'),
   thief: require('../../assets/roles/thief.png'),
-  cupid: require('../../assets/roles/cupid.png'),
+  cupid:      require('../../assets/roles/cupid.png'),
+  saviour:    require('../../assets/roles/saviour.png'),
+  bear_tamer: require('../../assets/roles/bear_tamer.png'),
 };
 
 export default function RoleCard({ role, fellowWolves = [], players = [] }) {

@@ -252,7 +252,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 ## Known Limitations / Future Work
 - Timers are client-side only — drifts possible on slow devices
 - No server-side role validation (roles map is readable by determined clients)
-- Wolf chat not cleared between games (cosmetic only)
 - Bot support is dev/testing only — disable `BOT_CONFIG.enabled` before shipping
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - No deep-link or session restore — if a player force-quits the app they must rejoin via the Home screen (room code needed again)
+- **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.

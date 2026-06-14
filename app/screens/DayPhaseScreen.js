@@ -30,7 +30,7 @@ import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
-import { ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.png');
@@ -261,6 +261,26 @@ export default function DayPhaseScreen({ route, navigation }) {
         )}
 
         <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} />
+
+        {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
+          <View style={[
+            styles.bearGrowlCard,
+            { backgroundColor: room.bearTamerGrowl ? 'rgba(180,40,40,0.18)' : 'rgba(40,120,40,0.15)',
+              borderColor: room.bearTamerGrowl ? '#C0392B' : '#27AE60' },
+          ]}>
+            <Text style={styles.bearGrowlEmoji}>🐻</Text>
+            <View style={styles.bearGrowlTextBox}>
+              <Text style={[styles.bearGrowlTitle, { color: room.bearTamerGrowl ? '#C0392B' : '#27AE60' }]}>
+                {room.bearTamerGrowl ? 'The bears are growling!' : 'The bears are silent.'}
+              </Text>
+              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
+                {room.bearTamerGrowl
+                  ? 'At least one of your neighbors is a Werewolf.'
+                  : 'Neither of your neighbors is a Werewolf.'}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {gs.isNarrator && (
           <NarratorDayDashboard
@@ -507,6 +527,20 @@ const styles = StyleSheet.create({
   phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
   title: { ...FONTS.heading, textAlign: 'center' },
   scroll: { flex: 1 },
+  bearGrowlCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: SPACING.md,
+    marginTop: 0,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    gap: SPACING.md,
+  },
+  bearGrowlEmoji: { fontSize: 40 },
+  bearGrowlTextBox: { flex: 1 },
+  bearGrowlTitle: { ...FONTS.subheading, fontWeight: '700', marginBottom: 2 },
+  bearGrowlSub: { ...FONTS.body },
   loverAnnouncement: {
     margin: SPACING.md,
     padding: SPACING.md,

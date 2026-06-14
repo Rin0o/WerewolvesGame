@@ -20,7 +20,7 @@ import { BOT_CONFIG } from '../constants/devConfig';
 import { ROLE_ICONS } from '../constants/icons';
 
 const MIN_PLAYERS = 5;
-const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR];
+const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER];
 
 export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -50,7 +50,7 @@ export default function LobbyScreen({ route, navigation }) {
     const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
     const total = Math.max(MIN_PLAYERS, humanCount + botCount);
     updateRoom(roomId, {
-      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false },
+      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false },
     });
   }, [room?.gameMode, room?.customRoles]);
 
@@ -79,7 +79,7 @@ export default function LobbyScreen({ route, navigation }) {
   const normalCanStart = effectiveCount >= MIN_PLAYERS;
 
   // Custom mode derived values
-  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false };
+  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false };
   const usedSlots = cfg.werewolf + SPECIAL_ROLES.filter((r) => cfg[r]).length;
   const villagerCount = cfg.playerCount - usedSlots;
   const isValidConfig = villagerCount >= 1 && cfg.werewolf >= 1;
