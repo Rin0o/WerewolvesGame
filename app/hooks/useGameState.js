@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ROLE } from '../constants/roles';
-import { checkWinCondition, getWerewolves, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from '../game-logic/roles';
+import { checkWinCondition, getWerewolves, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSisters } from '../game-logic/roles';
 
 /**
  * Derives computed game state from raw room data and current player id.
@@ -27,6 +27,10 @@ export default function useGameState(room, currentPlayerId) {
     const fellowWolves = isWerewolf
       ? werewolfIds.filter((id) => id !== currentPlayerId)
       : [];
+
+    const sisterIds = getSisters(roles);
+    const isSister = myRole === ROLE.SISTER;
+    const fellowSisters = isSister ? sisterIds.filter((id) => id !== currentPlayerId) : [];
 
     const seerId = getPlayerWithRole(roles, ROLE.SEER);
     const witchId = getPlayerWithRole(roles, ROLE.WITCH);
@@ -97,6 +101,9 @@ export default function useGameState(room, currentPlayerId) {
       voteCount,
       aliveCount,
       werewolfIds,
+      isSister,
+      fellowSisters,
+      sisterIds,
     };
   }, [room, currentPlayerId]);
 }

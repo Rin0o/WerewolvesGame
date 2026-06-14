@@ -88,7 +88,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     death_potion.png         — Witch poison action button
     witch_do_nothing.png     — Witch skip action button
   /role_icons/               — PNG role icons (werewolf, seer, witch, hunter, cupid, thief,
-                               villager, bear_tamer); unknown.png shown as avatar for alive
+                               villager, bear_tamer, sisters); unknown.png shown as avatar for alive
                                players whose role is not revealed (day screen + NotesPanel)
   /suspicion_level_icons/    — PNG suspicion icons (neutral, innocent, suspicious,
                                very_suspicious, dead); dead.png used as avatar for dead
@@ -138,6 +138,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     hunter: boolean
     cupid: boolean
     thief: boolean
+    sister: boolean              // When true, adds 2 Sister slots (counted as 2 in usedSlots)
     // villagers = playerCount − werewolf − sum(enabled specials); auto-filled
   }
 }
@@ -151,16 +152,16 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 ## Roles
 
 ### Role Compositions (by player count)
-| Players | Wolves | Seer | Witch | Hunter | Cupid | Thief | Villagers |
-|---------|--------|------|-------|--------|-------|-------|-----------|
-| 5       | 1      | 1    | -     | -      | -     | -     | 3         |
-| 6       | 1      | 1    | 1     | -      | -     | 1     | 2         |
-| 7       | 2      | 1    | 1     | -      | -     | 1     | 2         |
-| 8       | 2      | 1    | 1     | 1      | 1     | 1     | 1         |
-| 9       | 2      | 1    | 1     | 1      | 1     | 1     | 2         |
-| 10      | 3      | 1    | 1     | 1      | 1     | 1     | 2         |
-| 11      | 3      | 1    | 1     | 1      | 1     | 1     | 3         |
-| 12      | 3      | 1    | 1     | 1      | 1     | 1     | 4         |
+| Players | Wolves | Seer | Witch | Hunter | Cupid | Thief | Sisters | Villagers |
+|---------|--------|------|-------|--------|-------|-------|---------|-----------|
+| 5       | 1      | 1    | -     | -      | -     | -     | -       | 3         |
+| 6       | 1      | 1    | 1     | -      | -     | 1     | -       | 2         |
+| 7       | 2      | 1    | 1     | -      | -     | 1     | -       | 2         |
+| 8       | 2      | 1    | 1     | 1      | 1     | 1     | -       | 1         |
+| 9       | 2      | 1    | 1     | 1      | 1     | 1     | -       | 2         |
+| 10      | 3      | 1    | 1     | 1      | 1     | 1     | -       | 2         |
+| 11      | 3      | 1    | 1     | 1      | 1     | 1     | -       | 3         |
+| 12      | 3      | 1    | 1     | 1      | 1     | 1     | 2       | 0         |
 
 ### Win Conditions
 - **Villagers win**: all werewolves eliminated (and lovers are not the last two alive)
@@ -188,6 +189,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 **Cupid** — on night 1 only, chooses exactly 2 players to become lovers. Lovers are stored in `room.lovers`. If one lover dies, the other immediately dies of heartbreak. If the two lovers are the last alive, they win together regardless of team.
 
 **Thief** — on night 1 only, sees all roles not assigned to any player (`getAvailableRolesForThief`). Must pick one and immediately becomes that role (including team). The swap is recorded silently in the event log ("A shadowy figure stole a role in the dark."). If no roles are available, the Thief sides with the villagers.
+
+**Sisters** — two players who know each other's identity at game start. No night action. Their role key is `sister` (each gets the same key); `getSisters(roleMap)` returns both IDs. `useGameState` exposes `gs.isSister` and `gs.fellowSisters` (the other sister's ID). At `RoleRevealScreen`, the RoleCard shows a "Your Sister" box identical in structure to the wolves' "Fellow Werewolves" box. The custom-mode lobby toggle adds 2 slots (handled by `usedSlots` reduce counting `sister` as 2).
 
 ### Lover Chain
 `eliminateWithLoverChain()` in gameManager.js handles lover death propagation. When any player is eliminated, their lover (if alive) is also eliminated immediately. This applies to wolf kills, witch poison, lynch, and hunter shot.

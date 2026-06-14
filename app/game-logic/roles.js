@@ -100,4 +100,13 @@ export function getLoversPartner(playerId, lovers) {
   return lovers.find((id) => id !== playerId) || null;
 }
 
+/**
+ * Returns all player IDs assigned the Sister role.
+ */
+export function getSisters(roleMap) {
+  return Object.entries(roleMap)
+    .filter(([, role]) => role === ROLE.SISTER)
+    .map(([id]) => id);
+}
+
 export { ROLE };

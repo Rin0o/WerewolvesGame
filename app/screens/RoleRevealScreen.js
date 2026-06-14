@@ -46,6 +46,7 @@ export default function RoleRevealScreen({ route, navigation }) {
         <RoleCard
           role={gs.myRole}
           fellowWolves={gs.fellowWolves}
+          fellowSisters={gs.fellowSisters}
           players={room.players}
         />
 

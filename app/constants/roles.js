@@ -8,6 +8,7 @@ export const ROLE = {
   THIEF: 'thief',
   SAVIOUR: 'saviour',
   BEAR_TAMER: 'bear_tamer',
+  SISTER: 'sister',
 };
 
 export const ROLE_DEFINITIONS = {
@@ -83,6 +84,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Help the village find and eliminate all Werewolves.',
     ability: 'Each dawn, if either of your immediate neighbors (by join order) is a Werewolf, your bears growl — warning you that danger is close.',
   },
+  [ROLE.SISTER]: {
+    name: 'Sister',
+    emoji: '👧',
+    team: 'villagers',
+    description: 'One of two sisters who share a secret bond from the very first night.',
+    goal: 'Help the village find and eliminate all Werewolves.',
+    ability: 'At the start of the game you and your sister know each other\'s identities. Use your bond to collaborate discreetly during the day.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -97,7 +106,7 @@ export const ROLE_COMPOSITIONS = {
   9:  [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.VILLAGER],
   10: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER],
   11: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.VILLAGER],
-  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.VILLAGER, ROLE.VILLAGER],
+  12: [ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.SISTER],
 };
 
 export function getCompositionForCount(count) {
@@ -108,7 +117,7 @@ export function getCompositionForCount(count) {
   return [...base, ...extra];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (seer) comp.push(ROLE.SEER);
@@ -118,6 +127,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (thief) comp.push(ROLE.THIEF);
   if (saviour) comp.push(ROLE.SAVIOUR);
   if (bear_tamer) comp.push(ROLE.BEAR_TAMER);
+  if (sister) { comp.push(ROLE.SISTER); comp.push(ROLE.SISTER); }
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);
   return comp;

@@ -14,11 +14,15 @@ const ROLE_IMAGES = {
   cupid:      require('../../assets/roles/cupid.png'),
   saviour:    require('../../assets/roles/saviour.png'),
   bear_tamer: require('../../assets/roles/bear_tamer.png'),
+  sister:     require('../../assets/roles/sisters.png'),
 };
 
-export default function RoleCard({ role, fellowWolves = [], players = [] }) {
+export default function RoleCard({ role, fellowWolves = [], fellowSisters = [], players = [] }) {
   const info = getRoleInfo(role);
   const wolves = fellowWolves
+    .map((id) => players.find((p) => p.id === id)?.nickname || id)
+    .filter(Boolean);
+  const sisters = fellowSisters
     .map((id) => players.find((p) => p.id === id)?.nickname || id)
     .filter(Boolean);
   const image = ROLE_IMAGES[role] || null;
@@ -37,6 +41,17 @@ export default function RoleCard({ role, fellowWolves = [], players = [] }) {
             <Text style={styles.wolvesLabel}>Fellow Werewolves</Text>
           </View>
           {wolves.map((name) => (
+            <Text key={name} style={styles.wolfName}>• {name}</Text>
+          ))}
+        </View>
+      )}
+      {sisters.length > 0 && (
+        <View style={styles.sistersBox}>
+          <View style={styles.wolvesLabelRow}>
+            <Image source={ROLE_ICONS.sister} style={styles.wolvesLabelIcon} resizeMode="contain" />
+            <Text style={styles.sistersLabel}>Your Sister</Text>
+          </View>
+          {sisters.map((name) => (
             <Text key={name} style={styles.wolfName}>• {name}</Text>
           ))}
         </View>
@@ -78,6 +93,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: NIGHT.primary,
   },
+  sistersBox: {
+    marginTop: SPACING.lg,
+    backgroundColor: 'rgba(212,100,150,0.2)',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#C06090',
+  },
+  sistersLabel: { ...FONTS.subheading, color: '#E090C0' },
   wolvesLabelRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
   wolvesLabelIcon: { width: 32, height: 32 },
   wolvesLabel: { ...FONTS.subheading, color: NIGHT.accent },

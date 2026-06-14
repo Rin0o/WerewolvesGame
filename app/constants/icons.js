@@ -8,6 +8,7 @@ export const ROLE_ICONS = {
   thief:     require('../../assets/role_icons/thief.png'),
   saviour:    require('../../assets/role_icons/saviour.png'),
   bear_tamer: require('../../assets/role_icons/bear_tamer.png'),
+  sister:     require('../../assets/role_icons/sisters.png'),
 };
 
 export const SUSPICION_ICONS = {
