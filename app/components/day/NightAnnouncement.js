@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 
-export default function NightAnnouncement({ theme: t, nightVictims, roles }) {
+export default function NightAnnouncement({ theme: t, nightVictims, roles, bearTamerGrowl }) {
   return (
     <View style={[styles.box, { backgroundColor: t.glassBg }]}>
       {nightVictims.length > 0 ? (
@@ -13,6 +13,9 @@ export default function NightAnnouncement({ theme: t, nightVictims, roles }) {
         ))
       ) : (
         <Text style={[styles.text, { color: t.textSecondary }]}>No one was eliminated last night.</Text>
+      )}
+      {bearTamerGrowl === true && (
+        <Text style={[styles.growl, { color: t.text }]}>🐻 The bears growled at dawn.</Text>
       )}
     </View>
   );
@@ -27,4 +30,5 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   text: { ...FONTS.body, textAlign: 'center' },
+  growl: { ...FONTS.body, textAlign: 'center', fontStyle: 'italic', marginTop: SPACING.xs },
 });

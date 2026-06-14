@@ -260,7 +260,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           </View>
         )}
 
-        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} />
+        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} />
 
         {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
           <View style={[
