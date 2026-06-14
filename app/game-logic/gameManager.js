@@ -6,6 +6,7 @@ import {
   updateRoom,
   eliminatePlayer,
   clearNightActions,
+  clearWerewolfChat,
 } from '../firebase/roomService';
 import { BOT_CONFIG } from '../constants/devConfig';
 
@@ -58,6 +59,7 @@ export function isSubPhaseDone(subPhase, room) {
 }
 
 export async function startGame(roomId, players, customComposition = null) {
+  await clearWerewolfChat(roomId);
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;

@@ -6,7 +6,7 @@ import { ROLE_ICONS } from '../../constants/icons';
 
 const PLAYER_ROW_NIGHT = require('../../../assets/player_row_night.png');
 
-export default function SaviourAction({ theme: t, players, saviourTarget, onSelectTarget, onSubmit }) {
+export default function SaviourAction({ theme: t, players, lastProtected, saviourTarget, onSelectTarget, onSubmit }) {
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
       <View style={styles.actionTitleRow}>
@@ -24,16 +24,26 @@ export default function SaviourAction({ theme: t, players, saviourTarget, onSele
         data={players}
         keyExtractor={(p) => p.id}
         scrollEnabled={false}
-        renderItem={({ item }) => (
-          <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
-            <PlayerCard
-              player={item}
-              theme={{ ...t, surface: 'transparent', border: 'transparent' }}
-              selected={saviourTarget === item.id}
-              onPress={() => onSelectTarget(item.id)}
-            />
-          </ImageBackground>
-        )}
+        renderItem={({ item }) => {
+          const isLastProtected = item.id === lastProtected;
+          return (
+            <View style={isLastProtected && styles.disabledRow}>
+              <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+                <PlayerCard
+                  player={item}
+                  theme={{ ...t, surface: 'transparent', border: 'transparent' }}
+                  selected={saviourTarget === item.id}
+                  onPress={isLastProtected ? undefined : () => onSelectTarget(item.id)}
+                />
+              </ImageBackground>
+              {isLastProtected && (
+                <View style={styles.protectedBadge}>
+                  <Text style={[styles.protectedText, { color: t.textMuted }]}>Protected last night</Text>
+                </View>
+              )}
+            </View>
+          );
+        }}
       />
       <TouchableOpacity
         style={[styles.submitBtn, { backgroundColor: saviourTarget ? t.primary : t.border }]}
@@ -60,6 +70,9 @@ const styles = StyleSheet.create({
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
   playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
   playerRowImg: { borderRadius: RADIUS.md },
+  disabledRow: { opacity: 0.45 },
+  protectedBadge: { alignItems: 'center', marginTop: -SPACING.xs, marginBottom: SPACING.xs },
+  protectedText: { ...FONTS.caption, fontStyle: 'italic' },
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,

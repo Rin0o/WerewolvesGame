@@ -476,7 +476,8 @@ export default function NightPhaseScreen({ route, navigation }) {
         {showAction && gs.myRole === ROLE.SAVIOUR && (
           <SaviourAction
             theme={t}
-            players={players.filter((p) => p.isAlive && p.id !== saviourLastProtected)}
+            players={players.filter((p) => p.isAlive)}
+            lastProtected={saviourLastProtected}
             saviourTarget={saviourTarget}
             onSelectTarget={setSaviourTarget}
             onSubmit={submitSaviourProtect}

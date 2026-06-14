@@ -159,6 +159,12 @@ export function subscribeToDayChat(roomId, callback) {
 
 // ─── Werewolf chat ────────────────────────────────────────────────────────────
 
+export async function clearWerewolfChat(roomId) {
+  const chatRef = collection(db, 'rooms', roomId, 'werewolfChat');
+  const snap = await getDocs(chatRef);
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+}
+
 export async function sendWerewolfMessage(roomId, senderId, senderNickname, text) {
   const chatRef = collection(db, 'rooms', roomId, 'werewolfChat');
   await addDoc(chatRef, {
