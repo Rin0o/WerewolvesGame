@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,15 @@ export default function GameOverScreen({ route, navigation }) {
   const isLovers = winner === 'lovers';
   useSoundEffect(room ? (isVillagers || isLovers ? 'villagersWin' : 'wolvesWin') : null);
 
+  useEffect(() => {
+    if (!room) return;
+    if (room.status === 'lobby') {
+      clearGameData().then(() => {
+        navigation.replace('Lobby', { roomId, playerId, nickname });
+      });
+    }
+  }, [room?.status]);
+
   if (loading || !room) {
     return (
       <View style={[styles.center, { backgroundColor: NIGHT.background }]}>
@@ -52,7 +61,6 @@ export default function GameOverScreen({ route, navigation }) {
       Alert.alert('Only the host can restart the game.');
       return;
     }
-    await clearGameData();
     await clearDayChat(roomId);
     await updateRoom(roomId, {
       status: 'lobby',
@@ -68,7 +76,6 @@ export default function GameOverScreen({ route, navigation }) {
       phaseStartedAt: null,
       players: players.map((p) => ({ ...p, isAlive: true, isReady: false })),
     });
-    navigation.replace('Lobby', { roomId, playerId, nickname });
   }
 
   function handleLeave() {

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  ImageBackground,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -11,21 +10,132 @@ import {
   Modal,
 } from 'react-native';
 
-import PlayerCard from './PlayerCard';
 import ClueLog from './ClueLog';
 import { RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_DEFINITIONS } from '../constants/roles';
-import { ROLE_ICONS } from '../constants/icons';
+import { ROLE_ICONS, SUSPICION_ICONS } from '../constants/icons';
 
-const PLAYER_ROW_BG = require('../../assets/player_row.png');
-const PLAYER_SUSPICION_BTN_BG = require('../../assets/player_suspicion_btn.png');
-const AVATAR_UNKNOWN = require('../../assets/role_icons/unknown.png');
-const AVATAR_DEAD = require('../../assets/suspicion_level_icons/dead.png');
 const SUSPECT_ICON = require('../../assets/suspicion_level_icons/suspect.png');
+
 const ROLE_OPTIONS = Object.keys(ROLE_DEFINITIONS);
 
+const SUSPICION_LEVELS = ['innocent', 'neutral', 'suspicious', 'very_suspicious'];
+
+const SUSPICION_LABELS_SHORT = {
+  innocent: 'Safe',
+  neutral: 'Neutral',
+  suspicious: 'Sus',
+  very_suspicious: 'Very Sus',
+};
+
+const SUSPICION_COLORS = {
+  innocent: '#27AE60',
+  neutral: '#888',
+  suspicious: '#E8A020',
+  very_suspicious: '#C0392B',
+};
+
+function PlayerBoardCard({ player, theme, suspicion, suspectedRole, onSelectSuspicion, onPickRole }) {
+  const isDead = !player.isAlive;
+  const currentSuspicion = suspicion || 'neutral';
+  const activeColor = SUSPICION_COLORS[currentSuspicion];
+
+  const isDay = theme.background === '#FFF8F0';
+  const cardBg = isDead
+    ? (isDay ? '#E8DFF0' : '#2A1848')
+    : (isDay ? '#FFFAF4' : '#221545');
+  const cardBorder = isDead
+    ? (isDay ? '#B8A0D8' : '#5A3A90')
+    : (suspicion && suspicion !== 'neutral' ? activeColor : (isDay ? '#D4B896' : '#3D2570'));
+  const nameColor = isDead
+    ? (isDay ? '#5A3880' : '#C8B8E8')
+    : (isDay ? '#2C1810' : '#E8D8FF');
+  const chipBg = isDay ? '#F0E8DC' : '#1A1035';
+  const chipBorder = isDay ? '#C8A880' : '#3D2570';
+  const chipTextColor = isDead
+    ? (isDay ? '#7A5080' : '#C0A8E0')
+    : (isDay ? '#7A5C44' : '#A080C8');
+  const placeholderColor = isDay ? '#A08060' : '#6050A0';
+
+  return (
+    <View style={[
+      styles.boardCard,
+      {
+        backgroundColor: cardBg,
+        borderColor: cardBorder,
+        borderLeftWidth: 3,
+        borderLeftColor: isDead ? (isDay ? '#9070B8' : '#7B4FD4') : (suspicion && suspicion !== 'neutral' ? activeColor : cardBorder),
+      },
+    ]}>
+      <View style={styles.cardHeader}>
+        <View style={styles.nameArea}>
+          <Text style={[styles.playerName, { color: nameColor }]} numberOfLines={1}>
+            {player.nickname}
+          </Text>
+          {isDead && (
+            <View style={[styles.deadBadge, { backgroundColor: isDay ? 'rgba(144,112,184,0.2)' : 'rgba(123,79,212,0.25)' }]}>
+              <Text style={[styles.deadBadgeText, { color: isDay ? '#7A50A0' : '#C084F5' }]}>Eliminated</Text>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity onPress={onPickRole} style={styles.roleChip} activeOpacity={0.7}>
+          {suspectedRole && ROLE_ICONS[suspectedRole] ? (
+            <View style={[styles.roleChipInner, { borderColor: chipBorder, backgroundColor: chipBg }]}>
+              <Image source={ROLE_ICONS[suspectedRole]} style={styles.roleChipIcon} resizeMode="contain" />
+              <Text style={[styles.roleChipName, { color: chipTextColor }]} numberOfLines={1}>
+                {ROLE_DEFINITIONS[suspectedRole]?.name}
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.roleChipEmpty, { borderColor: chipBorder }]}>
+              <Image source={SUSPECT_ICON} style={styles.roleChipIconSm} resizeMode="contain" />
+              <Text style={[styles.roleChipPlaceholder, { color: placeholderColor }]}>Role?</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {!isDead && (
+        <View style={styles.suspicionStrip}>
+          {SUSPICION_LEVELS.map((level) => {
+            const isActive = currentSuspicion === level;
+            const color = SUSPICION_COLORS[level];
+            return (
+              <TouchableOpacity
+                key={level}
+                onPress={() => onSelectSuspicion(level)}
+                style={[
+                  styles.suspicionBtn,
+                  {
+                    borderColor: isActive ? color : (isDay ? '#C8A880' : '#3D2570'),
+                    backgroundColor: isActive ? `${color}28` : (isDay ? 'rgba(255,248,240,0.6)' : 'rgba(20,10,50,0.5)'),
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={SUSPICION_ICONS[level]}
+                  style={[styles.suspicionIcon, { opacity: isActive ? 1 : 0.55 }]}
+                  resizeMode="contain"
+                />
+                <Text style={[
+                  styles.suspicionLabel,
+                  { color: isActive ? color : (isDay ? '#7A5C44' : '#9880C0'), fontWeight: isActive ? '700' : '500' },
+                ]}>
+                  {SUSPICION_LABELS_SHORT[level]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function NotesPanel({ visible, onClose, theme, players, events, playerHooks }) {
-  const { notes, updateNotes, suspicions, cycleSuspicion, suspectedRoles, setSuspectedRole } = playerHooks;
+  const { notes, updateNotes, suspicions, setSuspicion, suspectedRoles, setSuspectedRole } = playerHooks;
   const [rolePickerFor, setRolePickerFor] = useState(null);
 
   return (
@@ -34,59 +144,26 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
         <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: theme.text }]}>📓 Notes & Deduction</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Notes & Deduction</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={[styles.closeText, { color: theme.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Player board */}
             <Text style={[styles.section, { color: theme.textSecondary }]}>Player Board</Text>
             {players.map((p) => (
-              <View key={p.id} style={styles.playerRowContainer}>
-                <ImageBackground
-                  source={PLAYER_ROW_BG}
-                  style={styles.playerRowBg}
-                  imageStyle={styles.playerRowImg}
-                  resizeMode="stretch"
-                >
-                  <PlayerCard
-                    player={p}
-                    theme={{ ...theme, surface: 'transparent', border: 'transparent' }}
-                    suspicionLevel={p.isAlive ? (suspicions[p.id] || 'neutral') : null}
-                    suspectedRole={suspectedRoles[p.id]}
-                    avatarIcon={!p.isAlive ? AVATAR_DEAD : AVATAR_UNKNOWN}
-                    avatarIconSize={56}
-                    onPress={p.isAlive ? () => cycleSuspicion(p.id) : null}
-                    disabled={false}
-                    noDeadOpacity
-                  />
-                </ImageBackground>
-                <TouchableOpacity
-                  onPress={() => setRolePickerFor(p.id)}
-                  style={styles.rolePickerBtn}
-                >
-                  <ImageBackground
-                    source={PLAYER_SUSPICION_BTN_BG}
-                    style={styles.rolePickerBg}
-                    resizeMode="stretch"
-                  >
-                    {suspectedRoles[p.id] && ROLE_ICONS[suspectedRoles[p.id]] ? (
-                      <Image
-                        source={ROLE_ICONS[suspectedRoles[p.id]]}
-                        style={styles.rolePickerIcon}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <Image source={SUSPECT_ICON} style={styles.rolePickerIcon} resizeMode="contain" />
-                    )}
-                  </ImageBackground>
-                </TouchableOpacity>
-              </View>
+              <PlayerBoardCard
+                key={p.id}
+                player={p}
+                theme={theme}
+                suspicion={suspicions[p.id]}
+                suspectedRole={suspectedRoles[p.id]}
+                onSelectSuspicion={(level) => setSuspicion(p.id, level)}
+                onPickRole={() => setRolePickerFor(p.id)}
+              />
             ))}
 
-            {/* Notepad */}
             <Text style={[styles.section, { color: theme.textSecondary }]}>Personal Notes</Text>
             <TextInput
               style={[styles.notepad, { backgroundColor: theme.surfaceAlt, color: theme.text, borderColor: theme.border }]}
@@ -98,7 +175,6 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
               textAlignVertical="top"
             />
 
-            {/* Clue log */}
             <Text style={[styles.section, { color: theme.textSecondary }]}>Game Events</Text>
             <ClueLog events={events} theme={theme} />
             <View style={{ height: SPACING.xl }} />
@@ -106,7 +182,6 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
         </View>
       </View>
 
-      {/* Role picker modal */}
       <Modal visible={!!rolePickerFor} transparent animationType="fade" onRequestClose={() => setRolePickerFor(null)}>
         <TouchableOpacity style={styles.roleOverlay} onPress={() => setRolePickerFor(null)}>
           <View style={[styles.rolePick, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -184,35 +259,101 @@ const styles = StyleSheet.create({
     minHeight: 100,
     ...FONTS.body,
   },
-  playerRowContainer: {
+  boardCard: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  nameArea: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    marginBottom: SPACING.xs,
+    flexWrap: 'wrap',
   },
-  playerRowBg: {
+  playerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  deadBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+  },
+  deadBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  roleChip: {
+    flexShrink: 0,
+  },
+  roleChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 3,
+    maxWidth: 110,
+  },
+  roleChipEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 3,
+  },
+  roleChipIcon: { width: 20, height: 20 },
+  roleChipIconSm: { width: 16, height: 16, opacity: 0.5 },
+  roleChipName: {
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  roleChipPlaceholder: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  suspicionStrip: {
+    flexDirection: 'row',
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  suspicionBtn: {
     flex: 1,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-    paddingLeft: SPACING.md,
-    paddingRight: SPACING.lg,
-    paddingVertical: SPACING.xs,
-  },
-  playerRowImg: { borderRadius: RADIUS.md },
-  rolePickerBtn: {
-    width: 64,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rolePickerBg: {
-    width: 74,
-    height: 74,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
   },
-  rolePickerIcon: { width: 50, height: 50 },
-  rolePickerEmoji: { fontSize: 40 },
+  suspicionIcon: {
+    width: 20,
+    height: 20,
+  },
+  suspicionLabel: {
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
   roleOverlay: {
     flex: 1,
     justifyContent: 'center',

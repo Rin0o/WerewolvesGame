@@ -1,11 +1,10 @@
 import React from 'react';
-import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const PLAYER_ROW_NIGHT   = require('../../../assets/player_row_night.png');
 const NIGHT_CHAT_ICON    = require('../../../assets/night_chat.png');
 const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.png');
 const NIGHT_CHECK_ICON   = require('../../../assets/night_check.png');
@@ -72,7 +71,7 @@ export default function WerewolfAction({ theme: t, players, phase, wolfTarget, o
             keyExtractor={(p) => p.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+              <View style={[styles.playerRowBg, { borderColor: wolfTarget === item.id ? t.danger : t.border }]}>
                 <PlayerCard
                   player={item}
                   theme={{ ...t, surface: 'transparent', border: 'transparent' }}
@@ -81,7 +80,7 @@ export default function WerewolfAction({ theme: t, players, phase, wolfTarget, o
                   checkIcon={NIGHT_CHECK_ICON}
                   noSelectionBorder
                 />
-              </ImageBackground>
+              </View>
             )}
           />
           <TouchableOpacity
@@ -113,8 +112,7 @@ const styles = StyleSheet.create({
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
-  playerRowImg: { borderRadius: RADIUS.md },
+  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
   targetBanner: {
     borderWidth: 2,
     borderRadius: RADIUS.lg,

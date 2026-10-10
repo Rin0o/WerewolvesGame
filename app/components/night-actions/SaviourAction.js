@@ -1,10 +1,8 @@
 import React from 'react';
-import { View, Text, Image, ImageBackground, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS } from '../../constants/icons';
-
-const PLAYER_ROW_NIGHT = require('../../../assets/player_row_night.png');
 
 export default function SaviourAction({ theme: t, players, lastProtected, saviourTarget, onSelectTarget, onSubmit }) {
   return (
@@ -28,14 +26,14 @@ export default function SaviourAction({ theme: t, players, lastProtected, saviou
           const isLastProtected = item.id === lastProtected;
           return (
             <View style={isLastProtected && styles.disabledRow}>
-              <ImageBackground source={PLAYER_ROW_NIGHT} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+              <View style={[styles.playerRowBg, { borderColor: saviourTarget === item.id ? t.primary : t.border }]}>
                 <PlayerCard
                   player={item}
                   theme={{ ...t, surface: 'transparent', border: 'transparent' }}
                   selected={saviourTarget === item.id}
                   onPress={isLastProtected ? undefined : () => onSelectTarget(item.id)}
                 />
-              </ImageBackground>
+              </View>
               {isLastProtected && (
                 <View style={styles.protectedBadge}>
                   <Text style={[styles.protectedText, { color: t.textMuted }]}>Protected last night</Text>
@@ -68,8 +66,7 @@ const styles = StyleSheet.create({
   actionTitleEmoji: { fontSize: 28 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
-  playerRowImg: { borderRadius: RADIUS.md },
+  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
   disabledRow: { opacity: 0.45 },
   protectedBadge: { alignItems: 'center', marginTop: -SPACING.xs, marginBottom: SPACING.xs },
   protectedText: { ...FONTS.caption, fontStyle: 'italic' },

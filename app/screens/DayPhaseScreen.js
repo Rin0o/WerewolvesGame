@@ -28,18 +28,15 @@ import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
 import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
-import { DAY, DAY_TIMER_THEME, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.png');
 const EXIT_GAME_ICON       = require('../../assets/leave.png');
-const DAY_TIMER            = require('../../assets/day_timer.png');
 const NOTES_ICON           = require('../../assets/notes.png');
 const DAY_CHAT_ICON        = require('../../assets/day_chat.png');
-const PLAYER_ROW_DAY       = require('../../assets/player_row_day.png');
-const PLAYER_ROW_DEAD      = require('../../assets/player_row_dead.png');
 const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.png');
 const DAY_CHECK_ICON       = require('../../assets/day_check.png');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.png');
@@ -68,7 +65,6 @@ export default function DayPhaseScreen({ route, navigation }) {
   const hunterTargetRef = useRef(null);
 
   const t = DAY;
-  const tr = DAY_TIMER_THEME;
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -254,24 +250,20 @@ export default function DayPhaseScreen({ route, navigation }) {
         <PhaseTransition phase="day" onComplete={() => setShowTransition(false)} />
       )}
 
-      <ImageBackground source={DAY_TIMER} style={[styles.header, { borderBottomColor: t.glassBorder }]} resizeMode="stretch">
-        <View style={styles.dayCounter}>
-          <Text style={[styles.phaseLabel, { color: t.textMuted }]}>Day</Text>
+      <View style={[styles.header, { backgroundColor: 'rgba(255,245,230,0.95)', borderBottomColor: t.glassBorder }]}>
+        <View style={[styles.phaseBadge, { backgroundColor: 'rgba(212,101,26,0.12)', borderColor: 'rgba(212,101,26,0.4)' }]}>
+          <Text style={[styles.phaseLabel, { color: t.textMuted }]}>DAY</Text>
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
-        {hunterTriggered && hunterTriggered === playerId ? (
-          <View style={styles.timerSlot}>
-            <Timer totalSeconds={30} onExpire={handleHunterTimerExpire} theme={tr} />
-          </View>
-        ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
-          <View style={styles.timerSlot}>
-            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={tr} />
-          </View>
-        ) : null}
-        <View style={styles.headerTitleSlot}>
-          <Text style={[styles.title, { color: t.surfaceAlt }]}>The Village Awakens</Text>
+        <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village Awakens</Text>
+        <View style={styles.timerSlot}>
+          {hunterTriggered && hunterTriggered === playerId ? (
+            <Timer totalSeconds={30} onExpire={handleHunterTimerExpire} theme={t} />
+          ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
+            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={t} />
+          ) : null}
         </View>
-      </ImageBackground>
+      </View>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         {gs.isLover && gs.myLover && (
@@ -398,16 +390,18 @@ export default function DayPhaseScreen({ route, navigation }) {
                 const isSelected = !myVoteConfirmed && myVoteTarget === item.id;
                 const isMyConfirmedTarget = myVoteConfirmed && myVoteEntry?.target === item.id;
                 const theyConfirmed = votes[item.id]?.confirmed === true;
+                const aliveRowStyle = {
+                  backgroundColor: 'rgba(255,245,230,0.92)',
+                  borderColor: (isSelected || isMyConfirmedTarget) ? t.primary : 'rgba(212,101,26,0.18)',
+                };
+                const deadRowStyle = {
+                  backgroundColor: 'rgba(60,30,60,0.72)',
+                  borderColor: 'rgba(112,80,184,0.35)',
+                };
                 return (
-                  <ImageBackground
+                  <View
                     key={item.id}
-                    source={item.isAlive ? PLAYER_ROW_DAY : PLAYER_ROW_DEAD}
-                    style={[
-                      styles.playerRowBg,
-                      { borderWidth: 5, borderColor: (isSelected || isMyConfirmedTarget) ? t.primary : 'transparent' },
-                    ]}
-                    imageStyle={styles.playerRowImg}
-                    resizeMode="stretch"
+                    style={[styles.playerRowBg, item.isAlive ? aliveRowStyle : deadRowStyle]}
                   >
                     <View style={styles.playerRowInner}>
                       <View style={styles.playerCardWrap}>
@@ -431,7 +425,7 @@ export default function DayPhaseScreen({ route, navigation }) {
                         <Image source={DAY_CHECK_ICON} style={styles.confirmedBadgeImg} resizeMode="contain" />
                       )}
                     </View>
-                  </ImageBackground>
+                  </View>
                 );
               })}
             </View>
@@ -519,32 +513,23 @@ const styles = StyleSheet.create({
   backgroundImg: { transform: [{ scale: 1 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    height: 180,
-    borderBottomWidth: 1,
-  },
-  dayCounter: {
-    position: 'absolute',
-    top: '5%',
-    left: '6%',
-    width: '17%',
-    height: '35%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    gap: SPACING.sm,
+  },
+  phaseBadge: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    alignItems: 'center',
+    minWidth: 52,
   },
   timerSlot: {
-    position: 'absolute',
-    top: '5%',
-    right: '3%',
-    width: '25%',
-    height: '35%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleSlot: {
-    position: 'absolute',
-    left: '17%',
-    right: '17%',
-    bottom: '22%',
+    width: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -586,8 +571,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   voteProgress: { ...FONTS.caption },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden', borderRadius: RADIUS.md },
-  playerRowImg: { borderRadius: RADIUS.md },
+  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2 },
   playerRowInner: { flexDirection: 'row', alignItems: 'center' },
   playerCardWrap: { flex: 1 },
   confirmedBadgeImg: { width: 36, height: 36, marginRight: SPACING.sm },

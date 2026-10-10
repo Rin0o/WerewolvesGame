@@ -47,14 +47,14 @@ const styles = StyleSheet.create({
   container: {
     borderWidth: 2,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     alignItems: 'center',
   },
   time: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
 });

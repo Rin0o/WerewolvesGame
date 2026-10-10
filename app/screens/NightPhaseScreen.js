@@ -28,7 +28,8 @@ import WitchAction from '../components/night-actions/WitchAction';
 import CupidAction from '../components/night-actions/CupidAction';
 import ThiefAction from '../components/night-actions/ThiefAction';
 import SaviourAction from '../components/night-actions/SaviourAction';
-import { NIGHT, FONTS, RADIUS, SPACING, NIGHT_TIMER_THEME } from '../constants/theme';
+import NotesPanel from '../components/NotesPanel';
+import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
@@ -53,8 +54,8 @@ const SUBPHASE_FLAVOR = {
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
-const NIGHT_BACKGROUND     = require('../../assets/night_background.png');
-const NIGHT_TIMER          = require('../../assets/night_timer.png');
+const NIGHT_BACKGROUND = require('../../assets/night_background.png');
+const NOTES_ICON       = require('../../assets/notes.png');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -72,14 +73,15 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [thiefStolenRole, setThiefStolenRole] = useState(null);
   const [saviourTarget, setSaviourTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
+  const [eliminatedOverlay, setEliminatedOverlay] = useState(false);
   const pendingDay = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
 
   const t = NIGHT;
-  const tr = NIGHT_TIMER_THEME;
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -115,6 +117,11 @@ export default function NightPhaseScreen({ route, navigation }) {
   useEffect(() => {
     if (!room) return;
     if (room.status === 'day') {
+      const wasEliminated = Array.isArray(room.eliminatedThisNight) && room.eliminatedThisNight.includes(playerId);
+      if (wasEliminated) {
+        setEliminatedOverlay(true);
+        return;
+      }
       if (seerResult) {
         pendingDay.current = true;
       } else {
@@ -180,7 +187,7 @@ export default function NightPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, nightActions = {}, phase, witchPotions = {}, saviourLastProtected = null } = room;
+  const { players = [], roles = {}, nightActions = {}, phase, events = [], witchPotions = {}, saviourLastProtected = null } = room;
   const alivePlayers = players.filter((p) => p.isAlive && p.id !== playerId && !p.isNarrator);
   const myWitchPotions = witchPotions[playerId] || { save: false, poison: false };
   const victimId = nightActions.werewolf;
@@ -346,20 +353,21 @@ export default function NightPhaseScreen({ route, navigation }) {
         <PhaseTransition phase="night" onComplete={() => setShowTransition(false)} />
       )}
 
-      <ImageBackground source={NIGHT_TIMER} style={[styles.header, { borderBottomColor: t.border }]} resizeMode="stretch">
-        <View style={styles.phaseCounter}>
-          <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>Night</Text>
-          <Text style={[styles.phaseNumber, { color: t.textSecondary }]}>{phase}</Text>
+      <View style={[styles.header, { backgroundColor: 'rgba(13,8,32,0.82)', borderBottomColor: t.border }]}>
+        <View style={[styles.phaseBadge, { backgroundColor: 'rgba(123,79,212,0.20)', borderColor: 'rgba(123,79,212,0.5)' }]}>
+          <Text style={[styles.phaseLabel, { color: t.textSecondary }]}>NIGHT</Text>
+          <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
-        {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
-          <View style={styles.timerSlot}>
-            <Timer key={nightSubPhase} totalSeconds={SUBPHASE_TIMER} onExpire={handleTimerExpire} theme={tr} />
-          </View>
-        )}
-        <View style={styles.headerTitleSlot}>
-          <Text style={[styles.title, { color: t.text }]}>The Village goes to sleep</Text>
+        <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village goes to sleep</Text>
+        <TouchableOpacity onPress={() => setNotesOpen(true)} style={styles.notesBtn}>
+          <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
+        </TouchableOpacity>
+        <View style={styles.timerSlot}>
+          {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
+            <Timer key={nightSubPhase} totalSeconds={SUBPHASE_TIMER} onExpire={handleTimerExpire} theme={t} />
+          )}
         </View>
-      </ImageBackground>
+      </View>
 
       <ScrollView style={styles.scroll}>
         {gs.isNarrator && (
@@ -496,6 +504,33 @@ export default function NightPhaseScreen({ route, navigation }) {
         isAlive={gs.isAlive && !gs.isNarrator}
         isNarrator={gs.isNarrator}
       />
+
+      <NotesPanel
+        visible={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        theme={t}
+        players={players.filter((p) => !p.isNarrator)}
+        events={events}
+        playerHooks={playerHooks}
+      />
+
+      {eliminatedOverlay && (
+        <View style={styles.eliminatedOverlay}>
+          <View style={styles.eliminatedCard}>
+            <Text style={styles.eliminatedSkull}>💀</Text>
+            <Text style={styles.eliminatedTitle}>You were eliminated</Text>
+            <Text style={styles.eliminatedSub}>
+              The werewolves chose you as their victim tonight. You will join the village as a ghost.
+            </Text>
+            <TouchableOpacity
+              style={styles.eliminatedBtn}
+              onPress={() => navigation.replace('DayPhase', { roomId, playerId, nickname })}
+            >
+              <Text style={styles.eliminatedBtnText}>Continue to Day</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
     </ImageBackground>
   );
@@ -506,35 +541,28 @@ const styles = StyleSheet.create({
   backgroundImg: { transform: [{ scale: 1 }] },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    height: 200,
-    borderBottomWidth: 1,
-  },
-  phaseCounter: {
-    position: 'absolute',
-    top: '2%',
-    left: '7%',
-    width: '17%',
-    height: '30%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    gap: SPACING.sm,
+  },
+  phaseBadge: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    alignItems: 'center',
+    minWidth: 60,
   },
   timerSlot: {
-    position: 'absolute',
-    top: '0',
-    right: '3%',
-    width: '25%',
-    height: '35%',
+    width: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitleSlot: {
-    position: 'absolute',
-    left: '17%',
-    right: '17%',
-    bottom: '30%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  notesBtn: { padding: SPACING.xs },
+  notesIcon: { width: 36, height: 36 },
   title: { ...FONTS.heading, textAlign: 'center' },
   phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   phaseNumber: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
@@ -549,4 +577,44 @@ const styles = StyleSheet.create({
   moonBig: { fontSize: 72, marginBottom: SPACING.lg },
   waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
   waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
+  eliminatedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5,2,18,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  eliminatedCard: {
+    backgroundColor: 'rgba(30,12,50,0.98)',
+    borderWidth: 2,
+    borderColor: '#E85090',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    marginHorizontal: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  eliminatedSkull: { fontSize: 80 },
+  eliminatedTitle: {
+    ...FONTS.title,
+    color: '#E85090',
+    textAlign: 'center',
+  },
+  eliminatedSub: {
+    ...FONTS.body,
+    color: '#C0A8E8',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  eliminatedBtn: {
+    marginTop: SPACING.sm,
+    backgroundColor: '#E85090',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+  },
+  eliminatedBtnText: {
+    ...FONTS.button,
+    color: '#fff',
+  },
 });

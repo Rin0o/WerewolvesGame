@@ -1,11 +1,10 @@
 import React from 'react';
-import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const PLAYER_ROW_NIGHT  = require('../../../assets/player_row_night.png');
 const NIGHT_CHECK_ICON  = require('../../../assets/night_check.png');
 
 export default function SeerAction({ theme: t, players, seerTarget, onSelectTarget, onSubmit, seerResult, onDismissResult, suspicions = {}, suspectedRoles = {} }) {
@@ -82,12 +81,7 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
         keyExtractor={(p) => p.id}
         scrollEnabled={false}
         renderItem={({ item }) => (
-          <ImageBackground
-            source={PLAYER_ROW_NIGHT}
-            style={[styles.playerRowBg, { borderWidth: 3, borderColor: seerTarget === item.id ? t.danger : 'transparent' }]}
-            imageStyle={styles.playerRowImg}
-            resizeMode="stretch"
-          >
+          <View style={[styles.playerRowBg, { borderColor: seerTarget === item.id ? t.danger : t.border }]}>
             <PlayerCard
               player={item}
               theme={{ ...t, surface: 'transparent', border: 'transparent' }}
@@ -96,7 +90,7 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
               checkIcon={NIGHT_CHECK_ICON}
               noSelectionBorder
             />
-          </ImageBackground>
+          </View>
         )}
       />
       <TouchableOpacity
@@ -156,8 +150,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden', borderRadius: RADIUS.md },
-  playerRowImg: { borderRadius: RADIUS.md },
+  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,

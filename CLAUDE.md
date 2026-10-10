@@ -25,8 +25,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     PlayerCard.js            — Reusable player row with suspicion/role chip display;
                                props: avatarIcon (overrides letter avatar), avatarIconSize (default 40),
                                noDeadOpacity (suppresses opacity:0.45 on dead rows)
-    NotesPanel.js            — Slide-up modal: player board, notepad, clue log;
-                               does NOT receive roles prop (role reveal is day-screen-only)
+    NotesPanel.js            — Slide-up modal: player board (card-per-player with suspicion
+                               strip + role picker), notepad, clue log; does NOT receive
+                               roles prop (role reveal is day-screen-only); uses setSuspicion
+                               (direct level set) from usePlayer rather than cycleSuspicion
     WerewolfChat.js          — Real-time Firestore chat (wolves only + narrator); accepts
                                isNarrator prop to show observer label instead of input
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
@@ -55,11 +57,13 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   /hooks/
     useRoom.js               — Real-time room listener → { room, loading, error }
     useGameState.js          — Derived selectors from room + playerId
-    usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles
+    usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles;
+                               exposes cycleSuspicion (cycle through levels) and
+                               setSuspicion(playerId, level) (direct level set)
   /constants/
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
                                getCompositionForCount(), buildCustomComposition()
-    theme.js                 — DAY, NIGHT, DAY_TIMER_THEME, NIGHT_TIMER_THEME theme objects
+    theme.js                 — DAY, NIGHT, DAY_TIMER_THEME, NIGHT_TIMER_THEME theme objects (timer themes kept for reference but not used in headers)
                                + FONTS, RADIUS, SPACING
     devConfig.js             — BOT_CONFIG: enable/disable test bots and their roles
 /assets/
@@ -68,12 +72,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   play_btn.png               — LaunchScreen play button (stained-glass style)
   day_background.png         — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
   night_background.png       — NightPhaseScreen full-screen ImageBackground (deep purple castle)
-  day_timer.png              — Day timer banner image; dark bar in centre holds the Timer overlay
-  night_timer.png            — Night timer banner image; same dark-bar pattern as day_timer
   dawn_banner.png            — PhaseTransition banner for day transitions (red/gold stained glass)
   night_banner.png           — PhaseTransition banner for night transitions (blue/purple stained glass)
-  player_row_day.png         — DayPhaseScreen player list row background for alive players
-  player_row_dead.png        — DayPhaseScreen player list row background for dead players (dark purple)
   leave.png                  — Leave/exit button image (DayPhaseScreen)
   exit_game.png              — Leave/exit button image (NightPhaseScreen)
   notes.png                  — Notes button image (DayPhaseScreen toolbar)
@@ -210,16 +210,17 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. It calls `navigation.replace('Home')` on press so the back button can never return to it.
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire.
 - **No comments in code**: Code is self-documenting via naming.
-- **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly. `DAY_TIMER_THEME` and `NIGHT_TIMER_THEME` mirror their parent themes but with `border: 'transparent'`; they are passed to the `Timer` component so the countdown text uses `t.accent` (amber/lavender) and is visible against the dark bar on the timer banner images.
-- **Full-screen backgrounds**: `DayPhaseScreen` and `NightPhaseScreen` use `<ImageBackground>` as the root element with `resizeMode="cover"` and `imageStyle={{ transform: [{ scale: 1.08 }] }}` to bleed edge-to-edge. `<SafeAreaView>` is nested inside. All header and toolbar backgrounds are transparent so the artwork shows through.
-- **Glass-card pattern**: UI sections (vote panel, hunter box, player list, action boxes) use semi-transparent `rgba(...)` backgrounds rather than solid colours so the background image remains visible. Day cards use warm cream `rgba(255,245,230,0.93)`; night action boxes use dark `rgba(10,5,28,0.78)`.
-- **Timer overlay pattern**: Both phase screens wrap the timer banner image and the `<Timer>` component together in a `timerBox` (position: relative). The `<Timer>` sits inside `timerOverlay` (position: absolute, top: 77%, left: 50%, translateX/Y: -50) so it appears centred on the dark bar cut into the banner image.
+- **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly and passes it to the `Timer` component.
+- **Full-screen backgrounds**: `DayPhaseScreen` and `NightPhaseScreen` use `<ImageBackground>` as the root element with `resizeMode="cover"` to bleed edge-to-edge. `<SafeAreaView>` is nested inside. The header is a semi-transparent `<View>` (not an ImageBackground).
+- **Phase screen header pattern**: Both phase screens use a `flexDirection: 'row'` `<View>` header containing: a pill-shaped phase badge (label + number), a centered flex-1 title, and a fixed-width timer slot. Day header: `rgba(255,245,230,0.95)` bg; night header: `rgba(13,8,32,0.82)` bg.
+- **Glass-card pattern**: UI sections (vote panel, hunter box, player list, action boxes) use semi-transparent `rgba(...)` backgrounds so the background image remains visible. Day cards use warm cream `rgba(255,245,230,0.93)`; night action boxes use dark `rgba(10,5,28,0.78)`.
 - **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.png` (day) or `night_banner.png` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
 - **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` PNG — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature").
-- **Phase counter 2-line format**: The phase counter in both DayPhaseScreen and NightPhaseScreen is split across two `<Text>` elements — `phaseLabel` (caption style, uppercase, letter-spaced) on line 1 shows "Day"/"Night", and `phaseNumber` (fontSize: 22, fontWeight: '700') on line 2 shows the cycle number. Both sit inside the square container image.
-- **Dead player row pattern**: In DayPhaseScreen, dead player rows use `player_row_dead.png` instead of `player_row_day.png`. Because the dead background is dark purple, a purple-toned theme override is passed inline to PlayerCard (`text: '#F0ECFF'`, `textMuted: '#B0A0D0'`, `textSecondary: '#C0A8E0'`, `primary: '#7050B8'`, `accent: '#D0A8FF'`). `noDeadOpacity` is set to prevent the 0.45 opacity from washing out the already-light text.
+- **Phase counter 2-line format**: The phase counter in both DayPhaseScreen and NightPhaseScreen is split across two `<Text>` elements — `phaseLabel` (caption style, uppercase, letter-spaced) on line 1, and `phaseNumber` (fontSize: 22, fontWeight: '700') on line 2. Both sit inside the `phaseBadge` pill View in the header row.
+- **Dead player row pattern**: In DayPhaseScreen, dead player rows use `backgroundColor: 'rgba(60,30,60,0.72)'` and a purple border. A purple-toned theme override is passed inline to PlayerCard (`text: '#F0ECFF'`, etc.). `noDeadOpacity` is set to prevent the 0.45 opacity from washing out the already-light text.
+- **Player row pattern**: Player lists (day screen, night action components, HunterSection) use a plain `<View>` with a themed `backgroundColor` and `borderWidth: 2` `borderColor` that changes on selection. Day alive: `rgba(255,245,230,0.92)`; night: `rgba(20,10,50,0.82)`.
 - **PlayerCard avatar slots**: `avatarIcon` prop takes full precedence over the letter-circle and dead-role-icon fallbacks. Day screen passes `unknown.png` for alive players and `dead.png` for dead players (56×56); role is already shown below the name for dead players so the role icon is not used in the avatar slot. NotesPanel follows the same logic. `avatarIconSize` defaults to 40; both screens set it to 56.
-- **Suspicion badge in NotesPanel**: Dead player rows in NotesPanel receive `suspicionLevel={null}`, which suppresses both the suspicion icon badge and the label inside PlayerCard. The role picker button on the right remains visible for all players (alive and dead).
+- **NotesPanel player board**: Each player gets a card (`boardCard`) with avatar + name on top and a horizontal suspicion strip below (4 level icons: innocent/neutral/suspicious/very_suspicious). Tapping an icon sets that level directly via `setSuspicion`. Dead player cards hide the suspicion strip and show an "Eliminated" label. The role picker button (top-right of each card) opens a modal with all role options; shows the role icon + name label when set.
 - **Visual style**: Stained-glass medieval fantasy aesthetic consistent across all assets. Dark stone frames, jewel-toned panels, castle motifs. UI chrome (cards, overlays) should blend with this palette.
 
 ## Firebase Setup (Required Before Running)

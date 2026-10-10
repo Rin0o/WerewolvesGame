@@ -1,11 +1,9 @@
 import React from 'react';
-import { View, Text, Image, ImageBackground, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
-
-const PLAYER_ROW_DAY = require('../../../assets/player_row_day.png');
 
 export default function HunterSection({ theme: t, players, playerId, hunterTriggered, hunterTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
   return (
@@ -63,14 +61,14 @@ export default function HunterSection({ theme: t, players, playerId, hunterTrigg
             keyExtractor={(p) => p.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <ImageBackground source={PLAYER_ROW_DAY} style={styles.playerRowBg} imageStyle={styles.playerRowImg} resizeMode="stretch">
+              <View style={[styles.playerRowBg, { borderColor: hunterTarget === item.id ? t.danger : 'rgba(212,101,26,0.18)' }]}>
                 <PlayerCard
                   player={item}
                   theme={{ ...t, surface: 'transparent', border: 'transparent' }}
                   selected={hunterTarget === item.id}
                   onPress={() => onSelectTarget(item.id)}
                 />
-              </ImageBackground>
+              </View>
             )}
           />
           <TouchableOpacity
@@ -135,8 +133,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  playerRowBg: { marginBottom: SPACING.xs, overflow: 'hidden' },
-  playerRowImg: { borderRadius: RADIUS.md },
+  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(255,245,230,0.92)' },
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,

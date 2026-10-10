@@ -49,6 +49,12 @@ export default function usePlayer(roomId) {
     persist({ notes, suspicions: updated, suspectedRoles });
   }
 
+  function setSuspicion(playerId, level) {
+    const updated = { ...suspicions, [playerId]: level };
+    setSuspicions(updated);
+    persist({ notes, suspicions: updated, suspectedRoles });
+  }
+
   function setSuspectedRole(playerId, role) {
     const updated = { ...suspectedRoles, [playerId]: role };
     setSuspectedRoles(updated);
@@ -56,9 +62,10 @@ export default function usePlayer(roomId) {
   }
 
   async function clearGameData() {
+    setNotes('');
     setSuspicions({});
     setSuspectedRoles({});
-    await persist({ notes, suspicions: {}, suspectedRoles: {} });
+    await persist({ notes: '', suspicions: {}, suspectedRoles: {} });
   }
 
   return {
@@ -66,6 +73,7 @@ export default function usePlayer(roomId) {
     updateNotes,
     suspicions,
     cycleSuspicion,
+    setSuspicion,
     suspectedRoles,
     setSuspectedRole,
     clearGameData,
