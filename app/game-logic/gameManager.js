@@ -227,8 +227,8 @@ export async function resolveNight(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
-  const winner = checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
+  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers.filter((p) => p.isAlive), updatedRoles);
 
   await updateRoom(roomId, {
@@ -301,8 +301,8 @@ export async function resolveLynch(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
-  const winner = checkWinCondition(updatedPlayers, roles, lovers);
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
+  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, roles, lovers);
   const advanceToNight = !winner && !hunterTriggered;
 
   let nightSubPhase;
@@ -348,4 +348,6 @@ export async function hunterShoot(roomId, roomData, targetId) {
     hunterTriggered: null,
     events: arrayUnion(...events),
   });
+
+  return { winner };
 }

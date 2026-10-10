@@ -56,7 +56,6 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [wolfChatOpen, setWolfChatOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
-  const [hunterMode, setHunterMode] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
   const [lastLynchResult, setLastLynchResult] = useState(null);
@@ -110,10 +109,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     if (room.status === 'ended') {
       navigation.replace('GameOver', { roomId, playerId, nickname });
     }
-    if (room.hunterTriggered === playerId && gs.isAlive === false) {
-      setHunterMode(true);
-    }
-  }, [room?.status, room?.hunterTriggered]);
+  }, [room?.status]);
 
   useEffect(() => {
     if (!room || !gs.isHost || room.status !== 'day' || !BOT_CONFIG.enabled || botVotedRef.current) return;
@@ -146,8 +142,19 @@ export default function DayPhaseScreen({ route, navigation }) {
     setResultModalVisible(true);
   }, [room?.votesClosed, allIn]);
 
+  const hadHunterRef = useRef(false);
+  const startedNextNightRef = useRef(false);
+
   useEffect(() => {
-    if (room?.hunterTriggered) setResultModalVisible(false);
+    if (room?.hunterTriggered) {
+      hadHunterRef.current = true;
+      startedNextNightRef.current = false;
+      setResultModalVisible(false);
+    } else if (hadHunterRef.current && !startedNextNightRef.current && room?.status === 'day' && !room?.winner && gs.isHost) {
+      hadHunterRef.current = false;
+      startedNextNightRef.current = true;
+      startNextNight(roomId, roomRef.current);
+    }
   }, [room?.hunterTriggered]);
 
   roomRef.current = room;
@@ -187,8 +194,11 @@ export default function DayPhaseScreen({ route, navigation }) {
   }
 
   async function handleResultExpire() {
-    if (!gs.isHost || resolvingRef.current) return;
     setResultModalVisible(false);
+    setLastLynchResult(null);
+    setMyVoteTarget(null);
+    shownResultRef.current = false;
+    if (!gs.isHost || resolvingRef.current) return;
     setResolving(true);
     resolveLynch(roomId, roomRef.current)
       .catch(() => setResolving(false))
@@ -197,8 +207,16 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   async function handleHunterShoot() {
     if (!hunterTarget) return;
-    await hunterShoot(roomId, roomRef.current, hunterTarget);
-    setHunterMode(false);
+    const currentRoom = roomRef.current;
+    const { winner } = await hunterShoot(roomId, currentRoom, hunterTarget);
+    setLastLynchResult(null);
+    setMyVoteTarget(null);
+    shownResultRef.current = false;
+    if (!winner && gs.isHost && !startedNextNightRef.current) {
+      startedNextNightRef.current = true;
+      hadHunterRef.current = false;
+      startNextNight(roomId, currentRoom);
+    }
   }
 
   async function handleHunterTimerExpire() {
@@ -211,8 +229,15 @@ export default function DayPhaseScreen({ route, navigation }) {
       target = eligible[Math.floor(Math.random() * eligible.length)].id;
       setHunterTarget(target);
     }
-    await hunterShoot(roomId, currentRoom, target);
-    setHunterMode(false);
+    const { winner } = await hunterShoot(roomId, currentRoom, target);
+    setLastLynchResult(null);
+    setMyVoteTarget(null);
+    shownResultRef.current = false;
+    if (!winner && gs.isHost && !startedNextNightRef.current) {
+      startedNextNightRef.current = true;
+      hadHunterRef.current = false;
+      startNextNight(roomId, currentRoom);
+    }
   }
 
   const selectedTarget = myVoteConfirmed
