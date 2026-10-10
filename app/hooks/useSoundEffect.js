@@ -1,25 +1,20 @@
-import { useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import { useEffect } from 'react';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { SOUND_ASSETS } from '../utils/soundAssets';
 
 export default function useSoundEffect(key) {
-  const soundRef = useRef(null);
-
   useEffect(() => {
     if (!key || !SOUND_ASSETS[key]) return;
 
+    let player = null;
     let active = true;
 
     async function load() {
       try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-        const { sound } = await Audio.Sound.createAsync(SOUND_ASSETS[key]);
-        if (!active) {
-          sound.unloadAsync();
-          return;
-        }
-        soundRef.current = sound;
-        await sound.playAsync();
+        await setAudioModeAsync({ playsInSilentMode: true });
+        if (!active) return;
+        player = createAudioPlayer(SOUND_ASSETS[key]);
+        player.play();
       } catch {}
     }
 
@@ -27,8 +22,10 @@ export default function useSoundEffect(key) {
 
     return () => {
       active = false;
-      soundRef.current?.unloadAsync();
-      soundRef.current = null;
+      try {
+        player?.remove();
+      } catch {}
+      player = null;
     };
   }, [key]);
 }

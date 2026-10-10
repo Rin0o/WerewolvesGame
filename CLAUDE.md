@@ -4,7 +4,9 @@
 A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side coordinated via Firebase Firestore. No backend server.
 
 ## Tech Stack
-- **Expo ~54** (React Native 0.81)
+- **Expo ~57** (React Native 0.86, React 19.2) — New Architecture only
+- **expo-audio** — sound effects (`useSoundEffect`); replaced `expo-av`, which was removed in SDK 55
+- `android/` is committed; after changing `app.json` or native deps, rerun `npx expo prebuild --platform android` (clears and regenerates by default)
 - **Firebase 10** — Firestore (real-time game state) + Anonymous Auth
 - **React Navigation 6** — Native Stack (`createNativeStackNavigator`)
 - **AsyncStorage** — local per-player notes/suspicions only
