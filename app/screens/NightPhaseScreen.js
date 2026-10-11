@@ -16,9 +16,9 @@ import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
-import { clearSession } from '../utils/session';
 import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
-import { resolveNight, computeNightSequence, isSubPhaseDone } from '../game-logic/gameManager';
+import { clearSession } from '../utils/session';
+import { resolveNight, computeNightSequence, nextNightSubPhase, isSubPhaseDone } from '../game-logic/gameManager';
 import { getAvailableRolesForThief } from '../game-logic/roles';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
@@ -72,6 +72,7 @@ const DEATH_MESSAGES = {
 
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
+const LEAVE_ICON       = require('../../assets/exit_game.webp');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -117,7 +118,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   function handleExit() {
     Alert.alert(
       'Leave Game',
-      'You will be eliminated at the end of this phase if you leave. Are you sure?',
+      'You will be eliminated at the end of this night if you leave. Are you sure?',
       [
         { text: 'Stay', style: 'cancel' },
         {
@@ -162,17 +163,16 @@ export default function NightPhaseScreen({ route, navigation }) {
       return;
     }
     if (nightSubPhase === 'done' || resolvingRef.current) return;
-    if (!isSubPhaseDone(nightSubPhase, room)) return;
-    const sequence = computeNightSequence(room);
-    const idx = sequence.indexOf(nightSubPhase);
-    const next = idx === -1 || idx >= sequence.length - 1 ? 'done' : sequence[idx + 1];
+    const activePlayerLeft = !computeNightSequence(room).includes(nightSubPhase);
+    if (!isSubPhaseDone(nightSubPhase, room) && !activePlayerLeft) return;
+    const next = nextNightSubPhase(room, nightSubPhase);
     if (next === 'done') {
       setResolving(true);
       resolveNight(roomId, roomRef.current).catch(() => setResolving(false));
     } else {
       updateRoom(roomId, { nightSubPhase: next });
     }
-  }, [room?.nightActions, room?.nightSubPhase, room?.status, gs.isHost]);
+  }, [room?.nightActions, room?.nightSubPhase, room?.status, room?.disconnectedPlayers, gs.isHost]);
 
   useEffect(() => {
     subPhaseTimerExpiredRef.current = false;
@@ -341,10 +341,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function doNarratorAdvance() {
     const currentRoom = roomRef.current;
     if (!currentRoom) return;
-    const subPhase = currentRoom.nightSubPhase;
-    const sequence = computeNightSequence(currentRoom);
-    const idx = sequence.indexOf(subPhase);
-    const next = idx === -1 || idx >= sequence.length - 1 ? 'done' : sequence[idx + 1];
+    const next = nextNightSubPhase(currentRoom, currentRoom.nightSubPhase);
     if (next === 'done') {
       setResolving(true);
       resolveNight(roomId, currentRoom).catch(() => setResolving(false));
@@ -391,6 +388,9 @@ export default function NightPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
         <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village goes to sleep</Text>
+        <TouchableOpacity onPress={handleExit} style={styles.notesBtn}>
+          <Image source={LEAVE_ICON} style={styles.leaveIcon} resizeMode="contain" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setNotesOpen(true)} style={styles.notesBtn}>
           <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
         </TouchableOpacity>
@@ -595,6 +595,7 @@ const styles = StyleSheet.create({
   },
   notesBtn: { padding: SPACING.xs },
   notesIcon: { width: 36, height: 36 },
+  leaveIcon: { width: 46, height: 32 },
   title: { ...FONTS.heading, textAlign: 'center' },
   phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   phaseNumber: { fontSize: 20, fontWeight: '700', lineHeight: 26 },

@@ -60,7 +60,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     roles.js                 — assignRoles(players, composition?), checkWinCondition(),
                                getWerewolves(), getSisters(), getPlayerWithRole(),
                                getLoversPartner(), getAvailableRolesForThief()
-    gameManager.js           — startGame(), computeNightSequence(), isSubPhaseDone(),
+    gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
                                resolveNight(), startNextNight(), resolveLynch(), hunterShoot()
     voteManager.js           — allVotesIn(), tallyVotes()
   /firebase/
@@ -104,7 +104,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   dawn_banner.webp           — PhaseTransition banner for day transitions (red/gold stained glass)
   night_banner.webp          — PhaseTransition banner for night transitions (blue/purple stained glass)
   leave.webp                 — Leave/exit button image (DayPhaseScreen)
-  exit_game.webp             — Leave button image (GameOverScreen)
+  exit_game.webp             — Leave button image (NightPhaseScreen header, GameOverScreen)
   notes.webp                 — Notes button image (Day + Night headers)
   day_chat.webp / night_chat.webp, day_confirm.webp / night_confirm.webp,
   day_check.webp / night_check.webp — chat, confirm-vote/action and confirmed-badge images
@@ -217,7 +217,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 ### Night Order (`computeNightSequence`)
 - **Night 1**: Thief (if alive and roles are available) → Cupid → Werewolves (observe only: `werewolfObserved`, no kill) → Seer
 - **Night 2+**: Saviour → Werewolves (pick victim) → Witch (only if she has a potion left) → Seer
-- Roles that are absent, dead or disconnected are skipped. The host advances `nightSubPhase` when `isSubPhaseDone()` is true, and calls `resolveNight()` after the last step.
+- Roles that are absent, dead or disconnected are skipped (`FIRST_NIGHT_ORDER` / `LATER_NIGHT_ORDER` filtered by who can act). The host advances `nightSubPhase` with `nextNightSubPhase(room, current)` — the next step in the full order that still has someone to act — when `isSubPhaseDone()` is true **or** the current step's player has left (`disconnectedPlayers`), and calls `resolveNight()` after the last step. Never compute "next" from the index in `computeNightSequence()`: a step whose player left is no longer in that list.
 - `resolveNight` order: Thief swap → Saviour block → Witch save → wolf kill (+ lover chain) → Witch poison (+ lover chain) → disconnected players (+ lover chain) → Hunter trigger / win check → Bear Tamer growl. Wolves and Witch poison do nothing on night 1.
 
 ### Role Details
@@ -252,7 +252,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Vote feedback**: DayPhaseScreen snapshots the vote map into local `lastLynchResult` state the moment voting ends — before `resolveLynch` wipes `votes: {}`. `LynchResultModal` shows it (verdict, tally, per-player votes, role reveal if lynched) for 8s; on expiry the host calls `resolveLynch()`.
 - **Events are atomic**: All game events are written using Firestore `arrayUnion(...events)` inside the same `updateRoom()` call that changes `status`. Never use separate `addEvent()` calls from game logic — this caused race conditions where clients saw the status change before events landed.
 - **Game start**: `startGame()` writes roles + `status: 'night'` immediately and clears the old wolf chat in parallel (don't block the start write on cleanup). The Lobby's Start button shows "Starting..." and ignores double taps.
-- **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog. Only DayPhaseScreen has that button (`leave.webp`); there is no Leave button at night.
+- **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog. Day: bottom bar (`leave.webp`). Night: header, next to Notes (`exit_game.webp`). Both call `disconnectPlayer()` + `clearSession()` and go to Home.
 - **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
 - **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname }] }` (currently `enabled: false`). When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Roles are random every game: the composition is shuffled, bots take random `werewolf`/`villager` slots (they can't play special roles), and humans get the rest, so a human can be a wolf even with bots on.
 - **Game modes**: Host selects Normal, Custom, or Narrator in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
@@ -320,7 +320,6 @@ cd android
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
-- No Leave button during the night (players can only leave during the day)
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - Not yet implemented roles with existing artwork in `assets-src/roles/`: White Wolf, Wolf Hound
 - React Navigation is on v6 (v7 upgrade pending)

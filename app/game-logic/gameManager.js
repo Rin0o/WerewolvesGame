@@ -40,20 +40,28 @@ export function computeNightSequence(room) {
   const potions = witchPlayer ? witchPotions[witchPlayer.id] : null;
   const witchHasPotions = potions ? (potions.save === true || potions.poison === true) : false;
 
-  if (phase === 1) {
-    const seq = [];
-    if (isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0) seq.push('thief');
-    if (isActive(ROLE.CUPID)) seq.push('cupid');
-    seq.push('werewolf');
-    if (isActive(ROLE.SEER)) seq.push('seer');
-    return seq;
-  }
-  const seq = [];
-  if (isActive(ROLE.SAVIOUR)) seq.push('saviour');
-  if (isActive(ROLE.WEREWOLF)) seq.push('werewolf');
-  if (witchHasPotions) seq.push('witch');
-  if (isActive(ROLE.SEER)) seq.push('seer');
-  return seq;
+  const wakes = {
+    thief: isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0,
+    cupid: isActive(ROLE.CUPID),
+    saviour: isActive(ROLE.SAVIOUR),
+    werewolf: isActive(ROLE.WEREWOLF),
+    witch: witchHasPotions,
+    seer: isActive(ROLE.SEER),
+  };
+  return nightOrder(phase).filter((step) => wakes[step]);
+}
+
+const FIRST_NIGHT_ORDER = ['thief', 'cupid', 'werewolf', 'seer'];
+const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'witch', 'seer'];
+
+function nightOrder(phase) {
+  return phase === 1 ? FIRST_NIGHT_ORDER : LATER_NIGHT_ORDER;
+}
+
+export function nextNightSubPhase(room, current) {
+  const order = nightOrder(room.phase);
+  const active = computeNightSequence(room);
+  return order.slice(order.indexOf(current) + 1).find((step) => active.includes(step)) || 'done';
 }
 
 export function isSubPhaseDone(subPhase, room) {

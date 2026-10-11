@@ -364,7 +364,8 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Roles are not secret from a determined player.** Every phone receives the full room document, including all roles, so a technically minded player could read them. Fixing this would need server-side logic, such as Cloud Functions, plus stricter Firestore rules.
 - **Open Firestore rules.** Any signed-in user, including anonymous ones, can read and write any room. The Firebase web configuration in `config.js` isn't a secret in itself; protection depends entirely on the rules.
 - **Timers run on each phone**, so they can drift slightly on slow devices.
-- **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. The Leave button is currently only shown during the day.- **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
+- **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
+- **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
 - **Bear Tamer neighbours** are based on join order, not on where people actually sit.
 - **React Navigation 6** is behind the current major version; upgrading to 7 is a future task.
