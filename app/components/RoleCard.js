@@ -15,6 +15,8 @@ const ROLE_IMAGES = {
   saviour:    require('../../assets/roles/saviour.webp'),
   bear_tamer: require('../../assets/roles/bear_tamer.webp'),
   sister:     require('../../assets/roles/sisters.webp'),
+  white_wolf: require('../../assets/roles/white_wolf.webp'),
+  wolf_hound: require('../../assets/roles/wolf_hound.webp'),
 };
 
 export default function RoleCard({ role, fellowWolves = [], fellowSisters = [], players = [] }) {

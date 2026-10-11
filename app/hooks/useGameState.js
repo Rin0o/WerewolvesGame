@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ROLE } from '../constants/roles';
+import { ROLE, isWolfRole } from '../constants/roles';
 import { getWerewolves, getLoversPartner, getAvailableRolesForThief, getSisters } from '../game-logic/roles';
 
 /**
@@ -18,7 +18,7 @@ export default function useGameState(room, currentPlayerId) {
     const isHost = myPlayer?.isHost ?? false;
     const isNarrator = myPlayer?.isNarrator ?? false;
 
-    const fellowWolves = myRole === ROLE.WEREWOLF
+    const fellowWolves = isWolfRole(myRole)
       ? getWerewolves(roles).filter((id) => id !== currentPlayerId)
       : [];
     const fellowSisters = myRole === ROLE.SISTER

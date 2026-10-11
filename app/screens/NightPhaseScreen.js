@@ -18,7 +18,14 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { clearSession } from '../utils/session';
-import { resolveNight, computeNightSequence, nextNightSubPhase, isSubPhaseDone } from '../game-logic/gameManager';
+import {
+  resolveNight,
+  computeNightSequence,
+  nextNightSubPhase,
+  isSubPhaseDone,
+  advanceNightUpdate,
+  isQuietFirstNight,
+} from '../game-logic/gameManager';
 import { getAvailableRolesForThief } from '../game-logic/roles';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
@@ -30,17 +37,19 @@ import WitchAction from '../components/night-actions/WitchAction';
 import CupidAction from '../components/night-actions/CupidAction';
 import ThiefAction from '../components/night-actions/ThiefAction';
 import SaviourAction from '../components/night-actions/SaviourAction';
+import WolfHoundAction from '../components/night-actions/WolfHoundAction';
+import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE } from '../constants/roles';
+import { ROLE, isWolfRole } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const SUBPHASE_TIMER = 45;
-const SUBPHASE_TIMER_OVERRIDES = { thief: 15, cupid: 15, seer: 30, saviour: 30 };
-const FIRST_NIGHT_WEREWOLF_TIMER = 15;
+const SUBPHASE_TIMER_OVERRIDES = { thief: 15, cupid: 15, wolf_hound: 15, seer: 30, saviour: 30, white_wolf: 30 };
+const OBSERVE_ONLY_WEREWOLF_TIMER = 15;
 
-function subPhaseSeconds(subPhase, phase) {
-  if (subPhase === 'werewolf' && phase === 1) return FIRST_NIGHT_WEREWOLF_TIMER;
+function subPhaseSeconds(subPhase, room) {
+  if (subPhase === 'werewolf' && isQuietFirstNight(room)) return OBSERVE_ONLY_WEREWOLF_TIMER;
   return SUBPHASE_TIMER_OVERRIDES[subPhase] ?? SUBPHASE_TIMER;
 }
 
@@ -51,12 +60,16 @@ const SUBPHASE_TO_ROLE = {
   cupid: ROLE.CUPID,
   thief: ROLE.THIEF,
   saviour: ROLE.SAVIOUR,
+  wolf_hound: ROLE.WOLF_HOUND,
+  white_wolf: ROLE.WHITE_WOLF,
 };
 
 const SUBPHASE_FLAVOR = {
   thief:    { title: 'A Shadow Stirs...', sub: 'A mysterious figure examines the unclaimed roles.' },
   cupid:    { title: 'Cupid Takes Aim...', sub: 'An arrow of fate is about to be loosed upon two souls.' },
+  wolf_hound: { title: 'A Hound Howls...', sub: 'A restless creature decides where its loyalty lies.' },
   werewolf: { title: 'The Pack Hunts...', sub: 'Wolves prowl the darkness in silence.' },
+  white_wolf: { title: 'A Pale Shape Moves...', sub: 'Something stalks the pack while it sleeps.' },
   witch:    { title: 'The Witch Brews...', sub: 'A potion is being carefully considered.' },
   seer:     { title: 'The Seer Dreams...', sub: 'A mystic peers into the souls of the village.' },
   saviour:  { title: 'A Guardian Watches...', sub: 'Someone is being chosen for protection tonight.' },
@@ -68,6 +81,7 @@ const DEATH_MESSAGES = {
   poison:     "The witch's poison claimed you in the night.",
   heartbreak: 'Your lover was killed tonight, and you died of a broken heart.',
   abandoned:  'You left the village and were lost in the night.',
+  white_wolf: 'The White Wolf turned on the pack and devoured you.',
 };
 
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
@@ -91,6 +105,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [thiefChoice, setThiefChoice] = useState(null);
   const [thiefStolenRole, setThiefStolenRole] = useState(null);
   const [saviourTarget, setSaviourTarget] = useState(null);
+  const [houndChoice, setHoundChoice] = useState(null);
+  const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -171,12 +187,13 @@ export default function NightPhaseScreen({ route, navigation }) {
       setResolving(true);
       resolveNight(roomId, roomRef.current).catch(() => setResolving(false));
     } else {
-      updateRoom(roomId, { nightSubPhase: next });
+      updateRoom(roomId, advanceNightUpdate(room, next));
     }
   }, [room?.nightActions, room?.nightSubPhase, room?.status, room?.disconnectedPlayers, gs.isHost]);
 
   useEffect(() => {
     subPhaseTimerExpiredRef.current = false;
+    setMyActionDone(false);
   }, [room?.nightSubPhase]);
 
   useEffect(() => {
@@ -185,18 +202,18 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!gs.isHost || !room || !BOT_CONFIG.enabled || room.status !== 'night') return;
-    const { nightSubPhase, players = [], roles = {}, nightActions = {}, phase } = room;
+    const { nightSubPhase, players = [], roles = {}, nightActions = {} } = room;
     if (!nightSubPhase || nightSubPhase === 'done') return;
     if (isSubPhaseDone(nightSubPhase, room)) return;
     const aliveBots = players.filter((p) => p.isBot && p.isAlive);
-    if (nightSubPhase === 'werewolf' && phase === 1 && !nightActions.werewolfObserved) {
-      if (aliveBots.some((b) => roles[b.id] === ROLE.WEREWOLF)) {
+    if (nightSubPhase === 'werewolf' && isQuietFirstNight(room) && !nightActions.werewolfObserved) {
+      if (aliveBots.some((b) => isWolfRole(roles[b.id]))) {
         submitNightAction(roomId, 'werewolfObserved', true);
       }
-    } else if (nightSubPhase === 'werewolf' && phase > 1 && !nightActions.werewolf) {
-      const botWolves = aliveBots.filter((b) => roles[b.id] === ROLE.WEREWOLF);
+    } else if (nightSubPhase === 'werewolf' && !isQuietFirstNight(room) && !nightActions.werewolf) {
+      const botWolves = aliveBots.filter((b) => isWolfRole(roles[b.id]));
       if (botWolves.length > 0) {
-        const targets = players.filter((p) => p.isAlive && roles[p.id] !== ROLE.WEREWOLF && !p.isNarrator);
+        const targets = players.filter((p) => p.isAlive && !isWolfRole(roles[p.id]) && !p.isNarrator);
         if (targets.length > 0) {
           submitNightAction(roomId, 'werewolf', targets[Math.floor(Math.random() * targets.length)].id);
         }
@@ -223,7 +240,7 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   async function submitWolfAction() {
     const currentRoom = roomRef.current;
-    if (currentRoom?.phase === 1) {
+    if (currentRoom && isQuietFirstNight(currentRoom)) {
       await submitNightAction(roomId, 'werewolfObserved', true);
     } else {
       if (!wolfTarget) return;
@@ -235,7 +252,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function submitSeerReveal() {
     if (!seerTarget) return;
     const revealed = roles[seerTarget];
-    const isWolf = revealed === ROLE.WEREWOLF;
+    const isWolf = isWolfRole(revealed);
     setSeerResult(isWolf ? '🐺 They are a Werewolf!' : '✅ They are NOT a Werewolf.');
     await submitNightAction(roomId, 'seer', seerTarget);
   }
@@ -282,6 +299,23 @@ export default function NightPhaseScreen({ route, navigation }) {
     setMyActionDone(true);
   }
 
+  async function submitHoundChoice() {
+    if (!houndChoice) return;
+    await submitNightAction(roomId, 'wolfHound', houndChoice);
+    setMyActionDone(true);
+  }
+
+  async function submitWhiteWolfKill() {
+    if (!whiteWolfTarget) return;
+    await submitNightAction(roomId, 'whiteWolf', whiteWolfTarget);
+    setMyActionDone(true);
+  }
+
+  async function submitWhiteWolfSkip() {
+    await submitNightAction(roomId, 'whiteWolfSkip', true);
+    setMyActionDone(true);
+  }
+
   function toggleCupidTarget(id) {
     setCupidTargets((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : prev
@@ -304,14 +338,20 @@ export default function NightPhaseScreen({ route, navigation }) {
     const { players: rPlayers = [], roles: rRoles = {}, saviourLastProtected: svlp = null } = currentRoom;
     switch (subPhase) {
       case 'werewolf': {
-        if (currentRoom.phase === 1) {
+        if (isQuietFirstNight(currentRoom)) {
           await submitNightAction(roomId, 'werewolfObserved', true);
         } else {
-          const tgts = rPlayers.filter((p) => p.isAlive && rRoles[p.id] !== ROLE.WEREWOLF && !p.isNarrator);
+          const tgts = rPlayers.filter((p) => p.isAlive && !isWolfRole(rRoles[p.id]) && !p.isNarrator);
           if (tgts.length > 0) await submitNightAction(roomId, 'werewolf', tgts[0].id);
         }
         break;
       }
+      case 'wolf_hound':
+        await submitNightAction(roomId, 'wolfHound', ROLE.VILLAGER);
+        break;
+      case 'white_wolf':
+        await submitNightAction(roomId, 'whiteWolfSkip', true);
+        break;
       case 'seer': {
         const tgts = rPlayers.filter((p) => p.isAlive);
         if (tgts.length > 0) await submitNightAction(roomId, 'seer', tgts[0].id);
@@ -347,7 +387,7 @@ export default function NightPhaseScreen({ route, navigation }) {
       setResolving(true);
       resolveNight(roomId, currentRoom).catch(() => setResolving(false));
     } else {
-      updateRoom(roomId, { nightSubPhase: next });
+      updateRoom(roomId, advanceNightUpdate(currentRoom, next));
     }
   }
 
@@ -370,7 +410,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const nightSubPhase = room?.nightSubPhase;
   const activeRole = SUBPHASE_TO_ROLE[nightSubPhase];
   const actionAlreadyInFirestore = nightSubPhase ? isSubPhaseDone(nightSubPhase, room) : false;
-  const isMyTurn = gs.isAlive && !gs.isNarrator && gs.myRole === activeRole;
+  const isMyTurn = gs.isAlive && !gs.isNarrator
+    && (gs.myRole === activeRole || (nightSubPhase === 'werewolf' && isWolfRole(gs.myRole)));
   const showSeerResult = !!seerResult;
   const showThiefReveal = !!thiefStolenRole;
   const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showSeerResult && !showThiefReveal;
@@ -391,7 +432,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village goes to sleep</Text>
         <View style={styles.timerSlot}>
           {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
-            <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, phase)} onExpire={handleSubPhaseTimerExpire} theme={t} />
+            <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, room)} onExpire={handleSubPhaseTimerExpire} theme={t} />
           )}
         </View>
       </View>
@@ -438,16 +479,36 @@ export default function NightPhaseScreen({ route, navigation }) {
           </View>
         )}
 
-        {showAction && gs.myRole === ROLE.WEREWOLF && (
+        {showAction && nightSubPhase === 'wolf_hound' && (
+          <WolfHoundAction
+            theme={t}
+            choice={houndChoice}
+            onSelect={setHoundChoice}
+            onSubmit={submitHoundChoice}
+          />
+        )}
+
+        {showAction && nightSubPhase === 'werewolf' && (
           <WerewolfAction
             theme={t}
-            players={alivePlayers.filter((p) => roles[p.id] !== ROLE.WEREWOLF)}
-            phase={phase}
+            players={alivePlayers.filter((p) => !isWolfRole(roles[p.id]))}
+            observeOnly={isQuietFirstNight(room)}
             wolfTarget={wolfTarget}
             onSelectTarget={setWolfTarget}
             onSubmit={submitWolfAction}
             suspicions={playerHooks.suspicions}
             suspectedRoles={playerHooks.suspectedRoles}
+          />
+        )}
+
+        {showAction && nightSubPhase === 'white_wolf' && (
+          <WhiteWolfAction
+            theme={t}
+            players={alivePlayers.filter((p) => roles[p.id] === ROLE.WEREWOLF)}
+            target={whiteWolfTarget}
+            onSelectTarget={setWhiteWolfTarget}
+            onSubmit={submitWhiteWolfKill}
+            onSkip={submitWhiteWolfSkip}
           />
         )}
 
@@ -527,7 +588,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         <TouchableOpacity style={styles.barBtn} onPress={() => setNotesOpen(true)}>
           <Image source={NOTES_ICON} style={styles.barBtnImg} resizeMode="contain" />
         </TouchableOpacity>
-        {(gs.myRole === ROLE.WEREWOLF || gs.isNarrator) && (
+        {(isWolfRole(gs.myRole) || gs.isNarrator) && (
           <TouchableOpacity style={styles.barBtn} onPress={() => setChatVisible(true)}>
             <Image source={NIGHT_CHAT_ICON} style={styles.barBtnImg} resizeMode="contain" />
           </TouchableOpacity>

@@ -1,5 +1,5 @@
 import { arrayUnion } from 'firebase/firestore';
-import { ROLE, getCompositionForCount } from '../constants/roles';
+import { ROLE, getCompositionForCount, isWolfRole } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
 import { tallyVotes } from './voteManager';
 import {
@@ -18,7 +18,7 @@ function computeBearTamerGrowl(alivePlayers, roles) {
   if (n < 2) return false;
   const left = alivePlayers[(idx - 1 + n) % n];
   const right = alivePlayers[(idx + 1) % n];
-  return roles[left.id] === ROLE.WEREWOLF || roles[right.id] === ROLE.WEREWOLF;
+  return isWolfRole(roles[left.id]) || isWolfRole(roles[right.id]);
 }
 
 function shuffleArr(arr) {
@@ -40,36 +40,72 @@ export function computeNightSequence(room) {
   const potions = witchPlayer ? witchPotions[witchPlayer.id] : null;
   const witchHasPotions = potions ? (potions.save === true || potions.poison === true) : false;
 
+  const packWolfAlive = players.some((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF);
+
   const wakes = {
     thief: isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0,
     cupid: isActive(ROLE.CUPID),
+    wolf_hound: isActive(ROLE.WOLF_HOUND),
     saviour: isActive(ROLE.SAVIOUR),
-    werewolf: isActive(ROLE.WEREWOLF),
+    werewolf: isActive(ROLE.WEREWOLF) || isActive(ROLE.WHITE_WOLF),
+    white_wolf: phase % 2 === 0 && isActive(ROLE.WHITE_WOLF) && packWolfAlive,
     witch: witchHasPotions,
     seer: isActive(ROLE.SEER),
   };
-  return nightOrder(phase).filter((step) => wakes[step]);
+  return nightOrder(room).filter((step) => wakes[step]);
 }
 
-const FIRST_NIGHT_ORDER = ['thief', 'cupid', 'werewolf'];
-const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'witch', 'seer'];
+const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'werewolf'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'saviour', 'werewolf', 'witch', 'seer'];
+const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'white_wolf', 'witch', 'seer'];
 
-function nightOrder(phase) {
-  return phase === 1 ? FIRST_NIGHT_ORDER : LATER_NIGHT_ORDER;
+export function isQuietFirstNight(room) {
+  return room.phase === 1 && !room.classicFirstNight;
+}
+
+function nightOrder(room) {
+  if (room.phase !== 1) return LATER_NIGHT_ORDER;
+  return room.classicFirstNight ? CLASSIC_FIRST_NIGHT_ORDER : QUIET_FIRST_NIGHT_ORDER;
 }
 
 export function nextNightSubPhase(room, current) {
-  const order = nightOrder(room.phase);
+  const order = nightOrder(room);
   const active = computeNightSequence(room);
   return order.slice(order.indexOf(current) + 1).find((step) => active.includes(step)) || 'done';
 }
 
+function wolfHoundChoiceUpdate(room) {
+  const { roles = {}, nightActions = {}, phase } = room;
+  const houndId = getPlayerWithRole(roles, ROLE.WOLF_HOUND);
+  const choice = nightActions.wolfHound;
+  if (!houndId || (choice !== ROLE.WEREWOLF && choice !== ROLE.VILLAGER)) return null;
+  return {
+    roles: { ...roles, [houndId]: choice },
+    event: `Night ${phase}: The Wolf Hound chose a side.`,
+  };
+}
+
+export function advanceNightUpdate(room, next) {
+  const update = { nightSubPhase: next };
+  if (room.nightSubPhase !== 'wolf_hound') return update;
+  const houndChoice = wolfHoundChoiceUpdate(room);
+  if (!houndChoice) return update;
+  const nextRoom = { ...room, roles: houndChoice.roles };
+  return {
+    roles: houndChoice.roles,
+    nightSubPhase: next === 'done' ? 'done' : nextNightSubPhase(nextRoom, 'wolf_hound'),
+    events: arrayUnion(houndChoice.event),
+  };
+}
+
 export function isSubPhaseDone(subPhase, room) {
-  const { nightActions = {}, phase } = room;
+  const { nightActions = {} } = room;
   switch (subPhase) {
     case 'thief':    return !!nightActions.thief;
     case 'cupid':    return Array.isArray(nightActions.cupid) && nightActions.cupid.length === 2;
-    case 'werewolf': return phase === 1 ? nightActions.werewolfObserved === true : !!nightActions.werewolf;
+    case 'wolf_hound': return !!nightActions.wolfHound;
+    case 'werewolf': return isQuietFirstNight(room) ? nightActions.werewolfObserved === true : !!nightActions.werewolf;
+    case 'white_wolf': return !!nightActions.whiteWolf || nightActions.whiteWolfSkip === true;
     case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
     case 'seer':     return !!nightActions.seer;
     case 'saviour':  return !!nightActions.saviour;
@@ -77,7 +113,7 @@ export function isSubPhaseDone(subPhase, room) {
   }
 }
 
-export async function startGame(roomId, players, customComposition = null) {
+export async function startGame(roomId, players, customComposition = null, classicFirstNight = false) {
   const clearingChat = clearWerewolfChat(roomId).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
@@ -121,7 +157,7 @@ export async function startGame(roomId, players, customComposition = null) {
   if (narratorPlayers.length > 0) allPlayers = [...allPlayers, ...narratorPlayers];
 
   const nightSeq = computeNightSequence({
-    players: allPlayers, roles: roleMap, phase: 1, witchPotions, disconnectedPlayers: [],
+    players: allPlayers, roles: roleMap, phase: 1, witchPotions, disconnectedPlayers: [], classicFirstNight,
   });
 
   await updateRoom(roomId, {
@@ -170,6 +206,11 @@ export async function resolveNight(roomId, roomData) {
   const events = [];
 
   let updatedRoles = { ...roles };
+  const houndChoice = wolfHoundChoiceUpdate(roomData);
+  if (houndChoice) {
+    updatedRoles = houndChoice.roles;
+    events.push(houndChoice.event);
+  }
   if (nightActions.thief) {
     const thiefPlayerId = getPlayerWithRole(roles, ROLE.THIEF);
     if (thiefPlayerId) {
@@ -178,10 +219,11 @@ export async function resolveNight(roomId, roomData) {
     }
   }
 
+  const quiet = isQuietFirstNight(roomData);
   const saviourProtected = nightActions.saviour || null;
-  let eliminatedId = phase === 1 ? null : (nightActions.werewolf || null);
+  let eliminatedId = quiet ? null : (nightActions.werewolf || null);
   const witchSaved = nightActions.witchSave === eliminatedId;
-  const witchKilled = phase === 1 ? null : (nightActions.witchPoison || null);
+  const witchKilled = quiet ? null : (nightActions.witchPoison || null);
   const newLovers = nightActions.cupid || lovers || null;
 
   let saviourBlocked = false;
@@ -210,9 +252,9 @@ export async function resolveNight(roomId, roomData) {
     events.push(`Night ${phase}: ${victim?.nickname || 'Someone'} was eliminated by the werewolves.`);
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, newLovers, events, `Night ${phase}`);
     recordDeaths(ids, 'werewolves');
-  } else if (phase === 1) {
+  } else if (quiet) {
     events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
-  } else if (!witchSaved && !saviourBlocked) {
+  } else if (!witchSaved && !saviourBlocked && !witchKilled && !nightActions.whiteWolf) {
     events.push(`Night ${phase}: The village was peaceful — no one was eliminated.`);
   }
 
@@ -221,6 +263,13 @@ export async function resolveNight(roomId, roomData) {
     events.push(`Night ${phase}: ${poisoned?.nickname || 'Someone'} was poisoned by the witch.`);
     const ids = await eliminateWithLoverChain(roomId, witchKilled, players, newLovers, events, `Night ${phase}`);
     recordDeaths(ids, 'poison');
+  }
+
+  const whiteWolfPrey = phase === 1 ? null : players.find((p) => p.id === nightActions.whiteWolf && p.isAlive);
+  if (whiteWolfPrey && !allEliminated.has(whiteWolfPrey.id)) {
+    events.push(`Night ${phase}: ${whiteWolfPrey.nickname} was torn apart in the night.`);
+    const ids = await eliminateWithLoverChain(roomId, whiteWolfPrey.id, players, newLovers, events, `Night ${phase}`);
+    recordDeaths(ids, 'white_wolf');
   }
 
   const updatedPotions = { ...witchPotions };

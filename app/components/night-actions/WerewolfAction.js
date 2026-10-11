@@ -8,17 +8,17 @@ import { ROLE_DEFINITIONS } from '../../constants/roles';
 const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
 const NIGHT_CHECK_ICON   = require('../../../assets/night_check.webp');
 
-export default function WerewolfAction({ theme: t, players, phase, wolfTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
+export default function WerewolfAction({ theme: t, players, observeOnly, wolfTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
       <View style={styles.actionTitleRow}>
         <Image source={ROLE_ICONS.werewolf} style={styles.actionTitleIcon} resizeMode="contain" />
         <Text style={[styles.actionTitle, { color: t.accent }]}>
-          {phase === 1 ? 'First Night — Observe' : 'Choose a Victim'}
+          {observeOnly ? 'First Night — Observe' : 'Choose a Victim'}
         </Text>
       </View>
 
-      {phase === 1 ? (
+      {observeOnly ? (
         <>
           <Text style={[styles.actionSub, { color: t.textSecondary }]}>
             The first night is for watching. No hunt tonight — coordinate with your pack.

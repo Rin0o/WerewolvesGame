@@ -37,7 +37,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
-- **10 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer and Sisters.
+- **12 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, White Wolf and Wolf Hound.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone.
 - **Personal notes:** each player can mark suspicion levels, guess roles and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
@@ -64,10 +64,11 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 | Night | Order |
 |---|---|
-| **Night 1** | Thief → Cupid → Werewolves (they only see each other, no kill). The Seer sleeps on night 1. |
-| **Later nights** | Saviour → Werewolves (choose a victim) → Witch (if she has potions left) → Seer |
+| **Night 1 — Quiet** (default) | Thief → Cupid → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
+| **Night 1 — Classic** | Thief → Cupid → Wolf Hound → Saviour → Werewolves (choose a victim) → Witch → Seer |
+| **Later nights** | Saviour → Werewolves (choose a victim) → White Wolf (even nights only) → Witch (if she has potions left) → Seer |
 
-Roles that aren't in the game, or whose player is dead, are skipped.
+The host picks **Quiet** or **Classic** for the first night in the lobby; everyone sees the choice. Classic follows the official rules. Roles that aren't in the game, or whose player is dead, are skipped.
 
 ### Timers
 
@@ -75,17 +76,18 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 
 | Step | Time limit |
 |---|---|
-| Thief, Cupid, Werewolves on night 1 | 15 s |
-| Seer, Saviour | 30 s |
-| Werewolves on later nights, Witch | 45 s |
+| Thief, Cupid, Wolf Hound, Werewolves on a Quiet night 1 | 15 s |
+| Seer, Saviour, White Wolf | 30 s |
+| Werewolves when hunting, Witch | 45 s |
 | Day discussion and vote | 4 min |
 | Hunter's last shot | 20 s |
 | Vote result screen | 8 s |
 
 ### Win conditions
 
-- **Villagers** win when every werewolf is dead.
-- **Werewolves** win when living werewolves are at least as many as all other living players.
+- **Villagers** win when every werewolf, White Wolf included, is dead.
+- **Werewolves** win when living werewolves are at least as many as all other living players. A living White Wolf counts as one of the "others".
+- **White Wolf** wins alone as the last player alive.
 - **Lovers** win when the two lovers are the last two players alive, whatever their teams.
 
 ---
@@ -95,8 +97,8 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Role | Team | Ability |
 |---|---|---|
 | **Villager** | Village | No ability. Finds the wolves through discussion and votes. |
-| **Werewolf** | Wolves | Each night (from night 2) the wolves pick a victim together, coordinating in the wolf chat. |
-| **Seer** | Village | From night 2 on, chooses a player each night and learns whether they are a werewolf. |
+| **Werewolf** | Wolves | Each night the wolves pick a victim together, coordinating in the wolf chat. With a Quiet first night they only meet on night 1. |
+| **Seer** | Village | Each night chooses a player and learns whether they are a werewolf. With a Quiet first night, starts on night 2. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
 | **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |
@@ -104,6 +106,8 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
 | **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours follow join order and wrap around. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action. |
+| **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
+| **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
 
 ### Roles per player count (Normal mode)
 
@@ -119,7 +123,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | 12 | 3 | Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, 2 Sisters |
 | 13+ | 3 | As for 12, plus extra Villagers |
 
-Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots.
+Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The White Wolf and Wolf Hound are only available in Custom mode for now.
 
 ---
 
@@ -175,7 +179,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 | A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote. Any time: mark themselves gone/back, take over as host (for themselves only) |
 | The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
-| Chats | Members read and post as themselves (1–500 characters); only werewolves post in the wolf chat; only the host deletes |
+| Chats | Members read and post as themselves (1–500 characters); only werewolves (White Wolf included) post in the wolf chat; only the host deletes |
 
 Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. Nobody can delete a room.
 
@@ -420,7 +424,8 @@ Versions follow **MAJOR.MINOR.PATCH**:
 
 ## Ideas for the future
 
-- **New roles:** White Wolf and Wolf Hound (artwork is already in `assets-src/roles/`).
+- **More wolf-side roles:** Big Bad Wolf, Accursed Wolf-Father, Wild Child.
+- **A White Wolf victory banner** (it currently reuses the werewolves banner with a line of text).
 - **Seat order in the lobby,** so the Bear Tamer reflects the real table.
 - **Server-side role secrecy** (roles moved out of the room document).
 - **An iOS build.**

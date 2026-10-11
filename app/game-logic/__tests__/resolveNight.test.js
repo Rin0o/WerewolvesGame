@@ -101,6 +101,18 @@ describe('resolveNight — night 1', () => {
     expect(eventsOf(update)).toContain('Night 1: The werewolves lurked in the shadows, but did not strike.');
   });
 
+  it('on a classic night 1 the wolves kill and the witch can poison', async () => {
+    const update = await resolve(village({ werewolf: 'vic', witchPoison: 'vera' }, { phase: 1, classicFirstNight: true }));
+    expect(update.nightDeathCauses).toEqual({ vic: 'werewolves', vera: 'poison' });
+    expect(eventsOf(update)).not.toContain('Night 1: The werewolves lurked in the shadows, but did not strike.');
+  });
+
+  it('on a classic night 1 the witch can save the victim', async () => {
+    const update = await resolve(village({ werewolf: 'vic', witchSave: 'vic' }, { phase: 1, classicFirstNight: true }));
+    expect(update.eliminatedThisNight).toEqual([]);
+    expect(update.witchPotions.wendy.save).toBe(false);
+  });
+
   it('stores cupid\'s lovers', async () => {
     const update = await resolve(village({ cupid: ['vic', 'vera'] }, { phase: 1 }));
     expect(update.lovers).toEqual(['vic', 'vera']);
@@ -146,7 +158,40 @@ describe('resolveNight — Hunter and winners', () => {
   });
 });
 
+describe('resolveNight — White Wolf and Wolf Hound', () => {
+  const PACK = { will: 'werewolf', walt: 'white_wolf', vic: 'villager', vera: 'villager', sam: 'seer', hugo: 'wolf_hound' };
+
+  it('the White Wolf devours a werewolf', async () => {
+    const update = await resolve(makeGame(PACK, { nightActions: { werewolf: 'vic', whiteWolf: 'will' } }));
+    expect(update.nightDeathCauses).toEqual({ vic: 'werewolves', will: 'white_wolf' });
+    expect(eventsOf(update)).toContain('Night 2: Will was torn apart in the night.');
+  });
+
+  it('the White Wolf wins by devouring the last other player', async () => {
+    const game = makeGame(PACK, { dead: ['vera', 'sam', 'hugo'], nightActions: { werewolf: 'vic', whiteWolf: 'will' } });
+    const update = await resolve(game);
+    expect(update.winner).toBe('white_wolf');
+    expect(update.status).toBe('ended');
+  });
+
+  it('a Wolf Hound choice still pending at dawn is applied', async () => {
+    const update = await resolve(makeGame(PACK, { phase: 1, nightActions: { wolfHound: 'werewolf' } }));
+    expect(update.roles.hugo).toBe('werewolf');
+    expect(eventsOf(update)).toContain('Night 1: The Wolf Hound chose a side.');
+  });
+
+  it('a poisoned night is not called peaceful', async () => {
+    const update = await resolve(village({ witchPoison: 'vera' }));
+    expect(eventsOf(update)).not.toContain('Night 2: The village was peaceful — no one was eliminated.');
+  });
+});
+
 describe('resolveNight — Bear Tamer', () => {
+  it('the bears growl at the White Wolf too', async () => {
+    const game = makeGame({ bea: 'bear_tamer', walt: 'white_wolf', vic: 'villager', vera: 'villager', will: 'werewolf', sam: 'seer' });
+    expect((await resolve(game)).bearTamerGrowl).toBe(true);
+  });
+
   it('the bears growl when a living neighbour is a werewolf, wrapping around the table', async () => {
     const game = makeGame({ bea: 'bear_tamer', vic: 'villager', vera: 'villager', sam: 'seer', will: 'werewolf' });
     expect((await resolve(game)).bearTamerGrowl).toBe(true);

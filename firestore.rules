@@ -101,6 +101,8 @@ service cloud.firestore {
       function nightAction() {
         let allowed = {
           'werewolf': ['werewolf', 'werewolfObserved'],
+          'white_wolf': ['werewolf', 'werewolfObserved', 'whiteWolf', 'whiteWolfSkip'],
+          'wolf_hound': ['wolfHound'],
           'seer': ['seer'],
           'witch': ['witchSave', 'witchPoison', 'witchSkip'],
           'cupid': ['cupid'],
@@ -174,7 +176,7 @@ service cloud.firestore {
     match /rooms/{roomId}/werewolfChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
       allow create: if memberOf(roomAt(roomId))
-        && roomAt(roomId).get('roles', {}).get(request.auth.uid, '') == 'werewolf'
+        && roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf']
         && validMessage();
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }

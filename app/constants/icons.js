@@ -9,6 +9,8 @@ export const ROLE_ICONS = {
   saviour:    require('../../assets/role_icons/saviour.webp'),
   bear_tamer: require('../../assets/role_icons/bear_tamer.webp'),
   sister:     require('../../assets/role_icons/sisters.webp'),
+  white_wolf: require('../../assets/role_icons/white_wolf.webp'),
+  wolf_hound: require('../../assets/role_icons/wolf_hound.webp'),
 };
 
 export const SUSPICION_ICONS = {

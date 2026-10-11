@@ -44,6 +44,11 @@ describe('buildCustomComposition', () => {
     expect(countRoles(comp)).toEqual({ werewolf: 2, seer: 1, witch: 1, villager: 4 });
   });
 
+  it('adds the White Wolf and Wolf Hound as their own slots', () => {
+    const comp = buildCustomComposition({ playerCount: 7, werewolf: 1, white_wolf: true, wolf_hound: true });
+    expect(countRoles(comp)).toEqual({ werewolf: 1, white_wolf: 1, wolf_hound: 1, villager: 4 });
+  });
+
   it('adds two sisters for the sister toggle', () => {
     const comp = buildCustomComposition({ playerCount: 6, werewolf: 1, sister: true });
     expect(countRoles(comp)).toEqual({ werewolf: 1, sister: 2, villager: 3 });
@@ -111,6 +116,33 @@ describe('checkWinCondition', () => {
     expect(checkWinCondition(game.players, game.roles, ['w', 'a'])).toBe('werewolves');
   });
 
+  it('the White Wolf wins as the last player alive', () => {
+    const game = makeGame({ ww: 'white_wolf', w: 'werewolf', a: 'villager' }, { dead: ['w', 'a'] });
+    expect(checkWinCondition(game.players, game.roles)).toBe('white_wolf');
+  });
+
+  it('a living White Wolf keeps the villagers from winning', () => {
+    const game = makeGame({ ww: 'white_wolf', w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['w'] });
+    expect(checkWinCondition(game.players, game.roles)).toBeNull();
+  });
+
+  it('the pack must match everyone else, White Wolf included', () => {
+    const tied = makeGame({ ww: 'white_wolf', w: 'werewolf', a: 'villager' });
+    expect(checkWinCondition(tied.players, tied.roles)).toBeNull();
+    const outnumbered = makeGame({ ww: 'white_wolf', w1: 'werewolf', w2: 'werewolf', a: 'villager' });
+    expect(checkWinCondition(outnumbered.players, outnumbered.roles)).toBe('werewolves');
+  });
+
+  it('villagers win once the pack and the White Wolf are dead', () => {
+    const game = makeGame({ ww: 'white_wolf', w: 'werewolf', a: 'villager' }, { dead: ['ww', 'w'] });
+    expect(checkWinCondition(game.players, game.roles)).toBe('villagers');
+  });
+
+  it('a Wolf Hound who never chose counts as a villager', () => {
+    const game = makeGame({ w: 'werewolf', h: 'wolf_hound', a: 'villager' });
+    expect(checkWinCondition(game.players, game.roles)).toBeNull();
+  });
+
   it('ignores the narrator', () => {
     const game = makeGame({ w: 'werewolf', a: 'villager' });
     const withNarrator = [...game.players, { id: 'n', nickname: 'N', isAlive: true, isNarrator: true }];
@@ -128,6 +160,10 @@ describe('role helpers', () => {
   it('offers the thief nothing when every selectable role is taken', () => {
     const full = { ...roles, a: 'seer', b: 'witch', c: 'hunter', d: 'cupid' };
     expect(getAvailableRolesForThief(full)).toEqual([]);
+  });
+
+  it('counts the White Wolf as part of the pack', () => {
+    expect(getWerewolves({ ...roles, ww: 'white_wolf' })).toEqual(['w1', 'w2', 'ww']);
   });
 
   it('finds werewolves, sisters and unique roles', () => {

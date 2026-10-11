@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE, ROLE_DEFINITIONS } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, isWolfRole } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const SUBPHASE_LABELS = {
   thief:    'Thief Chooses a Role',
   cupid:    'Cupid Selects Lovers',
+  wolf_hound: 'Wolf Hound Picks a Side',
   werewolf: 'Werewolves Hunt',
+  white_wolf: 'White Wolf Turns on the Pack',
   witch:    'Witch Decides',
   seer:     'Seer Inspects',
   saviour:  'Saviour Protects',
@@ -15,8 +17,8 @@ const SUBPHASE_LABELS = {
 };
 
 const SUBPHASE_ICON_KEY = {
-  thief: 'thief', cupid: 'cupid', werewolf: 'werewolf',
-  witch: 'witch', seer: 'seer', saviour: 'saviour',
+  thief: 'thief', cupid: 'cupid', wolf_hound: 'wolf_hound', werewolf: 'werewolf',
+  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour',
 };
 
 export default function NarratorNightDashboard({
@@ -37,15 +39,18 @@ export default function NarratorNightDashboard({
   const thiefRole         = nightActions.thief;
   const seerTarget        = nightActions.seer ? players.find((p) => p.id === nightActions.seer) : null;
   const seerRevealedRole  = seerTarget ? roles[seerTarget.id] : null;
-  const seerIsWolf        = seerRevealedRole === ROLE.WEREWOLF;
+  const seerIsWolf        = isWolfRole(seerRevealedRole);
   const wolfObserved      = nightActions.werewolfObserved === true;
+  const houndSide         = nightActions.wolfHound;
+  const whiteWolfPrey     = nightActions.whiteWolf ? players.find((p) => p.id === nightActions.whiteWolf) : null;
 
   const subPhaseIconKey = SUBPHASE_ICON_KEY[nightSubPhase];
   const subPhaseIcon = subPhaseIconKey ? ROLE_ICONS[subPhaseIconKey] : null;
 
   const hasAnyAction =
     wolfTargetPlayer || wolfObserved || saviourProtected || witchSavedPlayer ||
-    witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget;
+    witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
+    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip;
 
   return (
     <View style={[styles.dashboard, { backgroundColor: t.glassCard, borderColor: t.primary }]}>
@@ -81,6 +86,21 @@ export default function NarratorNightDashboard({
           )}
           {wolfObserved && phase === 1 && (
             <ActionRow icon={ROLE_ICONS.werewolf} label="Wolves" value="Observed (night 1)" valueColor={t.textMuted} theme={t} />
+          )}
+          {houndSide && (
+            <ActionRow
+              icon={ROLE_ICONS.wolf_hound}
+              label="Wolf Hound chose"
+              value={houndSide === ROLE.WEREWOLF ? 'The Pack' : 'The Village'}
+              valueColor={houndSide === ROLE.WEREWOLF ? t.danger : t.success}
+              theme={t}
+            />
+          )}
+          {whiteWolfPrey && (
+            <ActionRow icon={ROLE_ICONS.white_wolf} label="White Wolf devoured" value={whiteWolfPrey.nickname} valueColor={t.danger} theme={t} />
+          )}
+          {nightActions.whiteWolfSkip && (
+            <ActionRow icon={ROLE_ICONS.white_wolf} label="White Wolf" value="Spared the pack" valueColor={t.textMuted} theme={t} />
           )}
           {saviourProtected && (
             <ActionRow icon={ROLE_ICONS.saviour} label="Saviour protected" value={saviourProtected.nickname} valueColor={t.success} theme={t} />

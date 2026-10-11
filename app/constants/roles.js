@@ -9,7 +9,15 @@ export const ROLE = {
   SAVIOUR: 'saviour',
   BEAR_TAMER: 'bear_tamer',
   SISTER: 'sister',
+  WHITE_WOLF: 'white_wolf',
+  WOLF_HOUND: 'wolf_hound',
 };
+
+export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF];
+
+export function isWolfRole(role) {
+  return WOLF_ROLES.includes(role);
+}
 
 export const ROLE_DEFINITIONS = {
   [ROLE.VILLAGER]: {
@@ -26,7 +34,7 @@ export const ROLE_DEFINITIONS = {
     team: 'werewolves',
     description: 'A creature of darkness hiding among the villagers.',
     goal: 'Eliminate enough villagers so werewolves equal or outnumber them.',
-    ability: 'Each night, secretly choose a villager to eliminate together with other werewolves.',
+    ability: 'Each night, secretly choose a villager to eliminate together with other werewolves. With a Quiet first night, night 1 is only for meeting the pack.',
   },
   [ROLE.SEER]: {
     name: 'Seer',
@@ -34,7 +42,7 @@ export const ROLE_DEFINITIONS = {
     team: 'villagers',
     description: 'A gifted mystic who can sense the true nature of others.',
     goal: 'Help the village find and eliminate all Werewolves.',
-    ability: 'From the second night on, choose one player each night to learn whether they are a Werewolf or not.',
+    ability: 'Each night, choose one player to learn whether they are a Werewolf or not. With a Quiet first night, you start on night 2.',
   },
   [ROLE.WITCH]: {
     name: 'Witch',
@@ -92,6 +100,22 @@ export const ROLE_DEFINITIONS = {
     goal: 'Help the village find and eliminate all Werewolves.',
     ability: 'At the start of the game you and your sister know each other\'s identities. Use your bond to collaborate discreetly during the day.',
   },
+  [ROLE.WHITE_WOLF]: {
+    name: 'White Wolf',
+    emoji: '🐺',
+    team: 'werewolves',
+    description: 'A werewolf who hunts with the pack but secretly wants to be the last one standing.',
+    goal: 'Be the last player alive.',
+    ability: 'Each night you hunt with the werewolves, who see you as one of them. Every second night (nights 2, 4, 6…) you also wake alone and may devour one other werewolf.',
+  },
+  [ROLE.WOLF_HOUND]: {
+    name: 'Wolf Hound',
+    emoji: '🐕',
+    team: 'villagers',
+    description: 'A creature torn between the village and the pack.',
+    goal: 'Win with the side you choose.',
+    ability: 'On the first night, secretly choose to be a Villager or a Werewolf. If you choose the wolves, you join the pack that same night.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -117,9 +141,11 @@ export function getCompositionForCount(count) {
   return [...base, ...extra];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
+  if (white_wolf) comp.push(ROLE.WHITE_WOLF);
+  if (wolf_hound) comp.push(ROLE.WOLF_HOUND);
   if (seer) comp.push(ROLE.SEER);
   if (witch) comp.push(ROLE.WITCH);
   if (hunter) comp.push(ROLE.HUNTER);

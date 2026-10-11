@@ -26,7 +26,7 @@ import RoomQrCode from '../components/RoomQrCode';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
-const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER];
+const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
 
 export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -63,7 +63,7 @@ export default function LobbyScreen({ route, navigation }) {
     const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
     const total = Math.max(MIN_PLAYERS, humanCount + botCount);
     updateRoom(roomId, {
-      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false },
+      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false },
     });
   }, [room?.gameMode, room?.customRoles]);
 
@@ -75,7 +75,7 @@ export default function LobbyScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], code, hostId, customRoles, gameMode: rawMode } = room;
+  const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false } = room;
   const gameMode = rawMode || 'normal';
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
@@ -92,7 +92,7 @@ export default function LobbyScreen({ route, navigation }) {
   const normalCanStart = effectiveCount >= MIN_PLAYERS;
 
   // Custom mode derived values
-  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false };
+  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false };
   const usedSlots = cfg.werewolf + SPECIAL_ROLES.reduce((acc, r) => acc + (cfg[r] ? (r === ROLE.SISTER ? 2 : 1) : 0), 0);
   const villagerCount = cfg.playerCount - usedSlots;
   const isValidConfig = villagerCount >= 1 && cfg.werewolf >= 1;
@@ -106,6 +106,10 @@ export default function LobbyScreen({ route, navigation }) {
     await updateRoom(roomId, { gameMode: mode });
     // Reset customInitDone so defaults get written on first switch to custom
     if (mode === 'custom') customInitDone.current = false;
+  }
+
+  function setClassicFirstNight(classic) {
+    updateRoom(roomId, { classicFirstNight: classic });
   }
 
   async function patchConfig(patch) {
@@ -137,7 +141,7 @@ export default function LobbyScreen({ route, navigation }) {
         gamePlayers = players.map((p) => (p.id === playerId ? { ...p, isNarrator: true } : p));
       }
       const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
-      await startGame(roomId, gamePlayers, composition);
+      await startGame(roomId, gamePlayers, composition, classicFirstNight);
     } catch (e) {
       setStarting(false);
       Alert.alert('Error', 'Could not start game.');
@@ -228,6 +232,34 @@ export default function LobbyScreen({ route, navigation }) {
           </Text>
         </View>
       )}
+
+      {/* First night rule — host picks, everyone sees */}
+      <View style={[styles.firstNightBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+        <Text style={[styles.compTitle, { color: t.textSecondary }]}>First Night</Text>
+        {isHost ? (
+          <View style={styles.firstNightTabs}>
+            <TouchableOpacity
+              style={[styles.modeTab, !classicFirstNight && { backgroundColor: t.primary }]}
+              onPress={() => setClassicFirstNight(false)}
+            >
+              <Text style={[styles.modeTabText, { color: !classicFirstNight ? '#fff' : t.textMuted }]}>🌙 Quiet</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, classicFirstNight && { backgroundColor: t.primary }]}
+              onPress={() => setClassicFirstNight(true)}
+            >
+              <Text style={[styles.modeTabText, { color: classicFirstNight ? '#fff' : t.textMuted }]}>🩸 Classic</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={[styles.modeBadgeText, { color: t.text }]}>{classicFirstNight ? '🩸 Classic' : '🌙 Quiet'}</Text>
+        )}
+        <Text style={[styles.firstNightHint, { color: t.textMuted }]}>
+          {classicFirstNight
+            ? 'The wolves hunt from night 1. The Seer, Witch and Saviour also wake on night 1.'
+            : 'On night 1 the wolves only meet each other. Hunting and the Seer, Witch and Saviour start on night 2.'}
+        </Text>
+      </View>
 
       {/* Normal / Narrator mode — auto composition preview */}
       {(gameMode === 'normal' || gameMode === 'narrator') && effectiveCount >= MIN_PLAYERS && (
@@ -514,6 +546,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   modeBadgeText: { ...FONTS.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  firstNightBox: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  firstNightTabs: { flexDirection: 'row', gap: SPACING.xs },
+  firstNightHint: { ...FONTS.caption, marginTop: SPACING.xs },
   configBox: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,

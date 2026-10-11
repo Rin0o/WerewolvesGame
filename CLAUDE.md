@@ -55,7 +55,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     QrScannerModal.js        — Full-screen camera scanner: permission prompt, accepts only join links,
                                calls onCodeScanned(code) once per opening
   /components/night-actions/ — One component per night action: WerewolfAction, SeerAction,
-                               WitchAction, CupidAction, ThiefAction, SaviourAction
+                               WitchAction, CupidAction, ThiefAction, SaviourAction,
+                               WolfHoundAction (pick a side), WhiteWolfAction (devour a werewolf or spare)
   /components/day/
     NightAnnouncement.js     — Dawn summary: who died, Bear Tamer growl
     HunterSection.js         — Hunter's target picker
@@ -138,7 +139,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     death_potion.webp        — Witch poison action button
     witch_do_nothing.webp    — Witch skip action button
   /role_icons/               — WebP role icons (werewolf, seer, witch, hunter, cupid, thief,
-                               villager, saviour, bear_tamer, sisters); unknown.webp shown as avatar for alive
+                               villager, saviour, bear_tamer, sisters, white_wolf, wolf_hound); unknown.webp shown as avatar for alive
                                players whose role is not revealed (day screen + NotesPanel);
                                sisters.webp background was made transparent by hand — do not
                                re-export it from assets-src (the original still has a black background)
@@ -147,7 +148,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                players in day screen and NotesPanel; suspect.webp is the
                                default role-picker icon in NotesPanel when no role is set
   /roles/                    — WebP role card images (villager, werewolf, seer, witch, hunter,
-                               thief, cupid, saviour, bear_tamer, sisters); shown in RoleCard
+                               thief, cupid, saviour, bear_tamer, sisters, white_wolf, wolf_hound); shown in RoleCard
   /sounds/                   — night.mp3, day.mp3, wolves-win.mp3, villagers-win.mp3
 ```
 
@@ -169,7 +170,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     { id, nickname, isAlive, isHost, isReady, isBot?, isNarrator? }
   ]
   roles: { [playerId]: role }     // NEVER render other players' roles (except GameOver / narrator)
-  nightSubPhase: "thief"|"cupid"|"werewolf"|"witch"|"seer"|"saviour"|"done"
+  nightSubPhase: "thief"|"cupid"|"wolf_hound"|"werewolf"|"white_wolf"|"witch"|"seer"|"saviour"|"done"
   nightActions: {
     werewolf: playerId            // Who wolves picked to kill (night 2+)
     werewolfObserved: true        // Night 1: wolves have seen each other (no kill)
@@ -180,27 +181,32 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     saviour: playerId             // Who the saviour protected
     cupid: [playerId, playerId]   // Two lovers chosen (phase 1 only)
     thief: role                   // Role the thief stole (phase 1 only)
+    wolfHound: "werewolf"|"villager"  // Wolf Hound's side (phase 1 only)
+    whiteWolf: playerId           // Werewolf the White Wolf devoured (even nights)
+    whiteWolfSkip: true           // White Wolf spared the pack
   }
   witchPotions: { [playerId]: { save: bool, poison: bool } }
   saviourLastProtected: playerId|null  // Can't be protected again the next night
   eliminatedThisNight: playerId[]|null  // Everyone who died last night (incl. lovers' heartbreak)
-  nightDeathCauses: { [playerId]: "werewolves"|"poison"|"heartbreak"|"abandoned" }
+  nightDeathCauses: { [playerId]: "werewolves"|"poison"|"white_wolf"|"heartbreak"|"abandoned" }
                                   // Why each player died last night; drives the "You were eliminated" message
   bearTamerGrowl: bool|null       // Set at dawn: true if a living neighbour of the Bear Tamer is a wolf; null if no Bear Tamer alive
   events: string[]                // Append-only game event log (written with arrayUnion)
   votes: { [voterId]: { target: playerId, confirmed: true } }
   votesClosed: bool               // Set by timer expiry (host) or the narrator's Close Votes
-  winner: "villagers"|"werewolves"|"lovers"|null
+  winner: "villagers"|"werewolves"|"lovers"|"white_wolf"|null
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
   hunterDiedDuring: "night"|"day"|null  // When the Hunter died; after the shot only "day" ends the day (next night)
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
   gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
+  classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). Absent = Quiet
   customRoles: {                  // Only used when gameMode === "custom"
     playerCount: number           // Target total players (must equal effectiveCount to start)
     werewolf: number              // Count (min 1)
     seer, witch, hunter, cupid, thief, saviour, bear_tamer: boolean
     sister: boolean               // When true, adds 2 Sister slots (counted as 2 in usedSlots)
+    white_wolf, wolf_hound: boolean  // One slot each; these two roles exist only in Custom mode
     // villagers = playerCount − werewolf − sum(enabled specials); auto-filled
   }
 }
@@ -231,23 +237,28 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 ### Win Conditions (`checkWinCondition`, narrator excluded)
 - **Lovers win**: the two lovers are the last two players alive (checked first; overrides team allegiance)
-- **Villagers win**: no living werewolves
-- **Werewolves win**: living werewolves ≥ all other living players
+- **White Wolf wins**: they are the only player alive
+- **Villagers win**: no living werewolves and no living White Wolf
+- **Werewolves win**: living `werewolf`-role players ≥ all other living players (a living White Wolf counts as "other")
 - While `hunterTriggered` is set, `resolveNight`/`resolveLynch` skip the win check; `hunterShoot()` checks after the shot
 
 ### Night Order (`computeNightSequence`)
-- **Night 1**: Thief (if alive and roles are available) → Cupid → Werewolves (observe only: `werewolfObserved`, no kill). The Seer does not wake on night 1.
-- **Night 2+**: Saviour → Werewolves (pick victim) → Witch (only if she has a potion left) → Seer
+- **Night 1, Quiet** (default, `classicFirstNight` false): Thief (if alive and roles are available) → Cupid → Wolf Hound → Werewolves (observe only: `werewolfObserved`, no kill). Seer, Witch and Saviour don't wake.
+- **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wolf Hound → Saviour → Werewolves (kill) → Witch → Seer — the official rules.
+- Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, composition, classicFirstNight)` needs the flag to pick the first step.
+- **Night 2+**: Saviour → Werewolves (pick victim) → White Wolf (even nights, only while another `werewolf` is alive) → Witch (only if she has a potion left) → Seer
+- The `werewolf` step wakes every wolf role (`isWolfRole`: werewolf + white_wolf). Night action panels are chosen by `nightSubPhase`, not by role, because the White Wolf acts in two steps.
+- Always advance with `updateRoom(roomId, advanceNightUpdate(room, next))`, never a bare `{ nightSubPhase }`: when leaving the `wolf_hound` step it also writes the Hound's new role (and recomputes the next step), so a Hound who picked the pack wakes in that night's `werewolf` step. `myActionDone` resets whenever `nightSubPhase` changes.
 - Roles that are absent, dead or disconnected are skipped (`FIRST_NIGHT_ORDER` / `LATER_NIGHT_ORDER` filtered by who can act). The host advances `nightSubPhase` with `nextNightSubPhase(room, current)` — the next step in the full order that still has someone to act — when `isSubPhaseDone()` is true **or** the current step's player has left (`disconnectedPlayers`), and calls `resolveNight()` after the last step. Never compute "next" from the index in `computeNightSequence()`: a step whose player left is no longer in that list.
-- `resolveNight` order: Thief swap → Saviour block → Witch save → wolf kill (+ lover chain) → Witch poison (+ lover chain) → disconnected players (+ lover chain) → Hunter trigger / win check → Bear Tamer growl. Wolves and Witch poison do nothing on night 1.
+- `resolveNight` order: pending Wolf Hound choice → Thief swap → Saviour block → Witch save → wolf kill (+ lover chain) → Witch poison (+ lover chain) → White Wolf kill (+ lover chain; not blockable) → disconnected players (+ lover chain) → Hunter trigger / win check → Bear Tamer growl. On a Quiet night 1 the wolf kill and Witch poison are ignored.
 
 ### Role Details
 
-**Werewolf** — from night 2, the wolves pick a victim together (any wolf's submission counts). They coordinate in the wolf chat, available at night and during the day. On night 1 they only see each other (`werewolfObserved`).
+**Werewolf** — each night the wolves pick a victim together (any wolf's submission counts). They coordinate in the wolf chat, available at night and during the day. On a Quiet night 1 they only see each other (`werewolfObserved`).
 
-**Seer** — from night 2 on, each night selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
+**Seer** — each night (from night 2 with a Quiet first night) selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
 
-**Witch** — has one Save potion (revive that night's victim) and one Poison potion (kill any player). Each potion can only be used once per game. One choice per night: save OR poison OR skip. Not woken on night 1, nor once both potions are used.
+**Witch** — has one Save potion (revive that night's victim) and one Poison potion (kill any player). Each potion can only be used once per game. One choice per night: save OR poison OR skip. Not woken on a Quiet night 1, nor once both potions are used.
 
 **Hunter** — when eliminated (night or day), `hunterTriggered` is set to their playerId. Their day screen shows `HunterSection` with a 20s timer (random target on expiry). `hunterShoot()` eliminates the target (+ lover chain) and re-checks the win condition. If there is no winner, what happens next depends on `hunterDiedDuring`: after a day lynch (`'day'`) the host calls `startNextNight(roomId)` — it reads the room fresh from Firestore (so the night is planned without the player just shot) and only acts while `status === 'day'` with no winner and no pending shot; after a night death (`'night'`) the day simply continues with discussion and voting.
 
@@ -255,11 +266,15 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 **Thief** — on night 1 only, chooses one of the roles nobody was dealt, from `ALL_SELECTABLE_ROLES` (villager, werewolf, seer, witch, hunter, cupid — `getAvailableRolesForThief`). The swap is applied in `resolveNight` and recorded silently in the event log ("A shadowy figure stole a role in the dark."). If no roles are available, the Thief step is skipped and the Thief sides with the villagers.
 
-**Saviour** — from night 2, protects one other player (not themself) from the wolves. Can't pick `saviourLastProtected` (shown greyed out). Protection blocks only the wolf kill, not the Witch's poison.
+**Saviour** — each night (from night 2 with a Quiet first night), protects one other player (not themself) from the wolves. Can't pick `saviourLastProtected` (shown greyed out). Protection blocks only the wolf kill, not the Witch's poison.
 
 **Bear Tamer** — no action. At dawn `computeBearTamerGrowl()` checks the Bear Tamer's two neighbours among *living* players in `players` (join) order, wrapping around. If either is a werewolf, `bearTamerGrowl = true` and `NightAnnouncement` shows "The bears growled at dawn." to everyone.
 
 **Sisters** — two players who know each other's identity at game start. No night action. Their role key is `sister` (each gets the same key); `getSisters(roleMap)` returns both IDs. `useGameState` exposes `gs.isSister` and `gs.fellowSisters` (the other sister's ID). At `RoleRevealScreen`, the RoleCard shows a "Your Sister" box identical in structure to the wolves' "Fellow Werewolves" box. The custom-mode lobby toggle adds 2 slots (handled by `usedSlots` reduce counting `sister` as 2).
+
+**White Wolf** — role key `white_wolf`, team `werewolves` but wins alone. Counts as a wolf everywhere through `isWolfRole()` (constants/roles.js): pack membership (`getWerewolves`, `fellowWolves` — the pack sees just a fellow werewolf), the `werewolf` step, the wolf chat, the Seer and the Bear Tamer. On even nights it also gets its own `white_wolf` step (`WhiteWolfAction`, 30s, skip on timeout) to devour one living `werewolf` (`nightActions.whiteWolf`, death cause `white_wolf`) or spare them (`whiteWolfSkip`). Game Over shows the werewolves banner plus a "stands alone" line for `winner === 'white_wolf'` (no banner art yet).
+
+**Wolf Hound** — role key `wolf_hound`, only in Custom mode. Night-1 step `wolf_hound` (`WolfHoundAction`, 15s, Villager on timeout) writes `nightActions.wolfHound`. The host's `advanceNightUpdate` replaces the role with `werewolf` or `villager` right away (event: "The Wolf Hound chose a side."), so a Hound who picked the pack sees and joins that night's observation. `resolveNight` applies a choice still pending. A Hound who never chose keeps `wolf_hound` and counts as a villager.
 
 ### Lover Chain
 `eliminateWithLoverChain()` in gameManager.js handles lover death propagation. When any player is eliminated, their lover (if alive) is also eliminated immediately. This applies to wolf kills, witch poison, lynch, hunter shot, and disconnected players.
@@ -317,7 +332,7 @@ Writes are limited to what the app does; anything else is denied:
 - **Members**: leave the lobby / toggle own `isReady` (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'`; write only `votes.<uid>` while `status == 'day'`; add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
 - **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's).
 - **Host**: anything except `code`, `createdAt`, `hostId`, `memberIds`.
-- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only werewolves post in `werewolfChat`; only the host deletes.
+- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf` and `white_wolf` roles post in `werewolfChat`; only the host deletes.
 - **When a new write path is added to the app, add a rule and a test in `firestore-tests/rooms.rules-test.js`** — otherwise it will be denied in production.
 - Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 
@@ -359,4 +374,4 @@ cd android
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
-- Not yet implemented roles with existing artwork in `assets-src/roles/`: White Wolf, Wolf Hound
+- White Wolf and Wolf Hound are Custom-mode only (not in `ROLE_COMPOSITIONS`); no White Wolf victory banner yet

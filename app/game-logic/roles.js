@@ -1,4 +1,4 @@
-import { ROLE, ROLE_DEFINITIONS, getCompositionForCount } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, isWolfRole } from '../constants/roles';
 
 const ALL_SELECTABLE_ROLES = [
   ROLE.VILLAGER, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID,
@@ -46,11 +46,11 @@ export function getRoleInfo(role) {
 }
 
 /**
- * Returns list of all werewolf player IDs for a given role map.
+ * Returns the IDs of every player in the pack (werewolves and the White Wolf).
  */
 export function getWerewolves(roleMap) {
   return Object.entries(roleMap)
-    .filter(([, role]) => role === ROLE.WEREWOLF)
+    .filter(([, role]) => isWolfRole(role))
     .map(([id]) => id);
 }
 
@@ -63,8 +63,9 @@ export function getPlayerWithRole(roleMap, role) {
 }
 
 /**
- * Checks win condition. Returns 'werewolves', 'villagers', 'lovers', or null.
+ * Checks win condition. Returns 'werewolves', 'villagers', 'lovers', 'white_wolf', or null.
  * Lovers win if they are the last two players alive, regardless of team.
+ * The White Wolf wins alone; for the pack's majority check it counts as an opponent.
  */
 export function checkWinCondition(players, roleMap, lovers = null) {
   const alive = players.filter((p) => p.isAlive && !p.isNarrator);
@@ -75,11 +76,12 @@ export function checkWinCondition(players, roleMap, lovers = null) {
     if (alive.length === 2 && bothLoversAlive) return 'lovers';
   }
 
-  const aliveWolves = alive.filter((p) => roleMap[p.id] === ROLE.WEREWOLF).length;
-  const aliveVillagers = alive.filter((p) => roleMap[p.id] !== ROLE.WEREWOLF).length;
+  const pack = alive.filter((p) => roleMap[p.id] === ROLE.WEREWOLF).length;
+  const whiteWolfAlive = alive.some((p) => roleMap[p.id] === ROLE.WHITE_WOLF);
 
-  if (aliveWolves === 0) return 'villagers';
-  if (aliveWolves >= aliveVillagers) return 'werewolves';
+  if (whiteWolfAlive && alive.length === 1) return 'white_wolf';
+  if (pack === 0 && !whiteWolfAlive) return 'villagers';
+  if (pack > 0 && pack >= alive.length - pack) return 'werewolves';
   return null;
 }
 

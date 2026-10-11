@@ -16,7 +16,7 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat } from '../firebase/roomService';
-import { ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
@@ -95,6 +95,9 @@ export default function GameOverScreen({ route, navigation }) {
           style={styles.winnerBanner}
           resizeMode="contain"
         />
+        {winner === 'white_wolf' && (
+          <Text style={[styles.soloWinner, { color: t.accent }]}>The White Wolf stands alone. They win!</Text>
+        )}
 
         {/* Player roles reveal */}
         <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>All Roles Revealed</Text>
@@ -107,7 +110,9 @@ export default function GameOverScreen({ route, navigation }) {
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
             const isWinner =
               (winner === 'villagers' && roleDef.team === 'villagers') ||
-              (winner === 'werewolves' && roleDef.team === 'werewolves');
+              (winner === 'werewolves' && role === ROLE.WEREWOLF) ||
+              (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
+              (winner === 'lovers' && room.lovers?.includes(item.id));
             return (
               <View style={[
                 styles.playerReveal,
@@ -170,6 +175,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
+  soloWinner: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.md },
   winnerBanner: {
     width: '100%',
     height: 220,

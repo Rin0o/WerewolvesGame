@@ -37,6 +37,13 @@ describe('startGame', () => {
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
   });
 
+  it('a classic first night can start with the saviour or wolves instead of only night-1 roles', async () => {
+    const composition = ['werewolf', 'saviour', 'villager', 'villager', 'villager'];
+    expect((await start(humans(5), composition)).nightSubPhase).toBe('werewolf');
+    await startGame(ROOM_ID, humans(5), composition, true);
+    expect(lastUpdate(updateRoom).nightSubPhase).toBe('saviour');
+  });
+
   it('gives the witch both potions', async () => {
     const update = await start(humans(8));
     const witch = Object.keys(update.roles).find((id) => update.roles[id] === ROLE.WITCH);

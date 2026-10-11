@@ -204,6 +204,15 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('bob').room, { 'nightActions.seer': 'alice' }));
   });
 
+  it('the White Wolf hunts with the pack and devours alone; the Wolf Hound picks a side', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf', sam: 'wolf_hound' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.werewolf': 'wendy' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.whiteWolf': 'alice' }));
+    await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.wolfHound': 'werewolf' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.whiteWolf': 'bob' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.werewolf': 'host' }));
+  });
+
   it('nobody but the host advances the night', async () => {
     await assertFails(updateDoc(as('alice').room, { nightSubPhase: 'seer' }));
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));
@@ -290,6 +299,11 @@ describe('chats', () => {
   it('only werewolves post in the wolf chat', async () => {
     await assertSucceeds(addDoc(wolfChat(as('alice').db), message('alice')));
     await assertFails(addDoc(wolfChat(as('sam').db), message('sam')));
+  });
+
+  it('the White Wolf posts in the wolf chat too', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf' } });
+    await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
   });
 
   it('only the host clears chats', async () => {
