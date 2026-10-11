@@ -16,6 +16,8 @@ import PhaseTransition from '../components/PhaseTransition';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
+import useHostFailover from '../hooks/useHostFailover';
+import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveLynch, startNextNight, hunterShoot } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
@@ -48,6 +50,7 @@ const HUNTER_SHOT_SECONDS = 20;
 export default function DayPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  useHostFailover(roomId, playerId, room);
   const gs = useGameState(room, playerId);
   const playerHooks = usePlayer(roomId);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -64,6 +67,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
   const hunterTargetRef = useRef(null);
+  const discussionTimerExpiredRef = useRef(false);
 
   const t = DAY;
 
@@ -91,6 +95,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           style: 'destructive',
           onPress: async () => {
             await disconnectPlayer(roomId, playerId);
+            await clearSession();
             navigation.navigate('Home');
           },
         },
@@ -120,7 +125,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         confirmDayVote(roomId, bot.id, target.id);
       }
     }
-  }, [room?.status]);
+  }, [room?.status, gs.isHost]);
 
   const alivePlayers = room?.players?.filter((p) => p.isAlive && !p.isNarrator) || [];
   const disconnected = room?.disconnectedPlayers || [];
@@ -152,7 +157,17 @@ export default function DayPhaseScreen({ route, navigation }) {
       startedNextNightRef.current = true;
       startNextNight(roomId, roomRef.current);
     }
-  }, [room?.hunterTriggered]);
+  }, [room?.hunterTriggered, gs.isHost]);
+
+  useEffect(() => {
+    const current = roomRef.current;
+    if (!gs.isHost || !current || current.status !== 'day') return;
+    if (current.hunterTriggered || resultModalVisible || resolvingRef.current) return;
+    const voters = (current.players || []).filter((p) => p.isAlive && !p.isNarrator);
+    const votingDone = current.votesClosed || allVotesIn(current.votes || {}, voters, current.disconnectedPlayers || []);
+    if (votingDone) handleResultExpire();
+    else if (discussionTimerExpiredRef.current) handleTimerExpire();
+  }, [gs.isHost]);
 
   roomRef.current = room;
   resolvingRef.current = resolving;
@@ -183,6 +198,11 @@ export default function DayPhaseScreen({ route, navigation }) {
   async function handleConfirmVote() {
     if (!myVoteTarget || myVoteConfirmed) return;
     await confirmDayVote(roomId, playerId, myVoteTarget);
+  }
+
+  function handleDiscussionTimerExpire() {
+    discussionTimerExpiredRef.current = true;
+    handleTimerExpire();
   }
 
   async function handleTimerExpire() {
@@ -261,7 +281,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           {hunterTriggered && hunterTriggered === playerId ? (
             <Timer totalSeconds={HUNTER_SHOT_SECONDS} onExpire={handleHunterTimerExpire} theme={t} />
           ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
-            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={t} />
+            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={handleDiscussionTimerExpire} theme={t} />
           ) : null}
         </View>
       </View>

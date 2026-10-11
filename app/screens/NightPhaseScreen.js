@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
+import useHostFailover from '../hooks/useHostFailover';
+import { clearSession } from '../utils/session';
 import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveNight, computeNightSequence, isSubPhaseDone } from '../game-logic/gameManager';
 import { getAvailableRolesForThief } from '../game-logic/roles';
@@ -74,6 +76,7 @@ const NOTES_ICON       = require('../../assets/notes.webp');
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  useHostFailover(roomId, playerId, room);
   const gs = useGameState(room, playerId);
   const playerHooks = usePlayer(roomId);
   const [myActionDone, setMyActionDone] = useState(false);
@@ -94,6 +97,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const pendingDay = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
+  const subPhaseTimerExpiredRef = useRef(false);
 
   const t = NIGHT;
 
@@ -121,6 +125,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           style: 'destructive',
           onPress: async () => {
             await disconnectPlayer(roomId, playerId);
+            await clearSession();
             navigation.navigate('Home');
           },
         },
@@ -167,7 +172,15 @@ export default function NightPhaseScreen({ route, navigation }) {
     } else {
       updateRoom(roomId, { nightSubPhase: next });
     }
-  }, [room?.nightActions, room?.nightSubPhase, room?.status]);
+  }, [room?.nightActions, room?.nightSubPhase, room?.status, gs.isHost]);
+
+  useEffect(() => {
+    subPhaseTimerExpiredRef.current = false;
+  }, [room?.nightSubPhase]);
+
+  useEffect(() => {
+    if (gs.isHost && subPhaseTimerExpiredRef.current) handleTimerExpire();
+  }, [gs.isHost]);
 
   useEffect(() => {
     if (!gs.isHost || !room || !BOT_CONFIG.enabled || room.status !== 'night') return;
@@ -188,7 +201,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         }
       }
     }
-  }, [room?.nightSubPhase]);
+  }, [room?.nightSubPhase, gs.isHost]);
 
   roomRef.current = room;
   resolvingRef.current = resolving;
@@ -272,6 +285,11 @@ export default function NightPhaseScreen({ route, navigation }) {
     setCupidTargets((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : prev
     );
+  }
+
+  function handleSubPhaseTimerExpire() {
+    subPhaseTimerExpiredRef.current = true;
+    handleTimerExpire();
   }
 
   async function handleTimerExpire() {
@@ -378,7 +396,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         </TouchableOpacity>
         <View style={styles.timerSlot}>
           {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
-            <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, phase)} onExpire={handleTimerExpire} theme={t} />
+            <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, phase)} onExpire={handleSubPhaseTimerExpire} theme={t} />
           )}
         </View>
       </View>

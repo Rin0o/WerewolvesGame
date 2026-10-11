@@ -15,6 +15,8 @@ import {
   addDoc,
   orderBy,
   Timestamp,
+  increment,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from './config';
 
@@ -54,6 +56,31 @@ export async function findRoomByCode(code) {
   if (snap.empty) return null;
   const docSnap = snap.docs[0];
   return { roomId: docSnap.id, ...docSnap.data() };
+}
+
+export async function getRoom(roomId) {
+  const snap = await getDoc(doc(db, 'rooms', roomId));
+  return snap.exists() ? { roomId: snap.id, ...snap.data() } : null;
+}
+
+export async function beatHost(roomId) {
+  await updateDoc(doc(db, 'rooms', roomId), { hostHeartbeat: increment(1) });
+}
+
+export async function takeOverHost(roomId, staleHostId, staleHeartbeat, newHostId) {
+  const roomRef = doc(db, 'rooms', roomId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists()) return false;
+    const room = snap.data();
+    if (room.hostId !== staleHostId || (room.hostHeartbeat ?? null) !== (staleHeartbeat ?? null)) return false;
+    tx.update(roomRef, {
+      hostId: newHostId,
+      hostHeartbeat: (room.hostHeartbeat ?? 0) + 1,
+      players: (room.players || []).map((p) => ({ ...p, isHost: p.id === newHostId })),
+    });
+    return true;
+  });
 }
 
 export async function joinRoom(roomId, player) {

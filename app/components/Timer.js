@@ -4,6 +4,8 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function Timer({ totalSeconds, onExpire, theme }) {
   const [remaining, setRemaining] = useState(totalSeconds);
   const intervalRef = useRef(null);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     setRemaining(totalSeconds);
@@ -11,14 +13,14 @@ export default function Timer({ totalSeconds, onExpire, theme }) {
 
   useEffect(() => {
     if (remaining <= 0) {
-      onExpire?.();
+      onExpireRef.current?.();
       return;
     }
     intervalRef.current = setInterval(() => {
       setRemaining((r) => {
         if (r <= 1) {
           clearInterval(intervalRef.current);
-          onExpire?.();
+          onExpireRef.current?.();
           return 0;
         }
         return r - 1;

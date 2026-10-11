@@ -10,12 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
+import useHostFailover from '../hooks/useHostFailover';
 import RoleCard from '../components/RoleCard';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function RoleRevealScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  useHostFailover(roomId, playerId, room);
   const gs = useGameState(room, playerId);
   const [confirmed, setConfirmed] = useState(false);
 

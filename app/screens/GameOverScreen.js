@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import usePlayer from '../hooks/usePlayer';
+import useHostFailover from '../hooks/useHostFailover';
+import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat } from '../firebase/roomService';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
@@ -28,6 +30,7 @@ const PLAY_AGAIN_ICON = require('../../assets/play_again.webp');
 export default function GameOverScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  useHostFailover(roomId, playerId, room);
   const { clearGameData } = usePlayer(roomId);
 
   const winner = room?.winner;
@@ -79,6 +82,7 @@ export default function GameOverScreen({ route, navigation }) {
   }
 
   function handleLeave() {
+    clearSession();
     navigation.replace('Home');
   }
 

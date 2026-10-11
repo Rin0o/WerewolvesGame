@@ -62,6 +62,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles;
                                exposes cycleSuspicion (cycle through levels) and
                                setSuspicion(playerId, level) (direct level set)
+    useHostFailover.js       — Host heartbeat + automatic host takeover (used on every room screen)
+  /utils/
+    session.js               — AsyncStorage active-game session (save/load/clear) for Rejoin
   /constants/
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
                                getCompositionForCount(), buildCustomComposition()
@@ -107,7 +110,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 ```
 {
   code: string                    // 5-char uppercase join code
-  hostId: string                  // Firebase Auth UID of host
+  hostId: string                  // Firebase Auth UID of host (changes on host takeover)
+  hostHeartbeat: number           // Incremented by the host every 8s; others detect a stale host from it
   status: "lobby"|"night"|"day"|"ended"
   phase: number                   // Cycle count (starts at 1, increments each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
@@ -202,7 +206,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 
 ## Key Conventions
 - **Roles are private**: `roles` map written by host on game start. Clients read `roles[myPlayerId]`. Never render other players' roles except on GameOver.
-- **Host is orchestrator**: Host client detects when all night actions are in and calls `resolveNight()`. On day phase, host detects when all votes are in and calls `resolveLynch()`. Disconnected players are skipped in both checks.
+- **Host is orchestrator**: Host client detects when all night actions are in and calls `resolveNight()`. On day phase, host detects when all votes are in and calls `resolveLynch()`. Disconnected players are skipped in both checks. Every host-only effect lists `gs.isHost` in its deps so a player who becomes host mid-phase picks up the work.
+- **Host failover**: `useHostFailover(roomId, playerId, room)` runs on Lobby, RoleReveal, Night, Day and GameOver. The host increments `hostHeartbeat` every 8s. Other clients time how long since they last *saw* it change (local clock, so no device clock skew). After 25s the next candidate in `players` order (non-bot, non-narrator, not disconnected) takes over via a Firestore transaction (`takeOverHost`) that only succeeds if `hostId` and `hostHeartbeat` are unchanged; each further candidate waits 6s more. Disabled in narrator games once started (only the narrator can drive). Screens remember if a phase timer already expired (`subPhaseTimerExpiredRef`, `discussionTimerExpiredRef`) so a new host catches up immediately. `Timer` and `LynchResultModal` call the latest `onExpire` via a ref, never a stale closure.
+- **Rejoin after closing the app**: `LobbyScreen` saves `{ roomId, playerId, nickname }` via `utils/session.js`; every Leave button clears it. `HomeScreen` checks the saved session on mount/focus (same Firebase anon UID, room exists, player still listed) and shows a Rejoin card that navigates to the screen for the current `status` (`screenForStatus`).
 - **One lynch per day**: After a successful lynch (lynchCount > spareCount) with no game winner and no Hunter triggered, `resolveLynch()` transitions directly to `status: 'night'` and increments the phase. Spared players leave the day open for another accusation.
 - **Events are atomic**: All game events are written using Firestore `arrayUnion(...events)` inside the same `updateRoom()` call that changes `status`. Never use separate `addEvent()` calls from game logic — this caused race conditions where clients saw the status change before events landed.
 - **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog.
@@ -264,5 +270,6 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 - No server-side role validation (roles map is readable by determined clients)
 - Bot support is dev/testing only — disable `BOT_CONFIG.enabled` before shipping
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
-- No deep-link or session restore — if a player force-quits the app they must rejoin via the Home screen (room code needed again)
+- Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
+- If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.

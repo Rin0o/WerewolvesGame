@@ -13,8 +13,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInAnon, subscribeToAuth } from '../firebase/authService';
-import { createRoom, findRoomByCode, joinRoom } from '../firebase/roomService';
+import { createRoom, findRoomByCode, joinRoom, getRoom } from '../firebase/roomService';
 import { forgetRoomSnapshot } from '../hooks/useRoom';
+import { loadSession, clearSession, screenForStatus } from '../utils/session';
+
+const STATUS_LABELS = {
+  lobby: 'waiting in the lobby',
+  night: 'in progress (night)',
+  day:   'in progress (day)',
+  ended: 'finished',
+};
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function HomeScreen({ navigation }) {
@@ -22,6 +30,7 @@ export default function HomeScreen({ navigation }) {
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [resumable, setResumable] = useState(null);
 
   useEffect(() => {
     const unsub = subscribeToAuth(async (user) => {
@@ -34,6 +43,51 @@ export default function HomeScreen({ navigation }) {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+
+    async function checkForResumableGame() {
+      const session = await loadSession();
+      if (!session || session.playerId !== userId) {
+        if (active) setResumable(null);
+        return;
+      }
+      try {
+        const room = await getRoom(session.roomId);
+        const stillInRoom = room?.players?.some((p) => p.id === userId);
+        if (!room || !stillInRoom || !screenForStatus(room.status)) {
+          await clearSession();
+          if (active) setResumable(null);
+          return;
+        }
+        if (active) setResumable({ ...session, code: room.code, status: room.status });
+      } catch {
+        if (active) setResumable(null);
+      }
+    }
+
+    checkForResumableGame();
+    const unsubscribe = navigation.addListener('focus', checkForResumableGame);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [userId, navigation]);
+
+  function handleRejoin() {
+    if (!resumable) return;
+    const { roomId, playerId, nickname: savedNickname, status } = resumable;
+    forgetRoomSnapshot(roomId);
+    setResumable(null);
+    navigation.navigate(screenForStatus(status), { roomId, playerId, nickname: savedNickname });
+  }
+
+  async function handleForgetGame() {
+    await clearSession();
+    setResumable(null);
+  }
 
   function validateNickname() {
     const trimmed = nickname.trim();
@@ -95,6 +149,24 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.title, { color: t.primary }]}>Werewolves</Text>
             <Text style={[styles.subtitle, { color: t.textSecondary }]}>of Miller's Hollow</Text>
           </View>
+
+          {resumable && (
+            <View style={[styles.card, styles.resumeCard, { backgroundColor: t.surface, borderColor: t.primary }]}>
+              <Text style={[styles.label, { color: t.textSecondary }]}>Game in progress</Text>
+              <Text style={[styles.resumeText, { color: t.text }]}>
+                Room {resumable.code} is {STATUS_LABELS[resumable.status]}. You're playing as {resumable.nickname}.
+              </Text>
+              <TouchableOpacity
+                style={[styles.btn, styles.resumeBtn, { backgroundColor: t.primary }]}
+                onPress={handleRejoin}
+              >
+                <Text style={styles.btnText}>↩️ Rejoin Game</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleForgetGame}>
+                <Text style={[styles.forgetText, { color: t.textMuted }]}>Not now — forget this game</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Nickname */}
           <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
@@ -189,4 +261,8 @@ const styles = StyleSheet.create({
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.sm },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { ...FONTS.caption, marginHorizontal: SPACING.sm },
+  resumeCard: { borderWidth: 2 },
+  resumeText: { ...FONTS.body, marginBottom: SPACING.md },
+  resumeBtn: { marginBottom: SPACING.sm },
+  forgetText: { ...FONTS.caption, textAlign: 'center' },
 });

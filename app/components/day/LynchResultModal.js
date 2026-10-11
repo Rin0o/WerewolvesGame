@@ -9,6 +9,8 @@ const DISPLAY_SECONDS = 8;
 export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles }) {
   const [countdown, setCountdown] = useState(DISPLAY_SECONDS);
   const countRef = useRef(DISPLAY_SECONDS);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     if (!visible) {
@@ -23,7 +25,7 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
       setCountdown(countRef.current);
       if (countRef.current <= 0) {
         clearInterval(interval);
-        onExpire?.();
+        onExpireRef.current?.();
       }
     }, 1000);
     return () => clearInterval(interval);

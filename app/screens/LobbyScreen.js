@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
+import useHostFailover from '../hooks/useHostFailover';
+import { saveSession, clearSession } from '../utils/session';
 import { setPlayerReady, leaveRoom, updateRoom } from '../firebase/roomService';
 import { startGame } from '../game-logic/gameManager';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
@@ -25,8 +27,13 @@ const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIE
 export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
+  useHostFailover(roomId, playerId, room);
   const customInitDone = useRef(false);
   const [starting, setStarting] = useState(false);
+
+  React.useEffect(() => {
+    saveSession({ roomId, playerId, nickname });
+  }, [roomId, playerId, nickname]);
 
   const t = DAY;
 
@@ -138,6 +145,7 @@ export default function LobbyScreen({ route, navigation }) {
       {
         text: 'Leave', style: 'destructive', onPress: async () => {
           await leaveRoom(roomId, playerId);
+          await clearSession();
           navigation.replace('Home');
         }
       },
