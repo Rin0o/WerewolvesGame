@@ -33,14 +33,14 @@ import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
-const DAY_BACKGROUND       = require('../../assets/day_background.png');
-const EXIT_GAME_ICON       = require('../../assets/leave.png');
-const NOTES_ICON           = require('../../assets/notes.png');
-const DAY_CHAT_ICON        = require('../../assets/day_chat.png');
-const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.png');
-const DAY_CHECK_ICON       = require('../../assets/day_check.png');
-const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.png');
-const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.png');
+const DAY_BACKGROUND       = require('../../assets/day_background.webp');
+const EXIT_GAME_ICON       = require('../../assets/leave.webp');
+const NOTES_ICON           = require('../../assets/notes.webp');
+const DAY_CHAT_ICON        = require('../../assets/day_chat.webp');
+const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.webp');
+const DAY_CHECK_ICON       = require('../../assets/day_check.webp');
+const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
+const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
 
 const DISCUSSION_SECONDS = 240;
 

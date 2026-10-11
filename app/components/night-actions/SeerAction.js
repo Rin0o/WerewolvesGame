@@ -5,7 +5,7 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const NIGHT_CHECK_ICON  = require('../../../assets/night_check.png');
+const NIGHT_CHECK_ICON  = require('../../../assets/night_check.webp');
 
 export default function SeerAction({ theme: t, players, seerTarget, onSelectTarget, onSubmit, seerResult, onDismissResult, suspicions = {}, suspectedRoles = {} }) {
   if (seerResult) {

@@ -7,7 +7,7 @@ const { width } = Dimensions.get('window');
 export default function LaunchScreen({ navigation }) {
   return (
     <ImageBackground
-      source={require('../../assets/home_page.png')}
+      source={require('../../assets/home_page.webp')}
       style={styles.background}
       resizeMode="cover"
     >
@@ -18,7 +18,7 @@ export default function LaunchScreen({ navigation }) {
             activeOpacity={0.8}
           >
             <Image
-              source={require('../../assets/play_btn.png')}
+              source={require('../../assets/play_btn.webp')}
               style={styles.playBtn}
               resizeMode="contain"
             />

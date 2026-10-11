@@ -5,9 +5,9 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const NIGHT_CHAT_ICON    = require('../../../assets/night_chat.png');
-const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.png');
-const NIGHT_CHECK_ICON   = require('../../../assets/night_check.png');
+const NIGHT_CHAT_ICON    = require('../../../assets/night_chat.webp');
+const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
+const NIGHT_CHECK_ICON   = require('../../../assets/night_check.webp');
 
 export default function WerewolfAction({ theme: t, players, phase, wolfTarget, onSelectTarget, onSubmit, onOpenChat, suspicions = {}, suspectedRoles = {} }) {
   return (

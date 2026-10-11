@@ -54,8 +54,8 @@ const SUBPHASE_FLAVOR = {
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
-const NIGHT_BACKGROUND = require('../../assets/night_background.png');
-const NOTES_ICON       = require('../../assets/notes.png');
+const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
+const NOTES_ICON       = require('../../assets/notes.webp');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;

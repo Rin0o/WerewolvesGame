@@ -1,25 +1,25 @@
 export const ROLE_ICONS = {
-  villager:  require('../../assets/role_icons/villager.png'),
-  werewolf:  require('../../assets/role_icons/werewolf.png'),
-  seer:      require('../../assets/role_icons/seer.png'),
-  witch:     require('../../assets/role_icons/witch.png'),
-  hunter:    require('../../assets/role_icons/hunter.png'),
-  cupid:     require('../../assets/role_icons/cupid.png'),
-  thief:     require('../../assets/role_icons/thief.png'),
-  saviour:    require('../../assets/role_icons/saviour.png'),
-  bear_tamer: require('../../assets/role_icons/bear_tamer.png'),
-  sister:     require('../../assets/role_icons/sisters.png'),
+  villager:  require('../../assets/role_icons/villager.webp'),
+  werewolf:  require('../../assets/role_icons/werewolf.webp'),
+  seer:      require('../../assets/role_icons/seer.webp'),
+  witch:     require('../../assets/role_icons/witch.webp'),
+  hunter:    require('../../assets/role_icons/hunter.webp'),
+  cupid:     require('../../assets/role_icons/cupid.webp'),
+  thief:     require('../../assets/role_icons/thief.webp'),
+  saviour:    require('../../assets/role_icons/saviour.webp'),
+  bear_tamer: require('../../assets/role_icons/bear_tamer.webp'),
+  sister:     require('../../assets/role_icons/sisters.webp'),
 };
 
 export const SUSPICION_ICONS = {
-  innocent:        require('../../assets/suspicion_level_icons/innocent.png'),
-  neutral:         require('../../assets/suspicion_level_icons/neutral.png'),
-  suspicious:      require('../../assets/suspicion_level_icons/suspicious.png'),
-  very_suspicious: require('../../assets/suspicion_level_icons/very_suspicious.png'),
-  dead:            require('../../assets/suspicion_level_icons/dead.png'),
+  innocent:        require('../../assets/suspicion_level_icons/innocent.webp'),
+  neutral:         require('../../assets/suspicion_level_icons/neutral.webp'),
+  suspicious:      require('../../assets/suspicion_level_icons/suspicious.webp'),
+  very_suspicious: require('../../assets/suspicion_level_icons/very_suspicious.webp'),
+  dead:            require('../../assets/suspicion_level_icons/dead.webp'),
 };
 
-export const DEAD_ICON = require('../../assets/suspicion_level_icons/dead.png');
+export const DEAD_ICON = require('../../assets/suspicion_level_icons/dead.webp');
 
 export const SUSPICION_LABELS = {
   innocent:       'Innocent',

@@ -5,10 +5,10 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, DEAD_ICON, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const NIGHT_CHECK_ICON  = require('../../../assets/night_check.png');
-const WITCH_LIVE_POTION  = require('../../../assets/role_actions/live_potion.png');
-const WITCH_DEATH_POTION = require('../../../assets/role_actions/death_potion.png');
-const WITCH_DO_NOTHING   = require('../../../assets/role_actions/witch_do_nothing.png');
+const NIGHT_CHECK_ICON  = require('../../../assets/night_check.webp');
+const WITCH_LIVE_POTION  = require('../../../assets/role_actions/live_potion.webp');
+const WITCH_DEATH_POTION = require('../../../assets/role_actions/death_potion.webp');
+const WITCH_DO_NOTHING   = require('../../../assets/role_actions/witch_do_nothing.webp');
 
 export default function WitchAction({
   theme: t,

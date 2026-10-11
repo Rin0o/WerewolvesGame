@@ -15,7 +15,7 @@ import { RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, SUSPICION_ICONS } from '../constants/icons';
 
-const SUSPECT_ICON = require('../../assets/suspicion_level_icons/suspect.png');
+const SUSPECT_ICON = require('../../assets/suspicion_level_icons/suspect.webp');
 
 const ROLE_OPTIONS = Object.keys(ROLE_DEFINITIONS);
 

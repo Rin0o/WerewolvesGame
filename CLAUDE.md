@@ -34,7 +34,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     WerewolfChat.js          — Real-time Firestore chat (wolves only + narrator); accepts
                                isNarrator prop to show observer label instead of input
     Timer.js                 — Countdown with urgency styling (red at ≤10s)
-    RoleCard.js              — Role card with PNG image (assets/roles/), description,
+    RoleCard.js              — Role card with WebP image (assets/roles/), description,
                                goal, ability; falls back to emoji if no image
     ClueLog.js               — Scrollable event history list
     PhaseTransition.js       — Animated day/night transition overlay
@@ -68,35 +68,36 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     theme.js                 — DAY, NIGHT, DAY_TIMER_THEME, NIGHT_TIMER_THEME theme objects (timer themes kept for reference but not used in headers)
                                + FONTS, RADIUS, SPACING
     devConfig.js             — BOT_CONFIG: enable/disable test bots (roles are random)
-/assets/
+/assets-src/                 — Full-resolution original PNGs (not bundled); source for /assets
+/assets/                     — Resized WebP images used by the app (only game_icon.png stays PNG)
   game_icon.png              — App icon (set in app.json for iOS + Android)
-  home_page.png              — LaunchScreen full-screen background (stained-glass werewolf art)
-  play_btn.png               — LaunchScreen play button (stained-glass style)
-  day_background.png         — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
-  night_background.png       — NightPhaseScreen full-screen ImageBackground (deep purple castle)
-  dawn_banner.png            — PhaseTransition banner for day transitions (red/gold stained glass)
-  night_banner.png           — PhaseTransition banner for night transitions (blue/purple stained glass)
-  leave.png                  — Leave/exit button image (DayPhaseScreen)
-  exit_game.png              — Leave/exit button image (NightPhaseScreen)
-  notes.png                  — Notes button image (DayPhaseScreen toolbar)
-  accept.png                 — Confirm button for accusation modal
-  cancel.png                 — Cancel button for accusation modal
-  play_again.png             — Play Again button (GameOverScreen, host only)
-  villagers_win.png          — Winner banner for villager victory (GameOverScreen)
-  werewolves_win.png         — Winner banner for werewolf victory (GameOverScreen)
-  lovers_win.png             — Winner banner for lovers victory (GameOverScreen)
+  home_page.webp              — LaunchScreen full-screen background (stained-glass werewolf art)
+  play_btn.webp               — LaunchScreen play button (stained-glass style)
+  day_background.webp         — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
+  night_background.webp       — NightPhaseScreen full-screen ImageBackground (deep purple castle)
+  dawn_banner.webp            — PhaseTransition banner for day transitions (red/gold stained glass)
+  night_banner.webp           — PhaseTransition banner for night transitions (blue/purple stained glass)
+  leave.webp                  — Leave/exit button image (DayPhaseScreen)
+  exit_game.webp              — Leave/exit button image (NightPhaseScreen)
+  notes.webp                  — Notes button image (DayPhaseScreen toolbar)
+  accept.webp                 — Confirm button for accusation modal
+  cancel.webp                 — Cancel button for accusation modal
+  play_again.webp             — Play Again button (GameOverScreen, host only)
+  villagers_win.webp          — Winner banner for villager victory (GameOverScreen)
+  werewolves_win.webp         — Winner banner for werewolf victory (GameOverScreen)
+  lovers_win.webp             — Winner banner for lovers victory (GameOverScreen)
   /role_actions/
-    live_potion.png          — Witch save action button
-    death_potion.png         — Witch poison action button
-    witch_do_nothing.png     — Witch skip action button
-  /role_icons/               — PNG role icons (werewolf, seer, witch, hunter, cupid, thief,
-                               villager, bear_tamer, sisters); unknown.png shown as avatar for alive
+    live_potion.webp          — Witch save action button
+    death_potion.webp         — Witch poison action button
+    witch_do_nothing.webp     — Witch skip action button
+  /role_icons/               — WebP role icons (werewolf, seer, witch, hunter, cupid, thief,
+                               villager, bear_tamer, sisters); unknown.webp shown as avatar for alive
                                players whose role is not revealed (day screen + NotesPanel)
-  /suspicion_level_icons/    — PNG suspicion icons (neutral, innocent, suspicious,
-                               very_suspicious, dead); dead.png used as avatar for dead
-                               players in day screen and NotesPanel; suspect.png is the
+  /suspicion_level_icons/    — WebP suspicion icons (neutral, innocent, suspicious,
+                               very_suspicious, dead); dead.webp used as avatar for dead
+                               players in day screen and NotesPanel; suspect.webp is the
                                default role-picker icon in NotesPanel when no role is set
-  /roles/                    — PNG role card images (villager, werewolf, seer, witch,
+  /roles/                    — WebP role card images (villager, werewolf, seer, witch,
                                hunter, thief, cupid); shown in RoleCard component
 ```
 
@@ -208,7 +209,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Game modes**: Host selects Normal, Custom, or Narrator in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
 - **Narrator mode**: Host is flagged `isNarrator: true` on their player object and excluded from role assignment, win-condition checks, vote eligibility, and the night-action bot-target pool. The narrator skips `RoleRevealScreen` and goes straight to `NightPhaseScreen`. At night they see `NarratorNightDashboard` (full role visibility, submitted actions, manual Next/Skip to advance sub-phases — no auto-timer). At day they see `NarratorDayDashboard` (per-voter live breakdown, tally bars, Close Votes button) and see all roles in the player list. `useGameState` exposes `gs.isNarrator`. The day discussion timer is hidden in narrator mode; `closeVoting()` (sets `votesClosed: true`) is the narrator's trigger to end voting, which then flows into the normal `resolveLynch` path.
 - **Vote feedback**: DayPhaseScreen snapshots the vote map into local `lastLynchResult` state the moment `allVotesIn` becomes true — before `resolveLynch` wipes `votes: {}` from Firestore. The result card (verdict, tally, per-player votes, role reveal if lynched) persists until the next accusation starts.
-- **Role card images**: `RoleCard` component maps role keys to static `require()` calls for PNGs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
+- **Image assets**: Originals live in `assets-src/` as full-resolution PNGs; the app only references WebP files in `assets/`. To add or update an image, put the PNG in `assets-src/`, then export a WebP to the same path under `assets/` (quality ~85, keep alpha), sized to ~3× its on-screen size: icons 384px, small buttons 512–600px, banners 900–1320px, role cards 1200px tall, backgrounds at original size. Never `require()` from `assets-src/` — Metro would bundle the full-size file.
+- **Role card images**: `RoleCard` component maps role keys to static `require()` calls for WebPs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
 - **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. It calls `navigation.replace('Home')` on press so the back button can never return to it.
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire.
 - **No comments in code**: Code is self-documenting via naming.
@@ -216,12 +218,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **Full-screen backgrounds**: `DayPhaseScreen` and `NightPhaseScreen` use `<ImageBackground>` as the root element with `resizeMode="cover"` to bleed edge-to-edge. `<SafeAreaView>` is nested inside. The header is a semi-transparent `<View>` (not an ImageBackground).
 - **Phase screen header pattern**: Both phase screens use a `flexDirection: 'row'` `<View>` header containing: a pill-shaped phase badge (label + number), a centered flex-1 title, and a fixed-width timer slot. Day header: `rgba(255,245,230,0.95)` bg; night header: `rgba(13,8,32,0.82)` bg.
 - **Glass-card pattern**: UI sections (vote panel, hunter box, player list, action boxes) use semi-transparent `rgba(...)` backgrounds so the background image remains visible. Day cards use warm cream `rgba(255,245,230,0.93)`; night action boxes use dark `rgba(10,5,28,0.78)`.
-- **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.png` (day) or `night_banner.png` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
-- **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` PNG — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature").
+- **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.webp` (day) or `night_banner.webp` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
+- **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` WebP — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature").
 - **Phase counter 2-line format**: The phase counter in both DayPhaseScreen and NightPhaseScreen is split across two `<Text>` elements — `phaseLabel` (caption style, uppercase, letter-spaced) on line 1, and `phaseNumber` (fontSize: 22, fontWeight: '700') on line 2. Both sit inside the `phaseBadge` pill View in the header row.
 - **Dead player row pattern**: In DayPhaseScreen, dead player rows use `backgroundColor: 'rgba(60,30,60,0.72)'` and a purple border. A purple-toned theme override is passed inline to PlayerCard (`text: '#F0ECFF'`, etc.). `noDeadOpacity` is set to prevent the 0.45 opacity from washing out the already-light text.
 - **Player row pattern**: Player lists (day screen, night action components, HunterSection) use a plain `<View>` with a themed `backgroundColor` and `borderWidth: 2` `borderColor` that changes on selection. Day alive: `rgba(255,245,230,0.92)`; night: `rgba(20,10,50,0.82)`.
-- **PlayerCard avatar slots**: `avatarIcon` prop takes full precedence over the letter-circle and dead-role-icon fallbacks. Day screen passes `unknown.png` for alive players and `dead.png` for dead players (56×56); role is already shown below the name for dead players so the role icon is not used in the avatar slot. NotesPanel follows the same logic. `avatarIconSize` defaults to 40; both screens set it to 56.
+- **PlayerCard avatar slots**: `avatarIcon` prop takes full precedence over the letter-circle and dead-role-icon fallbacks. Day screen passes `unknown.webp` for alive players and `dead.webp` for dead players (56×56); role is already shown below the name for dead players so the role icon is not used in the avatar slot. NotesPanel follows the same logic. `avatarIconSize` defaults to 40; both screens set it to 56.
 - **NotesPanel player board**: Each player gets a card (`boardCard`) with avatar + name on top and a horizontal suspicion strip below (4 level icons: innocent/neutral/suspicious/very_suspicious). Tapping an icon sets that level directly via `setSuspicion`. Dead player cards hide the suspicion strip and show an "Eliminated" label. The role picker button (top-right of each card) opens a modal with all role options; shows the role icon + name label when set.
 - **Visual style**: Stained-glass medieval fantasy aesthetic consistent across all assets. Dark stone frames, jewel-toned panels, castle motifs. UI chrome (cards, overlays) should blend with this palette.
 

@@ -19,11 +19,11 @@ import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
-const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.png');
-const WEREWOLVES_WIN_BANNER = require('../../assets/werewolves_win.png');
-const LOVERS_WIN_BANNER = require('../../assets/lovers_win.png');
-const LEAVE_ICON = require('../../assets/exit_game.png');
-const PLAY_AGAIN_ICON = require('../../assets/play_again.png');
+const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.webp');
+const WEREWOLVES_WIN_BANNER = require('../../assets/werewolves_win.webp');
+const LOVERS_WIN_BANNER = require('../../assets/lovers_win.webp');
+const LEAVE_ICON = require('../../assets/exit_game.webp');
+const PLAY_AGAIN_ICON = require('../../assets/play_again.webp');
 
 export default function GameOverScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;

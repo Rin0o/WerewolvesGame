@@ -4,8 +4,8 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 
-const ACCEPT_ICON = require('../../../assets/accept.png');
-const CANCEL_ICON = require('../../../assets/cancel.png');
+const ACCEPT_ICON = require('../../../assets/accept.webp');
+const CANCEL_ICON = require('../../../assets/cancel.webp');
 
 export default function AccusationModal({ visible, target, theme: t, suspicion, suspectedRole, onConfirm, onCancel }) {
   if (!target) return null;

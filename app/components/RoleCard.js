@@ -5,16 +5,16 @@ import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
 const ROLE_IMAGES = {
-  villager: require('../../assets/roles/villager.png'),
-  werewolf: require('../../assets/roles/werewolf.png'),
-  seer: require('../../assets/roles/seer.png'),
-  witch: require('../../assets/roles/witch.png'),
-  hunter: require('../../assets/roles/hunter.png'),
-  thief: require('../../assets/roles/thief.png'),
-  cupid:      require('../../assets/roles/cupid.png'),
-  saviour:    require('../../assets/roles/saviour.png'),
-  bear_tamer: require('../../assets/roles/bear_tamer.png'),
-  sister:     require('../../assets/roles/sisters.png'),
+  villager: require('../../assets/roles/villager.webp'),
+  werewolf: require('../../assets/roles/werewolf.webp'),
+  seer: require('../../assets/roles/seer.webp'),
+  witch: require('../../assets/roles/witch.webp'),
+  hunter: require('../../assets/roles/hunter.webp'),
+  thief: require('../../assets/roles/thief.webp'),
+  cupid:      require('../../assets/roles/cupid.webp'),
+  saviour:    require('../../assets/roles/saviour.webp'),
+  bear_tamer: require('../../assets/roles/bear_tamer.webp'),
+  sister:     require('../../assets/roles/sisters.webp'),
 };
 
 export default function RoleCard({ role, fellowWolves = [], fellowSisters = [], players = [] }) {

@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Image } from 'react-native';
 import useSoundEffect from '../hooks/useSoundEffect';
 
-const DAWN_BANNER = require('../../assets/dawn_banner.png');
-const NIGHT_BANNER = require('../../assets/night_banner.png');
+const DAWN_BANNER = require('../../assets/dawn_banner.webp');
+const NIGHT_BANNER = require('../../assets/night_banner.webp');
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
