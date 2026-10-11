@@ -88,19 +88,20 @@ export async function startGame(roomId, players, customComposition = null) {
     allPlayers = [...humanPlayers, ...botPlayers];
 
     const composition = customComposition || getCompositionForCount(allPlayers.length);
-    const remaining = [...composition];
-    for (const role of BOT_CONFIG.bots.map((b) => b.role)) {
-      const idx = remaining.indexOf(role);
-      if (idx !== -1) remaining.splice(idx, 1);
+    const botRoles = [];
+    const humanRoles = [];
+    for (const role of shuffleArr(composition)) {
+      const botCanPlay = role === ROLE.WEREWOLF || role === ROLE.VILLAGER;
+      if (botCanPlay && botRoles.length < botPlayers.length) botRoles.push(role);
+      else humanRoles.push(role);
     }
-    const humanRoles = shuffleArr(remaining).slice(0, humanPlayers.length);
     shuffleArr(humanPlayers).forEach((p, i) => {
       const role = humanRoles[i] || ROLE.VILLAGER;
       roleMap[p.id] = role;
       if (role === ROLE.WITCH) witchPotions[p.id] = { save: true, poison: true };
     });
     botPlayers.forEach((bot, i) => {
-      roleMap[bot.id] = BOT_CONFIG.bots[i].role;
+      roleMap[bot.id] = botRoles[i] || ROLE.VILLAGER;
     });
   } else {
     const result = assignRoles(humanPlayers, customComposition);
