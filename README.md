@@ -96,7 +96,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Werewolf** | Wolves | Each night (from night 2) the wolves pick a victim together, coordinating in the wolf chat. |
 | **Seer** | Village | Each night, chooses a player and learns whether they are a werewolf. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
-| **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. |
+| **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |
 | **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on. If none is available, stays with the village. |
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
@@ -364,9 +364,7 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Roles are not secret from a determined player.** Every phone receives the full room document, including all roles, so a technically minded player could read them. Fixing this would need server-side logic, such as Cloud Functions, plus stricter Firestore rules.
 - **Open Firestore rules.** Any signed-in user, including anonymous ones, can read and write any room. The Firebase web configuration in `config.js` isn't a secret in itself; protection depends entirely on the rules.
 - **Timers run on each phone**, so they can drift slightly on slow devices.
-- **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. The Leave button is currently only shown during the day.
-- **Known bug:** when the Hunter is killed at night, the game moves straight to the next night after the Hunter's shot, skipping that day's discussion and vote.
-- **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
+- **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. The Leave button is currently only shown during the day.- **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
 - **Bear Tamer neighbours** are based on join order, not on where people actually sit.
 - **React Navigation 6** is behind the current major version; upgrading to 7 is a future task.

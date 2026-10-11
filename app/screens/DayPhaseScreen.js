@@ -152,10 +152,12 @@ export default function DayPhaseScreen({ route, navigation }) {
       hadHunterRef.current = true;
       startedNextNightRef.current = false;
       setResultModalVisible(false);
+    } else if (hadHunterRef.current && room?.hunterDiedDuring !== 'day') {
+      hadHunterRef.current = false;
     } else if (hadHunterRef.current && !startedNextNightRef.current && room?.status === 'day' && !room?.winner && gs.isHost) {
       hadHunterRef.current = false;
       startedNextNightRef.current = true;
-      startNextNight(roomId, roomRef.current);
+      startNextNight(roomId);
     }
   }, [room?.hunterTriggered, gs.isHost]);
 
@@ -229,10 +231,10 @@ export default function DayPhaseScreen({ route, navigation }) {
     setLastLynchResult(null);
     setMyVoteTarget(null);
     shownResultRef.current = false;
-    if (!winner && gs.isHost && !startedNextNightRef.current) {
+    if (!winner && gs.isHost && !startedNextNightRef.current && currentRoom.hunterDiedDuring === 'day') {
       startedNextNightRef.current = true;
       hadHunterRef.current = false;
-      startNextNight(roomId, currentRoom);
+      startNextNight(roomId);
     }
   }
 
@@ -250,10 +252,10 @@ export default function DayPhaseScreen({ route, navigation }) {
     setLastLynchResult(null);
     setMyVoteTarget(null);
     shownResultRef.current = false;
-    if (!winner && gs.isHost && !startedNextNightRef.current) {
+    if (!winner && gs.isHost && !startedNextNightRef.current && currentRoom.hunterDiedDuring === 'day') {
       startedNextNightRef.current = true;
       hadHunterRef.current = false;
-      startNextNight(roomId, currentRoom);
+      startNextNight(roomId);
     }
   }
 

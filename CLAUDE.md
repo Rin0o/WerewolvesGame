@@ -171,6 +171,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   votesClosed: bool               // Set by timer expiry (host) or the narrator's Close Votes
   winner: "villagers"|"werewolves"|"lovers"|null
   hunterTriggered: playerId|null  // Set when Hunter dies, cleared after shot
+  hunterDiedDuring: "night"|"day"|null  // When the Hunter died; after the shot only "day" ends the day (next night)
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
   gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
@@ -227,7 +228,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 **Witch** — has one Save potion (revive that night's victim) and one Poison potion (kill any player). Each potion can only be used once per game. One choice per night: save OR poison OR skip. Not woken on night 1, nor once both potions are used.
 
-**Hunter** — when eliminated (night or day), `hunterTriggered` is set to their playerId. Their day screen shows `HunterSection` with a 20s timer (random target on expiry). `hunterShoot()` eliminates the target (+ lover chain) and re-checks the win condition; if there is no winner, the host then calls `startNextNight()`.
+**Hunter** — when eliminated (night or day), `hunterTriggered` is set to their playerId. Their day screen shows `HunterSection` with a 20s timer (random target on expiry). `hunterShoot()` eliminates the target (+ lover chain) and re-checks the win condition. If there is no winner, what happens next depends on `hunterDiedDuring`: after a day lynch (`'day'`) the host calls `startNextNight(roomId)` — it reads the room fresh from Firestore (so the night is planned without the player just shot) and only acts while `status === 'day'` with no winner and no pending shot; after a night death (`'night'`) the day simply continues with discussion and voting.
 
 **Cupid** — on night 1 only, chooses exactly 2 players to become lovers. Lovers are stored in `room.lovers`. If one lover dies, the other immediately dies of heartbreak. If the two lovers are the last alive, they win together regardless of team.
 
@@ -319,7 +320,6 @@ cd android
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
-- **Known bug — Hunter killed at night skips the day**: after any Hunter shot without a winner, the host calls `startNextNight()` (DayPhaseScreen `handleHunterShoot` / `handleHunterTimerExpire` / the `hunterTriggered` effect). That is correct after a day lynch, but when the Hunter died during the night the day's discussion and vote are skipped.
 - Unused code: `components/day/AccusationModal.js`, `components/day/LynchResultCard.js`, `handleExit` in NightPhaseScreen (no Leave button at night)
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - Not yet implemented roles with existing artwork in `assets-src/roles/`: White Wolf, Wolf Hound

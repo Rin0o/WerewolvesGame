@@ -3,6 +3,7 @@ import { ROLE, getCompositionForCount } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief } from './roles';
 import { tallyVotes } from './voteManager';
 import {
+  getRoom,
   updateRoom,
   eliminatePlayer,
   clearNightActions,
@@ -131,6 +132,7 @@ export async function startGame(roomId, players, customComposition = null) {
     votesClosed: false,
     lovers: null,
     hunterTriggered: null,
+    hunterDiedDuring: null,
     disconnectedPlayers: [],
     saviourLastProtected: null,
     bearTamerGrowl: null,
@@ -251,6 +253,7 @@ export async function resolveNight(roomId, roomData) {
     nightActions: {},
     lovers: newLovers,
     hunterTriggered: hunterTriggered || null,
+    hunterDiedDuring: hunterTriggered ? 'night' : null,
     disconnectedPlayers: [],
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
@@ -260,7 +263,9 @@ export async function resolveNight(roomId, roomData) {
   return { winner, eliminatedId };
 }
 
-export async function startNextNight(roomId, room) {
+export async function startNextNight(roomId) {
+  const room = await getRoom(roomId);
+  if (!room || room.status !== 'day' || room.winner || room.hunterTriggered) return;
   const newPhase = (room.phase || 1) + 1;
   const seq = computeNightSequence({ ...room, phase: newPhase, nightActions: {}, disconnectedPlayers: [] });
   await clearNightActions(roomId);
@@ -272,6 +277,7 @@ export async function startNextNight(roomId, room) {
     votes: {},
     votesClosed: false,
     hunterTriggered: null,
+    hunterDiedDuring: null,
     nightSubPhase: seq[0] || 'done',
     bearTamerGrowl: null,
   });
@@ -326,6 +332,7 @@ export async function resolveLynch(roomId, roomData) {
     winner: winner || null,
     status: winner ? 'ended' : (advanceToNight ? 'night' : 'day'),
     hunterTriggered: hunterTriggered || null,
+    hunterDiedDuring: hunterTriggered ? 'day' : null,
     votes: {},
     votesClosed: false,
     disconnectedPlayers: [],
