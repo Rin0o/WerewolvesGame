@@ -28,7 +28,6 @@ export default function NarratorNightDashboard({
   nightSubPhase,
   actionDone,
   onAdvance,
-  onOpenWolfChat,
 }) {
   const wolfTargetPlayer  = nightActions.werewolf  ? players.find((p) => p.id === nightActions.werewolf)  : null;
   const saviourProtected  = nightActions.saviour   ? players.find((p) => p.id === nightActions.saviour)   : null;
@@ -141,14 +140,6 @@ export default function NarratorNightDashboard({
       {/* Action buttons */}
       <View style={styles.btnRow}>
         <TouchableOpacity
-          style={[styles.wolfChatBtn, { borderColor: t.border, backgroundColor: t.surfaceAlt || t.glassCard }]}
-          onPress={onOpenWolfChat}
-        >
-          <Image source={ROLE_ICONS.werewolf} style={styles.wolfChatIcon} resizeMode="contain" />
-          <Text style={[styles.wolfChatText, { color: t.textSecondary }]}>Wolf Chat</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: actionDone ? t.success : t.accent }]}
           onPress={onAdvance}
           activeOpacity={0.8}
@@ -253,17 +244,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     padding: SPACING.md,
   },
-  wolfChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  wolfChatIcon: { width: 22, height: 22 },
-  wolfChatText: { ...FONTS.caption, fontWeight: '600' },
   nextBtn: {
     flex: 1,
     borderRadius: RADIUS.md,

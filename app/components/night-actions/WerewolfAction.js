@@ -5,11 +5,10 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
-const NIGHT_CHAT_ICON    = require('../../../assets/night_chat.webp');
 const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
 const NIGHT_CHECK_ICON   = require('../../../assets/night_check.webp');
 
-export default function WerewolfAction({ theme: t, players, phase, wolfTarget, onSelectTarget, onSubmit, onOpenChat, suspicions = {}, suspectedRoles = {} }) {
+export default function WerewolfAction({ theme: t, players, phase, wolfTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
       <View style={styles.actionTitleRow}>
@@ -93,10 +92,6 @@ export default function WerewolfAction({ theme: t, players, phase, wolfTarget, o
           </TouchableOpacity>
         </>
       )}
-
-      <TouchableOpacity style={styles.chatBtn} onPress={onOpenChat}>
-        <Image source={NIGHT_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -150,6 +145,4 @@ const styles = StyleSheet.create({
   },
   submitBtn: { alignItems: 'center', marginTop: SPACING.md },
   submitBtnImg: { width: '100%', height: 70 },
-  chatBtn: { alignItems: 'center', marginTop: SPACING.sm },
-  chatBtnImg: { width: '100%', height: 70 },
 });

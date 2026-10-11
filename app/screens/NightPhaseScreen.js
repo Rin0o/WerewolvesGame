@@ -73,6 +73,7 @@ const DEATH_MESSAGES = {
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
 const LEAVE_ICON       = require('../../assets/exit_game.webp');
+const NIGHT_CHAT_ICON  = require('../../assets/night_chat.webp');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -388,12 +389,6 @@ export default function NightPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
         <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village goes to sleep</Text>
-        <TouchableOpacity onPress={handleExit} style={styles.notesBtn}>
-          <Image source={LEAVE_ICON} style={styles.leaveIcon} resizeMode="contain" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setNotesOpen(true)} style={styles.notesBtn}>
-          <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
-        </TouchableOpacity>
         <View style={styles.timerSlot}>
           {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
             <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, phase)} onExpire={handleSubPhaseTimerExpire} theme={t} />
@@ -412,7 +407,6 @@ export default function NightPhaseScreen({ route, navigation }) {
             nightSubPhase={nightSubPhase}
             actionDone={actionAlreadyInFirestore}
             onAdvance={handleNarratorAdvance}
-            onOpenWolfChat={() => setChatVisible(true)}
           />
         )}
 
@@ -452,7 +446,6 @@ export default function NightPhaseScreen({ route, navigation }) {
             wolfTarget={wolfTarget}
             onSelectTarget={setWolfTarget}
             onSubmit={submitWolfAction}
-            onOpenChat={() => setChatVisible(true)}
             suspicions={playerHooks.suspicions}
             suspectedRoles={playerHooks.suspectedRoles}
           />
@@ -527,6 +520,20 @@ export default function NightPhaseScreen({ route, navigation }) {
         <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
+      <View style={[styles.bottomBar, { borderTopColor: t.border, backgroundColor: t.glassToolbar }]}>
+        <TouchableOpacity style={styles.barBtn} onPress={handleExit}>
+          <Image source={LEAVE_ICON} style={styles.barBtnImg} resizeMode="contain" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.barBtn} onPress={() => setNotesOpen(true)}>
+          <Image source={NOTES_ICON} style={styles.barBtnImg} resizeMode="contain" />
+        </TouchableOpacity>
+        {(gs.myRole === ROLE.WEREWOLF || gs.isNarrator) && (
+          <TouchableOpacity style={styles.barBtn} onPress={() => setChatVisible(true)}>
+            <Image source={NIGHT_CHAT_ICON} style={styles.barBtnImg} resizeMode="contain" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <WerewolfChat
         visible={chatVisible}
         onClose={() => setChatVisible(false)}
@@ -593,9 +600,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notesBtn: { padding: SPACING.xs },
-  notesIcon: { width: 36, height: 36 },
-  leaveIcon: { width: 46, height: 32 },
+  bottomBar: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.sm,
+    borderTopWidth: 1,
+  },
+  barBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  barBtnImg: { width: '100%', height: 70 },
   title: { ...FONTS.heading, textAlign: 'center' },
   phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   phaseNumber: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
