@@ -6,7 +6,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 ## Tech Stack
 - **Expo ~57** (React Native 0.86, React 19.2) — New Architecture only
 - **Firebase 10** — Firestore (real-time game state) + Anonymous Auth (UID persisted via AsyncStorage, so it survives app restarts)
-- **React Navigation 6** — Native Stack (`createNativeStackNavigator`)
+- **React Navigation 7** — Native Stack (`createNativeStackNavigator`). In v7 `navigate()` never goes back to a screen already in the stack (it pushes a new one); every Leave button uses `navigation.popTo('Home')`
 - **react-native-reanimated 4** — PhaseTransition animation
 - **expo-audio** — sound effects (`useSoundEffect`); replaced `expo-av`, which was removed in SDK 55
 - **AsyncStorage** — the player profile (name + sound setting, `utils/profile.js`), per-player notes/suspicions (`usePlayer`) and the active-game session for Rejoin (`utils/session.js`)
@@ -159,6 +159,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   code: string                    // 5-char uppercase join code
   hostId: string                  // Firebase Auth UID of host (changes on host takeover)
   hostHeartbeat: number           // Incremented by the host every 8s; others detect a stale host from it
+  memberIds: string[]             // Real players' UIDs (no bots); set on create, arrayUnion on join, arrayRemove
+                                  // on lobby leave. Used only by firestore.rules for membership checks
   status: "lobby"|"night"|"day"|"ended"
   phase: number                   // Cycle count (0 in lobby, 1 on the first night, +1 each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
@@ -304,17 +306,19 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 3. Enable **Anonymous Authentication** (Build → Authentication → Sign-in method)
 4. Create a **Firestore Database** (Build → Firestore Database)
 5. Copy your web app config into `app/firebase/config.js`
-6. Set Firestore rules (at minimum — must cover the `werewolfChat` and `dayChat` subcollections):
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /rooms/{roomId}/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
+6. Deploy `firestore.rules`: `firebase deploy --only firestore:rules` (project in `.firebaserc`)
+
+### Firestore rules (`firestore.rules`)
+Writes are limited to what the app does; anything else is denied:
+- **Create**: only as host (`hostId == uid`, `memberIds == [uid]`, status `lobby`, one player = you).
+- **Read rooms**: any signed-in user (join-by-code must find the room before you're a member).
+- **Join**: a non-member in a lobby room appends only themselves to `players` (with `isHost: false`) and to `memberIds`.
+- **Members**: leave the lobby / toggle own `isReady` (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'`; write only `votes.<uid>` while `status == 'day'`; add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
+- **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's).
+- **Host**: anything except `code`, `createdAt`, `hostId`, `memberIds`.
+- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only werewolves post in `werewolfChat`; only the host deletes.
+- **When a new write path is added to the app, add a rule and a test in `firestore-tests/rooms.rules-test.js`** — otherwise it will be denied in production.
+- Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 
 ## Running the App
 ```bash
@@ -333,6 +337,7 @@ npm test
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` mocks `devConfig` with a mutable `BOT_CONFIG`.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
+- **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/rooms.rules-test.js` (named `*.rules-test.js` so `npm test` skips it; config `jest.rules.config.js`, node environment) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
 
 ## Building an Android APK (local, Windows)
 ```bash
@@ -346,11 +351,11 @@ cd android
 
 ## Known Limitations / Future Work
 - Timers are client-side only — drifts possible on slow devices
-- No server-side role validation (roles map is readable by determined clients); Firestore rules allow any signed-in user to read/write any room
+- No server-side role secrecy: the roles map is in the room document, which every signed-in user can read; rules can't hide part of a document
+- Host takeover staleness (25s) is enforced only by the app, not by the rules
 - Bot support is dev/testing only — keep `BOT_CONFIG.enabled` false in shipped builds
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - Not yet implemented roles with existing artwork in `assets-src/roles/`: White Wolf, Wolf Hound
-- React Navigation is on v6 (v7 upgrade pending)

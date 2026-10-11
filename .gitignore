@@ -18,3 +18,5 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 assets/unused/
+firestore-debug.log
+firebase-debug.log

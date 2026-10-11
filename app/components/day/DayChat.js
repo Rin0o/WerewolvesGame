@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { subscribeToDayChat, sendDayMessage } from '../../firebase/roomService';
+import { subscribeToDayChat, sendDayMessage, CHAT_MESSAGE_MAX } from '../../firebase/roomService';
 import { RADIUS, SPACING, FONTS } from '../../constants/theme';
 
 export default function DayChat({ visible, onClose, theme: t, roomId, playerId, nickname, isAlive }) {
@@ -85,6 +85,7 @@ export default function DayChat({ visible, onClose, theme: t, roomId, playerId, 
                 style={[styles.input, { backgroundColor: t.surfaceAlt, borderColor: t.border, color: t.text }]}
                 value={text}
                 onChangeText={setText}
+                maxLength={CHAT_MESSAGE_MAX}
                 placeholder="Say something..."
                 placeholderTextColor={t.textMuted}
                 onSubmitEditing={send}

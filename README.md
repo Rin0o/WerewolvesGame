@@ -128,7 +128,7 @@ Roles are shuffled and dealt at random at the start of every game. In **Custom**
 | Part | Technology |
 |---|---|
 | App | Expo SDK 57, React Native 0.86, React 19.2 (New Architecture only) |
-| Navigation | React Navigation 6 (native stack) |
+| Navigation | React Navigation 7 (native stack) |
 | Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
 | Animation | react-native-reanimated 4 |
 | Audio | expo-audio |
@@ -164,6 +164,24 @@ Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app
 The lobby shows the letter code with two buttons, **Share** and **Show QR**. Show QR opens a pop-up with a QR code containing `werewolves://join/<CODE>`; it's hidden by default to keep the lobby short. **Scan QR Code** on the Home screen opens the camera, accepts only codes in that format, and then runs the same join as typing the code (name check included). The QR code is built from the `qrcode` library's matrix and drawn with plain Views, so displaying it needs no extra native module. Scanning uses expo-camera, which asks for the camera permission only (no microphone).
 
 *Why:* in the same room it's faster than typing, and it avoids typos. The `werewolves://` prefix makes the scanner ignore unrelated QR codes. The scheme isn't registered with Android yet, so the phone's own camera app can't open the game from it.
+
+### Firestore rules
+[`firestore.rules`](firestore.rules) only allows the writes the app actually makes:
+
+| Who | May change |
+|---|---|
+| Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
+| Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
+| A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote. Any time: mark themselves gone/back, take over as host (for themselves only) |
+| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them |
+| The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
+| Chats | Members read and post as themselves (1–500 characters); only werewolves post in the wolf chat; only the host deletes |
+
+Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. Nobody can delete a room.
+
+The rules are tested against the Firestore emulator (`npm run test:rules`, see [Automated tests](#automated-tests)).
+
+*Why:* the old rules let any signed-in user rewrite any room. Roles still travel in the room document, so they're not secret (see [Known limitations](#known-limitations)).
 
 ### Game events are written atomically
 Each event-log entry is written in the same Firestore update that changes the game status (`arrayUnion` inside a single `updateRoom`).
@@ -240,18 +258,7 @@ npm install
 2. Enable **Authentication → Sign-in method → Anonymous**.
 3. Create a **Firestore Database**.
 4. Put your web app configuration in [`app/firebase/config.js`](app/firebase/config.js).
-5. Set the Firestore rules. At minimum, signed-in users need access to rooms and their chat subcollections:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /rooms/{roomId}/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
+5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) with `firebase deploy --only firestore:rules` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).
 
 ### 3. Run
 ```bash
@@ -350,6 +357,14 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 
 Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
 
+### Firestore rules tests
+
+```bash
+npm run test:rules
+```
+
+[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 30 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions, votes, Hunter shot, host takeover, chats) and checks that the wrong player can't make them. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
+
 ---
 
 ## Testing with bots
@@ -392,14 +407,14 @@ Versions follow **MAJOR.MINOR.PATCH**:
 
 ## Known limitations
 
-- **Roles are not secret from a determined player.** Every phone receives the full room document, including all roles, so a technically minded player could read them. Fixing this would need server-side logic, such as Cloud Functions, plus stricter Firestore rules.
-- **Open Firestore rules.** Any signed-in user, including anonymous ones, can read and write any room. The Firebase web configuration in `config.js` isn't a secret in itself; protection depends entirely on the rules.
+- **Roles are not secret from a determined player.** Every phone receives the full room document, including all roles, so a technically minded player could read them. Rules can't hide part of a document; fixing this would need the roles moved out of the room document, with server-side logic such as Cloud Functions to deal them.
+- **Rooms are readable by any signed-in user,** because joining by code has to find the room before the player is a member. Writes are restricted (see [Firestore rules](#firestore-rules)).
+- **Host takeover isn't checked by the server.** The rules let any member make themselves host; only the app waits for 25 seconds of silence first.
 - **Timers run on each phone**, so they can drift slightly on slow devices.
 - **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
 - **Bear Tamer neighbours** are based on join order, not on where people actually sit.
-- **React Navigation 6** is behind the current major version; upgrading to 7 is a future task.
 
 ---
 
@@ -407,6 +422,6 @@ Versions follow **MAJOR.MINOR.PATCH**:
 
 - **New roles:** White Wolf and Wolf Hound (artwork is already in `assets-src/roles/`).
 - **Seat order in the lobby,** so the Bear Tamer reflects the real table.
-- **Server-side role secrecy and stricter Firestore rules.**
+- **Server-side role secrecy** (roles moved out of the room document).
 - **An iOS build.**
 - **Open the game from the phone's own camera** by registering the `werewolves://` link scheme.

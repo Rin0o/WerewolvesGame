@@ -1,0 +1,182 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomAt(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+    }
+
+    function memberOf(room) {
+      return signedIn() && request.auth.uid in room.get('memberIds', []);
+    }
+
+    function validMessage() {
+      let msg = request.resource.data;
+      return msg.keys().hasOnly(['senderId', 'senderNickname', 'text', 'createdAt'])
+        && msg.senderId == request.auth.uid
+        && msg.text is string
+        && msg.text.size() > 0
+        && msg.text.size() <= 500
+        && msg.createdAt == request.time;
+    }
+
+    match /rooms/{roomId} {
+
+      function uid() {
+        return request.auth.uid;
+      }
+
+      function before() {
+        return resource.data;
+      }
+
+      function after() {
+        return request.resource.data;
+      }
+
+      function changedOnly(keys) {
+        return after().diff(before()).affectedKeys().hasOnly(keys);
+      }
+
+      function isHost() {
+        return before().hostId == uid();
+      }
+
+      function myRole() {
+        return before().get('roles', {}).get(uid(), '');
+      }
+
+      function playersRemoved() {
+        return before().players.removeAll(after().players);
+      }
+
+      function playersAdded() {
+        return after().players.removeAll(before().players);
+      }
+
+      function hostUpdate() {
+        return isHost() && !after().diff(before()).affectedKeys().hasAny(['code', 'createdAt', 'hostId', 'memberIds']);
+      }
+
+      function joining() {
+        let members = before().get('memberIds', []);
+        let newPlayer = after().players[after().players.size() - 1];
+        return !(uid() in members)
+          && before().status == 'lobby'
+          && changedOnly(['players', 'memberIds'])
+          && after().memberIds.size() == members.size() + 1
+          && after().memberIds.hasAll(members)
+          && uid() in after().memberIds
+          && after().players.size() == before().players.size() + 1
+          && after().players.hasAll(before().players)
+          && newPlayer.id == uid()
+          && newPlayer.isHost == false;
+      }
+
+      function leavingLobby() {
+        return before().status == 'lobby'
+          && changedOnly(['players', 'memberIds'])
+          && after().memberIds.toSet() == before().memberIds.toSet().difference([uid()].toSet())
+          && after().players.size() == before().players.size() - 1
+          && playersRemoved().size() == 1
+          && playersRemoved()[0].id == uid();
+      }
+
+      function togglingReady() {
+        return before().status == 'lobby'
+          && changedOnly(['players'])
+          && after().players.size() == before().players.size()
+          && playersRemoved().size() == 1
+          && playersAdded().size() == 1
+          && playersRemoved()[0].id == uid()
+          && playersAdded()[0].id == uid()
+          && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady']);
+      }
+
+      function nightAction() {
+        let allowed = {
+          'werewolf': ['werewolf', 'werewolfObserved'],
+          'seer': ['seer'],
+          'witch': ['witchSave', 'witchPoison', 'witchSkip'],
+          'cupid': ['cupid'],
+          'thief': ['thief'],
+          'saviour': ['saviour']
+        };
+        return before().status == 'night'
+          && changedOnly(['nightActions'])
+          && after().nightActions.diff(before().get('nightActions', {})).affectedKeys()
+               .hasOnly(allowed.get(myRole(), []));
+      }
+
+      function voting() {
+        return before().status == 'day'
+          && changedOnly(['votes'])
+          && after().votes.diff(before().get('votes', {})).affectedKeys().hasOnly([uid()])
+          && after().votes[uid()].target is string;
+      }
+
+      function connection() {
+        let was = before().get('disconnectedPlayers', []).toSet();
+        let now = after().get('disconnectedPlayers', []).toSet();
+        return changedOnly(['disconnectedPlayers'])
+          && was.difference(now).union(now.difference(was)).hasOnly([uid()]);
+      }
+
+      function takingOverHost() {
+        return changedOnly(['hostId', 'hostHeartbeat', 'players'])
+          && after().hostId == uid()
+          && after().players.size() == before().players.size();
+      }
+
+      function huntersShot() {
+        return before().get('hunterTriggered', null) == uid()
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events'])
+          && after().players.size() == before().players.size();
+      }
+
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && after().hostId == uid()
+        && after().status == 'lobby'
+        && after().memberIds == [uid()]
+        && after().players.size() == 1
+        && after().players[0].id == uid();
+
+      allow update: if signedIn() && (
+        hostUpdate()
+        || joining()
+        || (memberOf(before()) && (
+          leavingLobby()
+          || togglingReady()
+          || nightAction()
+          || voting()
+          || connection()
+          || takingOverHost()
+          || huntersShot()
+        ))
+      );
+
+      allow delete: if false;
+    }
+
+    match /rooms/{roomId}/dayChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId));
+      allow create: if memberOf(roomAt(roomId)) && validMessage();
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+
+    match /rooms/{roomId}/werewolfChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId));
+      allow create: if memberOf(roomAt(roomId))
+        && roomAt(roomId).get('roles', {}).get(request.auth.uid, '') == 'werewolf'
+        && validMessage();
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+  }
+}

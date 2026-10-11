@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { subscribeToWerewolfChat, sendWerewolfMessage } from '../firebase/roomService';
+import { subscribeToWerewolfChat, sendWerewolfMessage, CHAT_MESSAGE_MAX } from '../firebase/roomService';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
@@ -90,6 +90,7 @@ export default function WerewolfChat({ visible, onClose, roomId, playerId, nickn
                 style={[styles.input, { backgroundColor: t.surfaceAlt, borderColor: t.border, color: t.text }]}
                 value={text}
                 onChangeText={setText}
+                maxLength={CHAT_MESSAGE_MAX}
                 placeholder="Whisper to the pack..."
                 placeholderTextColor={t.textMuted}
                 onSubmitEditing={send}

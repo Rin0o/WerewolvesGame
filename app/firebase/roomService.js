@@ -19,6 +19,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 
+export const CHAT_MESSAGE_MAX = 500;
+
 // ─── Room CRUD ────────────────────────────────────────────────────────────────
 
 export function generateRoomCode() {
@@ -34,6 +36,7 @@ export async function createRoom(hostId, hostNickname) {
     hostId,
     status: 'lobby',
     phase: 0,
+    memberIds: [hostId],
     players: [{ id: hostId, nickname: hostNickname, isAlive: true, isHost: true, isReady: false }],
     roles: {},
     nightActions: {},
@@ -86,6 +89,7 @@ export async function joinRoom(roomId, player) {
   const roomRef = doc(db, 'rooms', roomId);
   await updateDoc(roomRef, {
     players: arrayUnion(player),
+    memberIds: arrayUnion(player.id),
   });
 }
 
@@ -95,7 +99,7 @@ export async function leaveRoom(roomId, playerId) {
   if (!snap.exists()) return;
   const { players } = snap.data();
   const updated = players.filter((p) => p.id !== playerId);
-  await updateDoc(roomRef, { players: updated });
+  await updateDoc(roomRef, { players: updated, memberIds: arrayRemove(playerId) });
 }
 
 export async function setPlayerReady(roomId, playerId, isReady) {
