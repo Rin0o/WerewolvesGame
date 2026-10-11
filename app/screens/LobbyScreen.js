@@ -9,6 +9,8 @@ import {
   Alert,
   Share,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
@@ -20,6 +22,8 @@ import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition 
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { BOT_CONFIG } from '../constants/devConfig';
 import { ROLE_ICONS } from '../constants/icons';
+import RoomQrCode from '../components/RoomQrCode';
+import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
 const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER];
@@ -30,6 +34,7 @@ export default function LobbyScreen({ route, navigation }) {
   useHostFailover(roomId, playerId, room);
   const customInitDone = useRef(false);
   const [starting, setStarting] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   React.useEffect(() => {
     saveSession({ roomId, playerId, nickname });
@@ -174,10 +179,15 @@ export default function LobbyScreen({ route, navigation }) {
       {/* Room Code */}
       <View style={[styles.codeBox, { backgroundColor: t.surface, borderColor: t.border }]}>
         <Text style={[styles.codeLabel, { color: t.textSecondary }]}>Room Code</Text>
-        <TouchableOpacity onPress={shareCode} activeOpacity={0.7}>
-          <Text style={[styles.code, { color: t.primary }]}>{code}</Text>
-        </TouchableOpacity>
-        <Text style={[styles.codeHint, { color: t.textMuted }]}>Tap to share</Text>
+        <Text style={[styles.code, { color: t.primary }]}>{code}</Text>
+        <View style={styles.codeActions}>
+          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: t.primary }]} onPress={shareCode}>
+            <Text style={[styles.codeActionText, { color: t.primary }]}>📤 Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: t.primary }]} onPress={() => setQrOpen(true)}>
+            <Text style={[styles.codeActionText, { color: t.primary }]}>🔳 Show QR</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Mode selector — host only */}
@@ -430,6 +440,26 @@ export default function LobbyScreen({ route, navigation }) {
           <Text style={[styles.leaveText, { color: t.danger }]}>Leave Room</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
+        <Pressable style={[styles.qrOverlay, { backgroundColor: t.modalOverlay }]} onPress={() => setQrOpen(false)}>
+          <View style={[styles.qrPanel, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={[styles.codeLabel, { color: t.textSecondary }]}>Room {code}</Text>
+            <View style={styles.qrWrap}>
+              <RoomQrCode value={roomJoinLink(code)} size={260} />
+            </View>
+            <Text style={[styles.codeHint, { color: t.textMuted }]}>
+              Scan with 📷 Scan QR Code on the Home screen
+            </Text>
+            <TouchableOpacity
+              style={[styles.codeActionBtn, styles.qrCloseBtn, { borderColor: t.primary }]}
+              onPress={() => setQrOpen(false)}
+            >
+              <Text style={[styles.codeActionText, { color: t.primary }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -448,7 +478,20 @@ const styles = StyleSheet.create({
   },
   codeLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
   code: { ...FONTS.code, fontSize: 40, marginVertical: SPACING.xs },
-  codeHint: { ...FONTS.caption, fontStyle: 'italic' },
+  codeHint: { ...FONTS.caption, fontStyle: 'italic', textAlign: 'center' },
+  codeActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
+  codeActionBtn: {
+    borderWidth: 2,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+  },
+  codeActionText: { ...FONTS.button, fontSize: 15 },
+  qrOverlay: { flex: 1, justifyContent: 'center', padding: SPACING.lg },
+  qrPanel: { borderRadius: RADIUS.lg, borderWidth: 1, padding: SPACING.lg, alignItems: 'center' },
+  qrWrap: { marginTop: SPACING.md, marginBottom: SPACING.sm },
+  qrCloseBtn: { marginTop: SPACING.lg, alignSelf: 'stretch' },
   modeSelector: {
     flexDirection: 'row',
     borderRadius: RADIUS.md,

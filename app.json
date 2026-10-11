@@ -23,6 +23,13 @@
       "expo-status-bar",
       "expo-audio",
       "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to scan a room's QR code.",
+          "recordAudioAndroid": false
+        }
+      ],
       "./plugins/withReleaseSigning"
     ]
   }

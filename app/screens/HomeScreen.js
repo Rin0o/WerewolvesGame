@@ -18,6 +18,7 @@ import { forgetRoomSnapshot } from '../hooks/useRoom';
 import { loadSession, clearSession, screenForStatus } from '../utils/session';
 import { loadProfile, sameNickname } from '../utils/profile';
 import SettingsPanel from '../components/SettingsPanel';
+import QrScannerModal from '../components/QrScannerModal';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const STATUS_LABELS = {
@@ -30,6 +31,7 @@ const STATUS_LABELS = {
 export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -116,14 +118,24 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
-  async function handleJoinRoom() {
-    const name = profile?.nickname;
-    if (!name || !userId) return;
+  function handleJoinRoom() {
     const code = roomCode.trim().toUpperCase();
     if (!code || code.length !== 5) {
       Alert.alert('Invalid code', 'Room codes are 5 characters long.');
       return;
     }
+    joinByCode(code);
+  }
+
+  function handleCodeScanned(code) {
+    setScannerOpen(false);
+    setRoomCode(code);
+    joinByCode(code);
+  }
+
+  async function joinByCode(code) {
+    const name = profile?.nickname;
+    if (!name || !userId || loading) return;
     setLoading(true);
     try {
       const room = await findRoomByCode(code);
@@ -230,6 +242,14 @@ export default function HomeScreen({ navigation }) {
           >
             <Text style={[styles.btnText, { color: t.primary }]}>🚪 Join Room</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btn, styles.btnSecondary, { borderColor: t.primary }]}
+            onPress={() => setScannerOpen(true)}
+            disabled={loading}
+          >
+            <Text style={[styles.btnText, { color: t.primary }]}>📷 Scan QR Code</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -239,6 +259,13 @@ export default function HomeScreen({ navigation }) {
         theme={t}
         profile={profile}
         onProfileChange={setProfile}
+      />
+
+      <QrScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onCodeScanned={handleCodeScanned}
+        theme={t}
       />
     </SafeAreaView>
   );

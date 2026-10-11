@@ -31,7 +31,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## Features
 
 - **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in ⚙️ settings on the Home screen, which also has a sound on/off switch and shows the app version.
-- **Rooms with a 5-letter code:** one player creates a room and the others join with the code. Two players in the same room can't use the same name.
+- **Rooms with a 5-letter code:** one player creates a room and the others join by typing the code or scanning a QR code the lobby can show. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
@@ -49,7 +49,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 ## How a game works
 
-1. **Lobby:** players join with the room code and mark themselves ready. The host picks a game mode and starts. A game needs at least 5 players.
+1. **Lobby:** players join with the room code (typed, or scanned from the QR code behind the lobby's Show QR button) and mark themselves ready. The host picks a game mode and starts. A game needs at least 5 players.
 2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other.
 3. **Night:** roles wake up one at a time in a fixed order. Only the player whose turn it is sees an action; everyone else sees a "the village sleeps" screen.
 4. **Dawn:** the app announces who died. If a Bear Tamer is alive and sits next to a werewolf, the bear also growls.
@@ -131,6 +131,7 @@ Roles are shuffled and dealt at random at the start of every game. In **Custom**
 | Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
 | Animation | react-native-reanimated 4 |
 | Audio | expo-audio |
+| QR codes | `qrcode` (generated in JS, drawn with plain Views) and expo-camera (scanning) |
 | Local storage | AsyncStorage (player name and sound setting, notes, suspicions, and the saved game used for rejoining) |
 
 ---
@@ -157,6 +158,11 @@ The host's phone increments a `hostHeartbeat` counter every 8 seconds.
 
 ### Rejoining after closing the app
 Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase anonymous user ID, which stays the same across app restarts.
+
+### Joining by QR code
+The lobby shows the letter code with two buttons, **Share** and **Show QR**. Show QR opens a pop-up with a QR code containing `werewolves://join/<CODE>`; it's hidden by default to keep the lobby short. **Scan QR Code** on the Home screen opens the camera, accepts only codes in that format, and then runs the same join as typing the code (name check included). The QR code is built from the `qrcode` library's matrix and drawn with plain Views, so displaying it needs no extra native module. Scanning uses expo-camera, which asks for the camera permission only (no microphone).
+
+*Why:* in the same room it's faster than typing, and it avoids typos. The `werewolves://` prefix makes the scanner ignore unrelated QR codes. The scheme isn't registered with Android yet, so the phone's own camera app can't open the game from it.
 
 ### Game events are written atomically
 Each event-log entry is written in the same Firestore update that changes the game status (`arrayUnion` inside a single `updateRoom`).
@@ -204,6 +210,7 @@ app/
     useSoundEffect.js      Sound effects
   utils/session.js         Saved game for Rejoin
   utils/profile.js         Saved player name and sound setting
+  utils/roomQr.js          Build and read the QR join link
   constants/               Roles, compositions, theme, icons, dev settings (bots)
 assets/                    WebP images used by the app, plus sounds
 assets-src/                Full-resolution original artwork (not bundled)
@@ -381,3 +388,4 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Automated tests** for the game rules: role dealing, win conditions, night order and the lover chain.
 - **Server-side role secrecy and stricter Firestore rules.**
 - **An iOS build.**
+- **Open the game from the phone's own camera** by registering the `werewolves://` link scheme.
