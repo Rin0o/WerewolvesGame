@@ -1,5 +1,5 @@
 export const BOT_CONFIG = {
-  enabled: true,
+  enabled: false,
   bots: [
     // { nickname: 'Bot Wolf', role: 'werewolf' },
     // { nickname: 'Bot Villager 1', role: 'villager' },

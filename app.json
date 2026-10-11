@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.millardshollow.werewolves",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/game_icon.png",
         "backgroundColor": "#0D0820"
@@ -21,7 +22,8 @@
     "plugins": [
       "expo-status-bar",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withReleaseSigning"
     ]
   }
 }
