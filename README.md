@@ -64,7 +64,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 | Night | Order |
 |---|---|
-| **Night 1** | Thief → Cupid → Werewolves (they only see each other, no kill) → Seer |
+| **Night 1** | Thief → Cupid → Werewolves (they only see each other, no kill). The Seer sleeps on night 1. |
 | **Later nights** | Saviour → Werewolves (choose a victim) → Witch (if she has potions left) → Seer |
 
 Roles that aren't in the game, or whose player is dead, are skipped.
@@ -96,7 +96,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 |---|---|---|
 | **Villager** | Village | No ability. Finds the wolves through discussion and votes. |
 | **Werewolf** | Wolves | Each night (from night 2) the wolves pick a victim together, coordinating in the wolf chat. |
-| **Seer** | Village | Each night, chooses a player and learns whether they are a werewolf. |
+| **Seer** | Village | From night 2 on, chooses a player each night and learns whether they are a werewolf. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
 | **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |

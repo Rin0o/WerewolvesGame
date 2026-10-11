@@ -236,7 +236,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - While `hunterTriggered` is set, `resolveNight`/`resolveLynch` skip the win check; `hunterShoot()` checks after the shot
 
 ### Night Order (`computeNightSequence`)
-- **Night 1**: Thief (if alive and roles are available) → Cupid → Werewolves (observe only: `werewolfObserved`, no kill) → Seer
+- **Night 1**: Thief (if alive and roles are available) → Cupid → Werewolves (observe only: `werewolfObserved`, no kill). The Seer does not wake on night 1.
 - **Night 2+**: Saviour → Werewolves (pick victim) → Witch (only if she has a potion left) → Seer
 - Roles that are absent, dead or disconnected are skipped (`FIRST_NIGHT_ORDER` / `LATER_NIGHT_ORDER` filtered by who can act). The host advances `nightSubPhase` with `nextNightSubPhase(room, current)` — the next step in the full order that still has someone to act — when `isSubPhaseDone()` is true **or** the current step's player has left (`disconnectedPlayers`), and calls `resolveNight()` after the last step. Never compute "next" from the index in `computeNightSequence()`: a step whose player left is no longer in that list.
 - `resolveNight` order: Thief swap → Saviour block → Witch save → wolf kill (+ lover chain) → Witch poison (+ lover chain) → disconnected players (+ lover chain) → Hunter trigger / win check → Bear Tamer growl. Wolves and Witch poison do nothing on night 1.
@@ -245,7 +245,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 **Werewolf** — from night 2, the wolves pick a victim together (any wolf's submission counts). They coordinate in the wolf chat, available at night and during the day. On night 1 they only see each other (`werewolfObserved`).
 
-**Seer** — each night selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
+**Seer** — from night 2 on, each night selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
 
 **Witch** — has one Save potion (revive that night's victim) and one Poison potion (kill any player). Each potion can only be used once per game. One choice per night: save OR poison OR skip. Not woken on night 1, nor once both potions are used.
 

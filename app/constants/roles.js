@@ -34,7 +34,7 @@ export const ROLE_DEFINITIONS = {
     team: 'villagers',
     description: 'A gifted mystic who can sense the true nature of others.',
     goal: 'Help the village find and eliminate all Werewolves.',
-    ability: 'Each night, choose one player to learn whether they are a Werewolf or not.',
+    ability: 'From the second night on, choose one player each night to learn whether they are a Werewolf or not.',
   },
   [ROLE.WITCH]: {
     name: 'Witch',

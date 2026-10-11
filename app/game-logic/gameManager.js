@@ -51,7 +51,7 @@ export function computeNightSequence(room) {
   return nightOrder(phase).filter((step) => wakes[step]);
 }
 
-const FIRST_NIGHT_ORDER = ['thief', 'cupid', 'werewolf', 'seer'];
+const FIRST_NIGHT_ORDER = ['thief', 'cupid', 'werewolf'];
 const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'witch', 'seer'];
 
 function nightOrder(phase) {

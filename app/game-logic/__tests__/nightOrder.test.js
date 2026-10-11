@@ -16,14 +16,14 @@ const VILLAGE = {
 const BOTH_POTIONS = { wendy: { save: true, poison: true } };
 
 describe('computeNightSequence', () => {
-  it('night 1 wakes thief, cupid, werewolves, seer — never the witch or saviour', () => {
+  it('night 1 wakes thief, cupid, werewolves — never the seer, witch or saviour', () => {
     const game = makeGame(VILLAGE, { phase: 1, witchPotions: BOTH_POTIONS });
-    expect(computeNightSequence(game)).toEqual(['thief', 'cupid', 'werewolf', 'seer']);
+    expect(computeNightSequence(game)).toEqual(['thief', 'cupid', 'werewolf']);
   });
 
   it('skips the thief when every role they could take was dealt', () => {
     const game = makeGame({ ...VILLAGE, hank: 'hunter' }, { phase: 1 });
-    expect(computeNightSequence(game)).toEqual(['cupid', 'werewolf', 'seer']);
+    expect(computeNightSequence(game)).toEqual(['cupid', 'werewolf']);
   });
 
   it('later nights wake saviour, werewolves, witch, seer', () => {
@@ -82,7 +82,14 @@ describe('nextNightSubPhase', () => {
   it('uses the first-night order on night 1', () => {
     const game = makeGame(VILLAGE, { phase: 1 });
     expect(nextNightSubPhase(game, 'thief')).toBe('cupid');
-    expect(nextNightSubPhase(game, 'werewolf')).toBe('seer');
+    expect(nextNightSubPhase(game, 'werewolf')).toBe('done');
+  });
+
+  it('the seer first wakes on night 2', () => {
+    const night1 = makeGame({ will: 'werewolf', sam: 'seer', vic: 'villager' }, { phase: 1 });
+    const night2 = makeGame({ will: 'werewolf', sam: 'seer', vic: 'villager' }, { phase: 2 });
+    expect(computeNightSequence(night1)).toEqual(['werewolf']);
+    expect(computeNightSequence(night2)).toEqual(['werewolf', 'seer']);
   });
 });
 
