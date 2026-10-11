@@ -9,7 +9,3 @@ export async function signInAnon() {
 export function subscribeToAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
-
-export function getCurrentUser() {
-  return auth.currentUser;
-}

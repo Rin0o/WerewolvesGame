@@ -23,7 +23,7 @@ const STATUS_LABELS = {
   day:   'in progress (day)',
   ended: 'finished',
 };
-import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function HomeScreen({ navigation }) {
   const [nickname, setNickname] = useState('');

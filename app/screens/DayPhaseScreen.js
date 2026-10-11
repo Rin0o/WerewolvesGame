@@ -18,7 +18,7 @@ import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
-import { confirmDayVote, closeVoting, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
+import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
 import { resolveLynch, startNextNight, hunterShoot } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
 import Timer from '../components/Timer';

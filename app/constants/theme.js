@@ -24,24 +24,6 @@ export const DAY = {
   modalOverlay: 'rgba(0,0,0,0.55)',
 };
 
-export const DAY_TIMER_THEME = {
-  background: '#FFF8F0',
-  surface: '#FFFFFF',
-  surfaceAlt: '#FFF0DC',
-  primary: '#D4651A',
-  primaryDark: '#A84E10',
-  accent: '#E8A020',
-  text: '#2C1810',
-  textSecondary: '#7A5C44',
-  textMuted: '#B08060',
-  border: 'transparent',
-  danger: '#C0392B',
-  success: '#27AE60',
-  shadow: 'rgba(44,24,16,0.15)',
-  cardGradient: ['#FFF8F0', '#FFE8CC'],
-  overlay: 'rgba(255,248,240,0.95)',
-};
-
 export const NIGHT = {
   background: '#0D0820',
   surface: '#1A1035',
@@ -62,24 +44,6 @@ export const NIGHT = {
   glassCard: 'rgba(10,5,28,0.78)',
   glassWait: 'rgba(10,5,28,0.55)',
   modalOverlay: 'rgba(0,0,0,0.5)',
-};
-
-export const NIGHT_TIMER_THEME = {
-  background: '#0D0820',
-  surface: '#1A1035',
-  surfaceAlt: '#221545',
-  primary: '#7B4FD4',
-  primaryDark: '#5A35A8',
-  accent: '#C084F5',
-  text: '#E8D8FF',
-  textSecondary: '#A080C8',
-  textMuted: '#9880C0',
-  border: 'transparent',
-  danger: '#E85090',
-  success: '#40D890',
-  shadow: 'rgba(0,0,20,0.6)',
-  cardGradient: ['#1A1035', '#0D0820'],
-  overlay: 'rgba(13,8,32,0.95)',
 };
 
 export const FONTS = {

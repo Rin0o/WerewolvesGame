@@ -49,8 +49,6 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     HunterSection.js         — Hunter's target picker
     LynchResultModal.js      — Vote result shown for DISPLAY_SECONDS, then onExpire
     DayChat.js               — Day chat (rooms/{roomId}/dayChat)
-    AccusationModal.js       — UNUSED (not imported anywhere)
-    LynchResultCard.js       — UNUSED (not imported anywhere)
   /components/narrator/
     NarratorNightDashboard.js — Night view for narrator: active sub-phase, submitted
                                actions summary, full player+role roster, wolf chat
@@ -67,7 +65,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     voteManager.js           — allVotesIn(), tallyVotes()
   /firebase/
     config.js                — Firebase app init (project werewolvesgame-46ba0) + Auth persistence
-    authService.js           — signInAnon(), subscribeToAuth(), getCurrentUser()
+    authService.js           — signInAnon(), subscribeToAuth()
     roomService.js           — All Firestore reads/writes: rooms (create/find/get/join/leave),
                                night actions, votes, chats, disconnect/reconnect,
                                beatHost(), takeOverHost()
@@ -75,7 +73,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     useRoom.js               — Real-time room listener → { room, loading, error }; keeps the last
                                snapshot per room so the next screen renders instantly;
                                forgetRoomSnapshot(roomId) drops it
-    useGameState.js          — Derived selectors from room + playerId
+    useGameState.js          — Derived values for the current player: myRole, isAlive, isHost,
+                               isNarrator, fellowWolves, fellowSisters, myLover, isLover,
+                               availableThiefRoles (add fields here only when a screen reads them)
     usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles;
                                exposes cycleSuspicion (cycle through levels) and
                                setSuspicion(playerId, level) (direct level set)
@@ -89,8 +89,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
                                getCompositionForCount(), buildCustomComposition()
     icons.js                 — ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS, DEAD_ICON
-    theme.js                 — DAY, NIGHT, DAY_TIMER_THEME, NIGHT_TIMER_THEME theme objects (timer themes kept for reference but not used in headers)
-                               + FONTS, RADIUS, SPACING
+    theme.js                 — DAY, NIGHT theme objects + FONTS, RADIUS, SPACING
     devConfig.js             — BOT_CONFIG: enable/disable test bots (currently disabled; roles are random)
 /plugins/
   withReleaseSigning.js      — Config plugin: signs release builds with the upload key from
@@ -109,7 +108,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   notes.webp                 — Notes button image (Day + Night headers)
   day_chat.webp / night_chat.webp, day_confirm.webp / night_confirm.webp,
   day_check.webp / night_check.webp — chat, confirm-vote/action and confirmed-badge images
-  accept.webp / cancel.webp  — Only used by the unused AccusationModal
+  /unused/                   — Git-ignored local folder for retired images (e.g. accept.webp,
+                               cancel.webp from the removed AccusationModal); never require() from it
   play_again.webp            — Play Again button (GameOverScreen, host only)
   villagers_win.webp         — Winner banner for villager victory (GameOverScreen)
   werewolves_win.webp        — Winner banner for werewolf victory (GameOverScreen)
@@ -252,7 +252,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Vote feedback**: DayPhaseScreen snapshots the vote map into local `lastLynchResult` state the moment voting ends — before `resolveLynch` wipes `votes: {}`. `LynchResultModal` shows it (verdict, tally, per-player votes, role reveal if lynched) for 8s; on expiry the host calls `resolveLynch()`.
 - **Events are atomic**: All game events are written using Firestore `arrayUnion(...events)` inside the same `updateRoom()` call that changes `status`. Never use separate `addEvent()` calls from game logic — this caused race conditions where clients saw the status change before events landed.
 - **Game start**: `startGame()` writes roles + `status: 'night'` immediately and clears the old wolf chat in parallel (don't block the start write on cleanup). The Lobby's Start button shows "Starting..." and ignores double taps.
-- **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog. Only DayPhaseScreen renders that button (`leave.webp`); NightPhaseScreen still defines `handleExit` but nothing calls it, so players can't leave during the night.
+- **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog. Only DayPhaseScreen has that button (`leave.webp`); there is no Leave button at night.
 - **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
 - **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname }] }` (currently `enabled: false`). When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Roles are random every game: the composition is shuffled, bots take random `werewolf`/`villager` slots (they can't play special roles), and humans get the rest, so a human can be a wolf even with bots on.
 - **Game modes**: Host selects Normal, Custom, or Narrator in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
@@ -320,7 +320,7 @@ cd android
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
-- Unused code: `components/day/AccusationModal.js`, `components/day/LynchResultCard.js`, `handleExit` in NightPhaseScreen (no Leave button at night)
+- No Leave button during the night (players can only leave during the day)
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - Not yet implemented roles with existing artwork in `assets-src/roles/`: White Wolf, Wolf Hound
 - React Navigation is on v6 (v7 upgrade pending)
