@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
   const { room, loading } = useRoom(roomId);
   const customInitDone = useRef(false);
+  const [starting, setStarting] = useState(false);
 
   const t = DAY;
 
@@ -116,7 +117,8 @@ export default function LobbyScreen({ route, navigation }) {
   }
 
   async function handleStart() {
-    if (!canStart) return;
+    if (!canStart || starting) return;
+    setStarting(true);
     try {
       let gamePlayers = players;
       if (gameMode === 'narrator') {
@@ -125,6 +127,7 @@ export default function LobbyScreen({ route, navigation }) {
       const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
       await startGame(roomId, gamePlayers, composition);
     } catch (e) {
+      setStarting(false);
       Alert.alert('Error', 'Could not start game.');
     }
   }
@@ -146,6 +149,7 @@ export default function LobbyScreen({ route, navigation }) {
   }
 
   function startBtnLabel() {
+    if (starting) return 'Starting...';
     if (gameMode === 'normal' || gameMode === 'narrator') {
       return normalCanStart
         ? `🐺 Start Game${gameMode === 'narrator' ? ' (Narrator)' : ''}`
@@ -409,7 +413,7 @@ export default function LobbyScreen({ route, navigation }) {
           <TouchableOpacity
             style={[styles.btn, { backgroundColor: canStart ? t.primary : t.border, opacity: canStart ? 1 : 0.6 }]}
             onPress={handleStart}
-            disabled={!canStart}
+            disabled={!canStart || starting}
           >
             <Text style={styles.btnText}>{startBtnLabel()}</Text>
           </TouchableOpacity>

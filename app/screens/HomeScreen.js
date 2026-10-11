@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInAnon, subscribeToAuth } from '../firebase/authService';
 import { createRoom, findRoomByCode, joinRoom } from '../firebase/roomService';
+import { forgetRoomSnapshot } from '../hooks/useRoom';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function HomeScreen({ navigation }) {
@@ -73,6 +74,7 @@ export default function HomeScreen({ navigation }) {
       if (!alreadyIn) {
         await joinRoom(room.roomId, { id: userId, nickname: name, isAlive: true, isHost: false, isReady: false });
       }
+      forgetRoomSnapshot(room.roomId);
       navigation.navigate('Lobby', { roomId: room.roomId, playerId: userId, nickname: name });
     } catch (e) {
       Alert.alert('Error', 'Could not join room. Check your connection.');

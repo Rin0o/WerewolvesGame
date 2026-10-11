@@ -69,7 +69,7 @@ export function isSubPhaseDone(subPhase, room) {
 }
 
 export async function startGame(roomId, players, customComposition = null) {
-  await clearWerewolfChat(roomId);
+  const clearingChat = clearWerewolfChat(roomId).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
@@ -134,6 +134,7 @@ export async function startGame(roomId, players, customComposition = null) {
     saviourLastProtected: null,
     bearTamerGrowl: null,
   });
+  await clearingChat;
 }
 
 // Eliminates a player and their lover if applicable. Returns list of all eliminated IDs.
