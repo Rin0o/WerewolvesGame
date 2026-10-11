@@ -187,12 +187,19 @@ export async function resolveNight(roomId, roomData) {
   }
 
   const allEliminated = new Set();
+  const nightDeathCauses = {};
+  const recordDeaths = (ids, cause) => {
+    ids.forEach((id, i) => {
+      allEliminated.add(id);
+      nightDeathCauses[id] = i === 0 ? cause : 'heartbreak';
+    });
+  };
 
   if (eliminatedId) {
     const victim = players.find((p) => p.id === eliminatedId);
     events.push(`Night ${phase}: ${victim?.nickname || 'Someone'} was eliminated by the werewolves.`);
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, newLovers, events, `Night ${phase}`);
-    ids.forEach((id) => allEliminated.add(id));
+    recordDeaths(ids, 'werewolves');
   } else if (phase === 1) {
     events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
   } else if (!witchSaved && !saviourBlocked) {
@@ -203,7 +210,7 @@ export async function resolveNight(roomId, roomData) {
     const poisoned = players.find((p) => p.id === witchKilled);
     events.push(`Night ${phase}: ${poisoned?.nickname || 'Someone'} was poisoned by the witch.`);
     const ids = await eliminateWithLoverChain(roomId, witchKilled, players, newLovers, events, `Night ${phase}`);
-    ids.forEach((id) => allEliminated.add(id));
+    recordDeaths(ids, 'poison');
   }
 
   const updatedPotions = { ...witchPotions };
@@ -221,7 +228,7 @@ export async function resolveNight(roomId, roomData) {
     if (p && !allEliminated.has(pid)) {
       events.push(`Night ${phase}: ${p.nickname} abandoned the village and was lost.`);
       const ids = await eliminateWithLoverChain(roomId, pid, players, newLovers, events, `Night ${phase}`);
-      ids.forEach((id) => allEliminated.add(id));
+      recordDeaths(ids, 'abandoned');
     }
   }
 
@@ -238,6 +245,7 @@ export async function resolveNight(roomId, roomData) {
     winner: winner || null,
     roles: updatedRoles,
     eliminatedThisNight: [...allEliminated],
+    nightDeathCauses,
     witchPotions: updatedPotions,
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},

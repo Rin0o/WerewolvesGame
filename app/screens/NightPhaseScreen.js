@@ -54,6 +54,13 @@ const SUBPHASE_FLAVOR = {
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
+const DEATH_MESSAGES = {
+  werewolves: 'The werewolves chose you as their victim tonight.',
+  poison:     "The witch's poison claimed you in the night.",
+  heartbreak: 'Your lover was killed tonight, and you died of a broken heart.',
+  abandoned:  'You left the village and were lost in the night.',
+};
+
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
 
@@ -520,7 +527,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             <Text style={styles.eliminatedSkull}>💀</Text>
             <Text style={styles.eliminatedTitle}>You were eliminated</Text>
             <Text style={styles.eliminatedSub}>
-              The werewolves chose you as their victim tonight. You will join the village as a ghost.
+              {DEATH_MESSAGES[room.nightDeathCauses?.[playerId]] || 'You did not survive the night.'} You will join the village as a ghost.
             </Text>
             <TouchableOpacity
               style={styles.eliminatedBtn}

@@ -125,7 +125,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     thief: role                   // Role the thief stole (phase 1 only)
   }
   witchPotions: { [playerId]: { save: bool, poison: bool } }
-  eliminatedThisNight: playerId|null
+  eliminatedThisNight: playerId[]|null  // Everyone who died last night (incl. lovers' heartbreak)
+  nightDeathCauses: { [playerId]: "werewolves"|"poison"|"heartbreak"|"abandoned" }
+                                  // Why each player died last night; drives the "You were eliminated" message
   events: string[]                // Append-only game event log (written with arrayUnion)
   votes: { [voterId]: "lynch"|"spare" }
   winner: "villagers"|"werewolves"|"lovers"|null
