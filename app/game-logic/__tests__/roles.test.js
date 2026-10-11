@@ -1,0 +1,145 @@
+import {
+  assignRoles,
+  checkWinCondition,
+  getAvailableRolesForThief,
+  getLoversPartner,
+  getPlayerWithRole,
+  getSisters,
+  getWerewolves,
+} from '../roles';
+import { ROLE, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
+import { makeGame, countRoles } from './helpers';
+
+function players(count) {
+  return Array.from({ length: count }, (_, i) => ({ id: `p${i}`, nickname: `P${i}`, isAlive: true }));
+}
+
+describe('getCompositionForCount', () => {
+  it('returns one role per player from 2 to 20 players', () => {
+    for (let count = 2; count <= 20; count++) {
+      expect(getCompositionForCount(count)).toHaveLength(count);
+    }
+  });
+
+  it('always includes at least one werewolf', () => {
+    for (let count = 2; count <= 20; count++) {
+      expect(getCompositionForCount(count)).toContain(ROLE.WEREWOLF);
+    }
+  });
+
+  it('adds one villager per player above 12', () => {
+    const twelve = countRoles(getCompositionForCount(12));
+    const fifteen = countRoles(getCompositionForCount(15));
+    expect(fifteen[ROLE.VILLAGER] || 0).toBe((twelve[ROLE.VILLAGER] || 0) + 3);
+  });
+
+  it('returns no roles for fewer than 2 players', () => {
+    expect(getCompositionForCount(1)).toEqual([]);
+  });
+});
+
+describe('buildCustomComposition', () => {
+  it('fills the remaining slots with villagers', () => {
+    const comp = buildCustomComposition({ playerCount: 8, werewolf: 2, seer: true, witch: true });
+    expect(countRoles(comp)).toEqual({ werewolf: 2, seer: 1, witch: 1, villager: 4 });
+  });
+
+  it('adds two sisters for the sister toggle', () => {
+    const comp = buildCustomComposition({ playerCount: 6, werewolf: 1, sister: true });
+    expect(countRoles(comp)).toEqual({ werewolf: 1, sister: 2, villager: 3 });
+  });
+});
+
+describe('assignRoles', () => {
+  it('deals exactly the composition, one role per player', () => {
+    const group = players(9);
+    const { roleMap } = assignRoles(group);
+    expect(Object.keys(roleMap).sort()).toEqual(group.map((p) => p.id).sort());
+    expect(countRoles(Object.values(roleMap))).toEqual(countRoles(getCompositionForCount(9)));
+  });
+
+  it('uses a custom composition when given', () => {
+    const comp = buildCustomComposition({ playerCount: 5, werewolf: 2, hunter: true });
+    const { roleMap } = assignRoles(players(5), comp);
+    expect(countRoles(Object.values(roleMap))).toEqual(countRoles(comp));
+  });
+
+  it('gives the witch both potions and nobody else any', () => {
+    const { roleMap, witchPotions } = assignRoles(players(8));
+    const witch = getPlayerWithRole(roleMap, ROLE.WITCH);
+    expect(witchPotions).toEqual({ [witch]: { save: true, poison: true } });
+  });
+
+  it('never deals a role to the narrator', () => {
+    const group = [...players(6), { id: 'narrator', nickname: 'N', isAlive: true, isNarrator: true }];
+    const { roleMap } = assignRoles(group);
+    expect(roleMap.narrator).toBeUndefined();
+    expect(Object.keys(roleMap)).toHaveLength(6);
+  });
+
+  it('deals roles randomly from game to game', () => {
+    const rolesOfFirstPlayer = new Set();
+    for (let i = 0; i < 200; i++) rolesOfFirstPlayer.add(assignRoles(players(6)).roleMap.p0);
+    expect(rolesOfFirstPlayer.size).toBeGreaterThan(1);
+    expect(rolesOfFirstPlayer).toContain(ROLE.WEREWOLF);
+  });
+});
+
+describe('checkWinCondition', () => {
+  it('villagers win when no werewolf is alive', () => {
+    const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['w'] });
+    expect(checkWinCondition(game.players, game.roles)).toBe('villagers');
+  });
+
+  it('werewolves win when they are at least as many as everyone else', () => {
+    const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
+    expect(checkWinCondition(game.players, game.roles)).toBe('werewolves');
+  });
+
+  it('nobody wins while villagers outnumber the werewolves', () => {
+    const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' });
+    expect(checkWinCondition(game.players, game.roles)).toBeNull();
+  });
+
+  it('lovers win when they are the last two alive, even a wolf and a villager', () => {
+    const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
+    expect(checkWinCondition(game.players, game.roles, ['w', 'a'])).toBe('lovers');
+  });
+
+  it('lovers do not win while a third player is alive', () => {
+    const game = makeGame({ w: 'werewolf', x: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
+    expect(checkWinCondition(game.players, game.roles, ['w', 'a'])).toBe('werewolves');
+  });
+
+  it('ignores the narrator', () => {
+    const game = makeGame({ w: 'werewolf', a: 'villager' });
+    const withNarrator = [...game.players, { id: 'n', nickname: 'N', isAlive: true, isNarrator: true }];
+    expect(checkWinCondition(withNarrator, game.roles)).toBe('werewolves');
+  });
+});
+
+describe('role helpers', () => {
+  const roles = { t: 'thief', w1: 'werewolf', w2: 'werewolf', s1: 'sister', s2: 'sister', v: 'villager' };
+
+  it('offers the thief only roles nobody was dealt', () => {
+    expect(getAvailableRolesForThief(roles)).toEqual([ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID]);
+  });
+
+  it('offers the thief nothing when every selectable role is taken', () => {
+    const full = { ...roles, a: 'seer', b: 'witch', c: 'hunter', d: 'cupid' };
+    expect(getAvailableRolesForThief(full)).toEqual([]);
+  });
+
+  it('finds werewolves, sisters and unique roles', () => {
+    expect(getWerewolves(roles)).toEqual(['w1', 'w2']);
+    expect(getSisters(roles)).toEqual(['s1', 's2']);
+    expect(getPlayerWithRole(roles, ROLE.THIEF)).toBe('t');
+    expect(getPlayerWithRole(roles, ROLE.SEER)).toBeNull();
+  });
+
+  it('finds a lover\'s partner', () => {
+    expect(getLoversPartner('a', ['a', 'b'])).toBe('b');
+    expect(getLoversPartner('c', ['a', 'b'])).toBeNull();
+    expect(getLoversPartner('a', null)).toBeNull();
+  });
+});

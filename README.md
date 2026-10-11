@@ -21,6 +21,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - [Getting started](#getting-started)
 - [Building an Android APK](#building-an-android-apk)
 - [Images and assets](#images-and-assets)
+- [Automated tests](#automated-tests)
 - [Testing with bots](#testing-with-bots)
 - [Versioning and releases](#versioning-and-releases)
 - [Known limitations](#known-limitations)
@@ -330,6 +331,27 @@ Prebuild **deletes and recreates `android/`**. Afterwards, re-create `android/lo
 
 ---
 
+## Automated tests
+
+```bash
+npm test
+```
+
+Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/):
+
+| File | Covers |
+|---|---|
+| `roles.test.js` | Compositions, custom compositions, random role dealing, win conditions, Thief/lover/sister helpers |
+| `voteManager.test.js` | Vote counting, ties, unconfirmed votes, when all votes are in |
+| `nightOrder.test.js` | Who wakes on night 1 and later nights, skipping dead/absent roles, the next step, when a step is done |
+| `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer |
+| `dayFlow.test.js` | Lynch, ties, lover chain, Hunter shot, winners, starting the next night |
+| `startGame.test.js` | Dealing, witch potions, narrator, chat-cleanup failure, test bots |
+
+Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
+
+---
+
 ## Testing with bots
 
 [`app/constants/devConfig.js`](app/constants/devConfig.js) can add test bots, so you can try a game with fewer than 5 people:
@@ -385,7 +407,6 @@ Versions follow **MAJOR.MINOR.PATCH**:
 
 - **New roles:** White Wolf and Wolf Hound (artwork is already in `assets-src/roles/`).
 - **Seat order in the lobby,** so the Bear Tamer reflects the real table.
-- **Automated tests** for the game rules: role dealing, win conditions, night order and the lover chain.
 - **Server-side role secrecy and stricter Firestore rules.**
 - **An iOS build.**
 - **Open the game from the phone's own camera** by registering the `werewolves://` link scheme.

@@ -324,6 +324,16 @@ npx expo start
 Scan the QR code with Expo Go (signed in to the same Expo account as the CLI) or press `a`/`i` for emulators.
 If Metro fails to connect, try `npx expo start --tunnel`.
 
+## Tests
+```bash
+npm test
+```
+- Jest 29 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
+- Tests live in `app/game-logic/__tests__/` and cover `roles.js`, `voteManager.js` and `gameManager.js`. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` mocks `devConfig` with a mutable `BOT_CONFIG`.
+- Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
+- Run `npm test` after any change to game logic; add a test when fixing a rules bug.
+
 ## Building an Android APK (local, Windows)
 ```bash
 cd android

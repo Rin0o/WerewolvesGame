@@ -1,0 +1,152 @@
+jest.mock('../../firebase/roomService', () => ({
+  getRoom: jest.fn(),
+  updateRoom: jest.fn(() => Promise.resolve()),
+  eliminatePlayer: jest.fn(() => Promise.resolve()),
+  clearNightActions: jest.fn(() => Promise.resolve()),
+}));
+jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
+
+import { resolveLynch, hunterShoot, startNextNight } from '../gameManager';
+import { getRoom, updateRoom, eliminatePlayer, clearNightActions } from '../../firebase/roomService';
+import { makeGame, votesFor, lastUpdate, eventsOf, ROOM_ID } from './helpers';
+
+const VILLAGE = {
+  will: 'werewolf',
+  wanda: 'werewolf',
+  sam: 'seer',
+  sal: 'saviour',
+  hank: 'hunter',
+  vic: 'villager',
+  vera: 'villager',
+};
+
+function day(roles, overrides = {}) {
+  return makeGame(roles, { status: 'day', phase: 2, ...overrides });
+}
+
+async function lynch(game) {
+  await resolveLynch(ROOM_ID, game);
+  return lastUpdate(updateRoom);
+}
+
+beforeEach(() => jest.clearAllMocks());
+
+describe('resolveLynch', () => {
+  it('lynches the top-voted player and starts the next night', async () => {
+    const update = await lynch(day(VILLAGE, { votes: votesFor({ sam: 'vic', sal: 'vic', will: 'vic', vic: 'will' }) }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vic');
+    expect(update.status).toBe('night');
+    expect(update.phase).toBe(3);
+    expect(update.nightSubPhase).toBe('saviour');
+    expect(update.votes).toEqual({});
+    expect(update.nightActions).toEqual({});
+  });
+
+  it('plans the next night without the lynched player', async () => {
+    const update = await lynch(day(VILLAGE, { votes: votesFor({ sam: 'sal', vic: 'sal', vera: 'sal' }) }));
+    expect(update.nightSubPhase).toBe('werewolf');
+  });
+
+  it('lynches nobody on a tie and still moves to night', async () => {
+    const update = await lynch(day(VILLAGE, { votes: votesFor({ sam: 'will', vic: 'vera' }) }));
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+    expect(update.status).toBe('night');
+    expect(eventsOf(update)[0]).toMatch(/tie/);
+  });
+
+  it('lynches nobody without votes', async () => {
+    const update = await lynch(day(VILLAGE));
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+    expect(eventsOf(update)).toEqual(['Day 2: No votes were confirmed — the village remains divided.']);
+  });
+
+  it('a lynched lover takes their partner with them', async () => {
+    await lynch(day(VILLAGE, { lovers: ['vic', 'sam'], votes: votesFor({ will: 'vic', wanda: 'vic', vera: 'sam' }) }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vic');
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'sam');
+  });
+
+  it('players who left during the day are lost', async () => {
+    await lynch(day(VILLAGE, { disconnectedPlayers: ['vera'] }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+    expect(lastUpdate(updateRoom).disconnectedPlayers).toEqual([]);
+  });
+
+  it('a lynched Hunter keeps the game in the day for their shot', async () => {
+    const update = await lynch(day(VILLAGE, { votes: votesFor({ will: 'hank', wanda: 'hank' }) }));
+    expect(update.status).toBe('day');
+    expect(update.hunterTriggered).toBe('hank');
+    expect(update.hunterDiedDuring).toBe('day');
+    expect(update.phase).toBeUndefined();
+  });
+
+  it('villagers win by lynching the last werewolf', async () => {
+    const update = await lynch(day({ will: 'werewolf', vic: 'villager', vera: 'villager' }, { votes: votesFor({ vic: 'will', vera: 'will' }) }));
+    expect(update.winner).toBe('villagers');
+    expect(update.status).toBe('ended');
+    expect(update.phase).toBeUndefined();
+  });
+
+  it('werewolves win when a lynch leaves them equal to the village', async () => {
+    const update = await lynch(day({ will: 'werewolf', vic: 'villager', vera: 'villager' }, { votes: votesFor({ will: 'vic', vera: 'vic' }) }));
+    expect(update.winner).toBe('werewolves');
+  });
+});
+
+describe('hunterShoot', () => {
+  const afterHunterDied = (overrides) =>
+    day({ will: 'werewolf', wanda: 'werewolf', hank: 'hunter', vic: 'villager', vera: 'villager', sam: 'seer' }, {
+      dead: ['hank'],
+      hunterTriggered: 'hank',
+      ...overrides,
+    });
+
+  it('kills the target and clears the pending shot', async () => {
+    await hunterShoot(ROOM_ID, afterHunterDied(), 'will');
+    const update = lastUpdate(updateRoom);
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'will');
+    expect(update.hunterTriggered).toBeNull();
+    expect(update.winner).toBeNull();
+    expect(update.status).toBe('day');
+  });
+
+  it('the shot can win the game', async () => {
+    const game = day({ will: 'werewolf', hank: 'hunter', vic: 'villager', vera: 'villager' }, { dead: ['hank'] });
+    const { winner } = await hunterShoot(ROOM_ID, game, 'will');
+    expect(winner).toBe('villagers');
+    expect(lastUpdate(updateRoom).status).toBe('ended');
+  });
+
+  it('shooting a lover also kills their partner', async () => {
+    await hunterShoot(ROOM_ID, afterHunterDied({ lovers: ['vic', 'vera'] }), 'vic');
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+    expect(eventsOf(lastUpdate(updateRoom))).toContain('Vera died of heartbreak after losing their lover.');
+  });
+});
+
+describe('startNextNight', () => {
+  const freshRoom = (overrides) => day(VILLAGE, { dead: ['hank'], ...overrides });
+
+  it('starts the next night from a fresh read of the room', async () => {
+    getRoom.mockResolvedValue(freshRoom({ dead: ['hank', 'sal'] }));
+    await startNextNight(ROOM_ID);
+    expect(getRoom).toHaveBeenCalledWith(ROOM_ID);
+    expect(clearNightActions).toHaveBeenCalledWith(ROOM_ID);
+    const update = lastUpdate(updateRoom);
+    expect(update.status).toBe('night');
+    expect(update.phase).toBe(3);
+    expect(update.nightSubPhase).toBe('werewolf');
+    expect(update.hunterTriggered).toBeNull();
+  });
+
+  it.each([
+    ['the room is gone', null],
+    ['it is already night', { status: 'night' }],
+    ['the game has a winner', { winner: 'villagers' }],
+    ['a Hunter shot is still pending', { hunterTriggered: 'hank' }],
+  ])('does nothing when %s', async (_, overrides) => {
+    getRoom.mockResolvedValue(overrides && freshRoom(overrides));
+    await startNextNight(ROOM_ID);
+    expect(updateRoom).not.toHaveBeenCalled();
+  });
+});
