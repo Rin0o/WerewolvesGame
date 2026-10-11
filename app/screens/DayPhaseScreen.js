@@ -43,6 +43,7 @@ const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
 
 const DISCUSSION_SECONDS = 240;
+const HUNTER_SHOT_SECONDS = 20;
 
 export default function DayPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -258,7 +259,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village Awakens</Text>
         <View style={styles.timerSlot}>
           {hunterTriggered && hunterTriggered === playerId ? (
-            <Timer totalSeconds={30} onExpire={handleHunterTimerExpire} theme={t} />
+            <Timer totalSeconds={HUNTER_SHOT_SECONDS} onExpire={handleHunterTimerExpire} theme={t} />
           ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
             <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={gs.isHost ? handleTimerExpire : () => {}} theme={t} />
           ) : null}

@@ -4,7 +4,7 @@ import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
-const DISPLAY_SECONDS = 12;
+const DISPLAY_SECONDS = 8;
 
 export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles }) {
   const [countdown, setCountdown] = useState(DISPLAY_SECONDS);

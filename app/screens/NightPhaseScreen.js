@@ -34,6 +34,13 @@ import { ROLE } from '../constants/roles';
 import { BOT_CONFIG } from '../constants/devConfig';
 
 const SUBPHASE_TIMER = 45;
+const SUBPHASE_TIMER_OVERRIDES = { thief: 15, cupid: 15, seer: 30, saviour: 30 };
+const FIRST_NIGHT_WEREWOLF_TIMER = 15;
+
+function subPhaseSeconds(subPhase, phase) {
+  if (subPhase === 'werewolf' && phase === 1) return FIRST_NIGHT_WEREWOLF_TIMER;
+  return SUBPHASE_TIMER_OVERRIDES[subPhase] ?? SUBPHASE_TIMER;
+}
 
 const SUBPHASE_TO_ROLE = {
   werewolf: ROLE.WEREWOLF,
@@ -371,7 +378,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         </TouchableOpacity>
         <View style={styles.timerSlot}>
           {nightSubPhase && nightSubPhase !== 'done' && !resolving && room.gameMode !== 'narrator' && (
-            <Timer key={nightSubPhase} totalSeconds={SUBPHASE_TIMER} onExpire={handleTimerExpire} theme={t} />
+            <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, phase)} onExpire={handleTimerExpire} theme={t} />
           )}
         </View>
       </View>
