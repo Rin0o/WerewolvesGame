@@ -30,7 +30,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 ## Features
 
-- **Rooms with a 5-letter code:** one player creates a room and the others join with the code.
+- **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in ⚙️ settings on the Home screen, which also has a sound on/off switch and shows the app version.
+- **Rooms with a 5-letter code:** one player creates a room and the others join with the code. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
@@ -130,7 +131,7 @@ Roles are shuffled and dealt at random at the start of every game. In **Custom**
 | Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
 | Animation | react-native-reanimated 4 |
 | Audio | expo-audio |
-| Local storage | AsyncStorage (notes, suspicions, and the saved game used for rejoining) |
+| Local storage | AsyncStorage (player name and sound setting, notes, suspicions, and the saved game used for rejoining) |
 
 ---
 
@@ -180,7 +181,7 @@ The artwork is drawn at high resolution. The app ships resized WebP copies at ab
 ## Project structure
 
 ```
-App.js                     Navigation stack (Launch → Home → Lobby → RoleReveal → Night ⇄ Day → GameOver)
+App.js                     Navigation stack (Launch → Welcome (first time only) → Home → Lobby → RoleReveal → Night ⇄ Day → GameOver)
 app/
   screens/                 One file per screen
   components/              Reusable UI: role card, player card, notes panel, chats, timer,
@@ -202,6 +203,7 @@ app/
     useHostFailover.js     Host heartbeat and automatic takeover
     useSoundEffect.js      Sound effects
   utils/session.js         Saved game for Rejoin
+  utils/profile.js         Saved player name and sound setting
   constants/               Roles, compositions, theme, icons, dev settings (bots)
 assets/                    WebP images used by the app, plus sounds
 assets-src/                Full-resolution original artwork (not bundled)

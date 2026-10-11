@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import LaunchScreen from './app/screens/LaunchScreen';
+import WelcomeScreen from './app/screens/WelcomeScreen';
 import HomeScreen from './app/screens/HomeScreen';
 import LobbyScreen from './app/screens/LobbyScreen';
 import RoleRevealScreen from './app/screens/RoleRevealScreen';
@@ -25,6 +26,7 @@ export default function App() {
           screenOptions={{ headerShown: false, animation: 'fade' }}
         >
           <Stack.Screen name="Launch" component={LaunchScreen} />
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Lobby" component={LobbyScreen} />
           <Stack.Screen name="RoleReveal" component={RoleRevealScreen} />

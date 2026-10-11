@@ -1,10 +1,16 @@
 import React from 'react';
 import { View, Image, ImageBackground, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { loadProfile } from '../utils/profile';
 
 const { width } = Dimensions.get('window');
 
 export default function LaunchScreen({ navigation }) {
+  async function handlePlay() {
+    const { nickname } = await loadProfile();
+    navigation.replace(nickname ? 'Home' : 'Welcome');
+  }
+
   return (
     <ImageBackground
       source={require('../../assets/home_page.webp')}
@@ -14,7 +20,7 @@ export default function LaunchScreen({ navigation }) {
       <SafeAreaView style={styles.safe}>
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            onPress={() => navigation.replace('Home')}
+            onPress={handlePlay}
             activeOpacity={0.8}
           >
             <Image

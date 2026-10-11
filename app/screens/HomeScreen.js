@@ -16,6 +16,9 @@ import { signInAnon, subscribeToAuth } from '../firebase/authService';
 import { createRoom, findRoomByCode, joinRoom, getRoom } from '../firebase/roomService';
 import { forgetRoomSnapshot } from '../hooks/useRoom';
 import { loadSession, clearSession, screenForStatus } from '../utils/session';
+import { loadProfile, sameNickname } from '../utils/profile';
+import SettingsPanel from '../components/SettingsPanel';
+import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const STATUS_LABELS = {
   lobby: 'waiting in the lobby',
@@ -23,14 +26,24 @@ const STATUS_LABELS = {
   day:   'in progress (day)',
   ended: 'finished',
 };
-import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function HomeScreen({ navigation }) {
-  const [nickname, setNickname] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
   const [resumable, setResumable] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    loadProfile().then((saved) => {
+      if (!active) return;
+      if (!saved.nickname) navigation.replace('Welcome');
+      else setProfile(saved);
+    });
+    return () => { active = false; };
+  }, [navigation]);
 
   useEffect(() => {
     const unsub = subscribeToAuth(async (user) => {
@@ -89,16 +102,8 @@ export default function HomeScreen({ navigation }) {
     setResumable(null);
   }
 
-  function validateNickname() {
-    const trimmed = nickname.trim();
-    if (!trimmed) { Alert.alert('Missing nickname', 'Please enter your nickname.'); return null; }
-    if (trimmed.length < 2) { Alert.alert('Too short', 'Nickname must be at least 2 characters.'); return null; }
-    if (trimmed.length > 18) { Alert.alert('Too long', 'Nickname must be 18 characters or fewer.'); return null; }
-    return trimmed;
-  }
-
   async function handleCreateRoom() {
-    const name = validateNickname();
+    const name = profile?.nickname;
     if (!name || !userId) return;
     setLoading(true);
     try {
@@ -112,7 +117,7 @@ export default function HomeScreen({ navigation }) {
   }
 
   async function handleJoinRoom() {
-    const name = validateNickname();
+    const name = profile?.nickname;
     if (!name || !userId) return;
     const code = roomCode.trim().toUpperCase();
     if (!code || code.length !== 5) {
@@ -125,6 +130,10 @@ export default function HomeScreen({ navigation }) {
       if (!room) { Alert.alert('Room not found', 'No room with that code exists.'); return; }
       if (room.status !== 'lobby') { Alert.alert('Game in progress', 'This room\'s game has already started.'); return; }
       const alreadyIn = room.players.some((p) => p.id === userId);
+      if (!alreadyIn && room.players.some((p) => sameNickname(p.nickname, name))) {
+        Alert.alert('Name already taken', `Someone in this room is already called ${name}. Change your name in ⚙️ settings.`);
+        return;
+      }
       if (!alreadyIn) {
         await joinRoom(room.roomId, { id: userId, nickname: name, isAlive: true, isHost: false, isReady: false });
       }
@@ -139,15 +148,29 @@ export default function HomeScreen({ navigation }) {
 
   const t = DAY;
 
+  if (!profile) {
+    return (
+      <View style={[styles.safe, styles.center, { backgroundColor: t.background }]}>
+        <ActivityIndicator color={t.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} hitSlop={12}>
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
             <Text style={styles.moon}>🌕</Text>
             <Text style={[styles.title, { color: t.primary }]}>Werewolves</Text>
             <Text style={[styles.subtitle, { color: t.textSecondary }]}>of Miller's Hollow</Text>
+            <Text style={[styles.playingAs, { color: t.textSecondary }]}>
+              Playing as <Text style={[styles.playingAsName, { color: t.text }]}>{profile.nickname}</Text>
+            </Text>
           </View>
 
           {resumable && (
@@ -167,20 +190,6 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Nickname */}
-          <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.label, { color: t.textSecondary }]}>Your Nickname</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: t.surfaceAlt, color: t.text, borderColor: t.border }]}
-              value={nickname}
-              onChangeText={setNickname}
-              placeholder="Enter your name..."
-              placeholderTextColor={t.textMuted}
-              maxLength={18}
-              autoCapitalize="words"
-            />
-          </View>
 
           {/* Create Room */}
           <TouchableOpacity
@@ -223,12 +232,25 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <SettingsPanel
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={t}
+        profile={profile}
+        onProfileChange={setProfile}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  settingsBtn: { position: 'absolute', top: -SPACING.lg, right: 0, zIndex: 10, padding: SPACING.xs },
+  settingsIcon: { fontSize: 28 },
+  playingAs: { ...FONTS.body, marginTop: SPACING.md },
+  playingAsName: { fontWeight: '700' },
   content: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   header: { alignItems: 'center', marginBottom: SPACING.xxl },
   moon: { fontSize: 56, marginBottom: SPACING.sm },
