@@ -18,7 +18,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 /App.js                      — Root: NavigationContainer + Stack (initial route: Launch)
 /app/
   /screens/
-    LaunchScreen.js          — Full-screen background + play button; entry point; goes to Welcome
+    LaunchScreen.js          — Full-screen artwork, tap anywhere to continue; entry point; goes to Welcome
                                if no name is saved, otherwise Home
     WelcomeScreen.js         — One-time "choose your name" screen; saves it to the profile
     HomeScreen.js            — "Playing as <name>", ⚙️ settings, create/join room (saved name),
@@ -108,8 +108,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 /assets/                     — Resized WebP images used by the app (only game_icon.png stays PNG)
   game_icon.png              — App icon (set in app.json for iOS + Android)
   home_page.webp             — LaunchScreen full-screen artwork ("Stained-Glass Howl": howling werewolf
-                               with the game title); the previous artwork is in assets/unused/
-  play_btn.webp              — LaunchScreen play button (stained-glass style)
+                               with the game title); the previous artwork and the old play_btn.webp
+                               are in assets/unused/
   day_background.webp        — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
   night_background.webp      — NightPhaseScreen full-screen ImageBackground (deep purple castle)
   dawn_banner.webp           — PhaseTransition banner for day transitions (red/gold stained glass)
@@ -272,7 +272,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire. Night steps get 45s (`SUBPHASE_TIMER`, used by wolves on later nights and the Witch); Seer and Saviour 30s, Thief and Cupid 15s (`SUBPHASE_TIMER_OVERRIDES`), and wolves on night 1 (observe only, no kill) 15s — see `subPhaseSeconds()`. Day: discussion 240s, Hunter's shot 20s (`HUNTER_SHOT_SECONDS`), lynch result screen 8s (`LynchResultModal` `DISPLAY_SECONDS`). Timers are maximums: a step ends as soon as its player acts.
 - **Image assets**: Originals live in `assets-src/` as full-resolution PNGs; the app only references WebP files in `assets/`. To add or update an image, put the PNG in `assets-src/`, then export a WebP to the same path under `assets/` (quality ~85, keep alpha), sized to ~3× its on-screen size: icons 384px, small buttons 512–600px, banners 900–1320px, role cards 1200px tall, backgrounds at original size. Never `require()` from `assets-src/` — Metro would bundle the full-size file.
 - **Role card images**: `RoleCard` component maps role keys to static `require()` calls for WebPs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
-- **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. On press it loads the profile and calls `navigation.replace('Welcome')` (no saved name) or `navigation.replace('Home')`, so the back button can never return to it.
+- **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. The whole screen is a `Pressable` (no button; a "Tap anywhere to begin" hint sits at the bottom, and a ref ignores double taps). On press it loads the profile and calls `navigation.replace('Welcome')` (no saved name) or `navigation.replace('Home')`, so the back button can never return to it.
 - **Player name**: entered once on `WelcomeScreen` and stored in the profile (`utils/profile.js`); Home uses it for create/join and shows "Playing as". It's changed only in `SettingsPanel` and applies to rooms created/joined afterwards — a room keeps the name the player had when they joined (`players[].nickname`), and Rejoin uses the name stored in the session. Rules: trimmed, 2–18 characters (`nicknameError`). Joining is refused if another player in the room has the same name, case-insensitive (`sameNickname`); players already in the room are exempt.
 - **No comments in code**: Code is self-documenting via naming.
 - **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly and passes it to the `Timer` component.

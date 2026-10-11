@@ -315,7 +315,7 @@ Prebuild **deletes and recreates `android/`**. Afterwards, re-create `android/lo
 |---|---|
 | Role and suspicion icons | 384 px |
 | Small image buttons | 512–600 px |
-| Banners, play button | 900–1320 px wide |
+| Banners | 900–1320 px wide |
 | Role cards | 1200 px tall |
 | Full-screen backgrounds | original size |
 

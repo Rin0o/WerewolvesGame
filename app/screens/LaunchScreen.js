@@ -1,52 +1,48 @@
-import React from 'react';
-import { View, Image, ImageBackground, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useRef } from 'react';
+import { Text, ImageBackground, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loadProfile } from '../utils/profile';
-
-const { width } = Dimensions.get('window');
+import { FONTS, SPACING } from '../constants/theme';
 
 export default function LaunchScreen({ navigation }) {
-  async function handlePlay() {
+  const leavingRef = useRef(false);
+
+  async function handlePress() {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
     const { nickname } = await loadProfile();
     navigation.replace(nickname ? 'Home' : 'Welcome');
   }
 
   return (
-    <ImageBackground
-      source={require('../../assets/home_page.webp')}
-      style={styles.background}
-      resizeMode="cover"
-    >
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            onPress={handlePlay}
-            activeOpacity={0.8}
-          >
-            <Image
-              source={require('../../assets/play_btn.webp')}
-              style={styles.playBtn}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </ImageBackground>
+    <Pressable style={styles.fill} onPress={handlePress}>
+      <ImageBackground
+        source={require('../../assets/home_page.webp')}
+        style={styles.fill}
+        resizeMode="cover"
+      >
+        <SafeAreaView style={styles.safe}>
+          <Text style={styles.hint}>Tap anywhere to begin</Text>
+        </SafeAreaView>
+      </ImageBackground>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  background: { flex: 1 },
-  safe: { flex: 1 },
-  buttonContainer: {
+  fill: { flex: 1 },
+  safe: {
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingBottom: 60,
+    paddingBottom: SPACING.lg,
   },
-  playBtn: {
-    width: width * 0.8,
-    height: undefined,
-    aspectRatio: 2,
+  hint: {
+    ...FONTS.subheading,
+    color: '#FFE8B0',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
 });
