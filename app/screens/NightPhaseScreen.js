@@ -127,7 +127,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           onPress: async () => {
             await disconnectPlayer(roomId, playerId);
             await clearSession();
-            navigation.navigate('Home');
+            navigation.popTo('Home');
           },
         },
       ]

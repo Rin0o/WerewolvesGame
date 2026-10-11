@@ -151,7 +151,7 @@ export default function LobbyScreen({ route, navigation }) {
         text: 'Leave', style: 'destructive', onPress: async () => {
           await leaveRoom(roomId, playerId);
           await clearSession();
-          navigation.replace('Home');
+          navigation.popTo('Home');
         }
       },
     ]);

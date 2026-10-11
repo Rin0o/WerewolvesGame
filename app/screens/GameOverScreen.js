@@ -83,7 +83,7 @@ export default function GameOverScreen({ route, navigation }) {
 
   function handleLeave() {
     clearSession();
-    navigation.replace('Home');
+    navigation.popTo('Home');
   }
 
   return (
