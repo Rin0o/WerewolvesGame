@@ -107,7 +107,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 /assets-src/                 — Full-resolution original PNGs (not bundled); source for /assets
 /assets/                     — Resized WebP images used by the app (only game_icon.png stays PNG)
   game_icon.png              — App icon (set in app.json for iOS + Android)
-  home_page.webp             — LaunchScreen full-screen background (stained-glass werewolf art)
+  home_page.webp             — LaunchScreen full-screen artwork ("Stained-Glass Howl": howling werewolf
+                               with the game title); the previous artwork is in assets/unused/
   play_btn.webp              — LaunchScreen play button (stained-glass style)
   day_background.webp        — DayPhaseScreen full-screen ImageBackground (warm pink/peach castle)
   night_background.webp      — NightPhaseScreen full-screen ImageBackground (deep purple castle)
