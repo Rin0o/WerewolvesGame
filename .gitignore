@@ -20,3 +20,4 @@ yarn-error.*
 assets/unused/
 firestore-debug.log
 firebase-debug.log
+ROLES_REFERENCE.md
