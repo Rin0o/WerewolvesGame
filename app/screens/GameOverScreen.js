@@ -77,7 +77,7 @@ export default function GameOverScreen({ route, navigation }) {
       witchPotions: {},
       hunterTriggered: null,
       phaseStartedAt: null,
-      players: players.map((p) => ({ ...p, isAlive: true, isReady: false })),
+      players: players.map(({ isNarrator, ...p }) => ({ ...p, isAlive: true, isReady: false })),
     });
   }
 

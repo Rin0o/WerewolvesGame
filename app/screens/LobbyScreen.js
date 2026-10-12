@@ -136,10 +136,9 @@ export default function LobbyScreen({ route, navigation }) {
     if (!canStart || starting) return;
     setStarting(true);
     try {
-      let gamePlayers = players;
-      if (gameMode === 'narrator') {
-        gamePlayers = players.map((p) => (p.id === playerId ? { ...p, isNarrator: true } : p));
-      }
+      const gamePlayers = players.map(({ isNarrator, ...p }) =>
+        (gameMode === 'narrator' && p.id === playerId ? { ...p, isNarrator: true } : p)
+      );
       const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
       await startGame(roomId, gamePlayers, composition, classicFirstNight);
     } catch (e) {
