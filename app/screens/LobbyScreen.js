@@ -20,7 +20,7 @@ import { setPlayerReady, leaveRoom, updateRoom } from '../firebase/roomService';
 import { startGame } from '../game-logic/gameManager';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { BOT_CONFIG } from '../constants/devConfig';
+import { botSeats } from '../game-logic/bots';
 import { ROLE_ICONS } from '../constants/icons';
 import RoomQrCode from '../components/RoomQrCode';
 import { roomJoinLink } from '../utils/roomQr';
@@ -60,8 +60,7 @@ export default function LobbyScreen({ route, navigation }) {
     if ((room.gameMode || 'normal') !== 'custom') return;
     customInitDone.current = true;
     const humanCount = room.players.filter((p) => !p.isBot).length;
-    const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
-    const total = Math.max(MIN_PLAYERS, humanCount + botCount);
+    const total = Math.max(MIN_PLAYERS, humanCount);
     updateRoom(roomId, {
       customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false },
     });
@@ -75,16 +74,23 @@ export default function LobbyScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false } = room;
+  const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false } = room;
   const gameMode = rawMode || 'normal';
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
   const humanPlayers = players.filter((p) => !p.isBot);
-  const botCount = BOT_CONFIG.enabled ? BOT_CONFIG.bots.length : 0;
 
   // In narrator mode the host is excluded from role-play, so subtract 1 from the count
   const narratorOffset = gameMode === 'narrator' ? 1 : 0;
-  const effectiveCount = humanPlayers.length + botCount - narratorOffset;
+  const playingHumans = humanPlayers.length - narratorOffset;
+
+  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false };
+
+  const botsAvailable = gameMode !== 'narrator';
+  const botTarget = gameMode === 'custom' ? cfg.playerCount : MIN_PLAYERS;
+  const seats = botSeats(playingHumans, botTarget);
+  const botCount = botsAvailable && fillWithBots ? seats.bots : 0;
+  const effectiveCount = playingHumans + botCount;
 
   // Normal mode derived values
   const normalComposition = getCompositionForCount(Math.max(1, effectiveCount));
@@ -92,7 +98,6 @@ export default function LobbyScreen({ route, navigation }) {
   const normalCanStart = effectiveCount >= MIN_PLAYERS;
 
   // Custom mode derived values
-  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false };
   const usedSlots = cfg.werewolf + SPECIAL_ROLES.reduce((acc, r) => acc + (cfg[r] ? (r === ROLE.SISTER ? 2 : 1) : 0), 0);
   const villagerCount = cfg.playerCount - usedSlots;
   const isValidConfig = villagerCount >= 1 && cfg.werewolf >= 1;
@@ -140,7 +145,7 @@ export default function LobbyScreen({ route, navigation }) {
         (gameMode === 'narrator' && p.id === playerId ? { ...p, isNarrator: true } : p)
       );
       const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
-      await startGame(roomId, gamePlayers, composition, classicFirstNight);
+      await startGame(roomId, gamePlayers, { composition, classicFirstNight, botCount });
     } catch (e) {
       setStarting(false);
       Alert.alert('Error', 'Could not start game.');
@@ -164,17 +169,38 @@ export default function LobbyScreen({ route, navigation }) {
     await Share.share({ message: `Join my Werewolves game! Room code: ${code}` });
   }
 
+  function setFillWithBots(fill) {
+    updateRoom(roomId, { fillWithBots: fill });
+  }
+
+  function startLabelWithBots() {
+    if (botCount === 0) return '🐺 Start Game';
+    return `🐺 Start with ${botCount} bot${botCount !== 1 ? 's' : ''}`;
+  }
+
   function startBtnLabel() {
     if (starting) return 'Starting...';
-    if (gameMode === 'normal' || gameMode === 'narrator') {
-      return normalCanStart
-        ? `🐺 Start Game${gameMode === 'narrator' ? ' (Narrator)' : ''}`
-        : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
+    if (gameMode === 'narrator') {
+      return normalCanStart ? '🐺 Start Game (Narrator)' : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
+    }
+    if (gameMode === 'normal') {
+      return normalCanStart ? startLabelWithBots() : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
     }
     if (!isValidConfig) return 'Invalid composition';
     if (effectiveCount < cfg.playerCount) return `Waiting for ${cfg.playerCount - effectiveCount} more player(s)`;
     if (effectiveCount > cfg.playerCount) return `${effectiveCount - cfg.playerCount} too many players`;
-    return '🐺 Start Game';
+    return startLabelWithBots();
+  }
+
+  function botHint() {
+    if (!fillWithBots) return 'Off — the game waits for real players.';
+    if (botCount > 0 && seats.missing === 0) {
+      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf or Villager.`;
+    }
+    if (seats.missing > 0) {
+      return `Bots can fill at most half the table — ${seats.missing} more real player(s) needed.`;
+    }
+    return 'The table is full — no bots needed.';
   }
 
   const header = (
@@ -409,12 +435,27 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Bot notice */}
-      {BOT_CONFIG.enabled && (
-        <View style={[styles.compBox, { backgroundColor: '#1a0a2e', borderColor: '#6B4FA0' }]}>
-          <Text style={[styles.compTitle, { color: '#A78BD4' }]}>
-            🤖 Bot mode active — {botCount} bot{botCount !== 1 ? 's' : ''} will join on start
-          </Text>
+      {/* Fill empty seats with bots — host picks, everyone sees (not in narrator mode) */}
+      {botsAvailable && (
+        <View style={[styles.firstNightBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+          <View style={styles.configRow}>
+            <View style={styles.configLabelRow}>
+              <Text style={[styles.configLabel, { color: t.text }]}>🤖 Fill empty seats with bots</Text>
+            </View>
+            {isHost ? (
+              <TouchableOpacity
+                style={[styles.toggle, { backgroundColor: fillWithBots ? t.success : t.surface, borderColor: fillWithBots ? t.success : t.border }]}
+                onPress={() => setFillWithBots(!fillWithBots)}
+              >
+                <Text style={[styles.toggleText, { color: fillWithBots ? '#fff' : t.textMuted }]}>
+                  {fillWithBots ? 'ON' : 'OFF'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={[styles.modeBadgeText, { color: t.text }]}>{fillWithBots ? 'ON' : 'OFF'}</Text>
+            )}
+          </View>
+          <Text style={[styles.firstNightHint, { color: t.textMuted }]}>{botHint()}</Text>
         </View>
       )}
 

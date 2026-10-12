@@ -42,7 +42,6 @@ import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE, isWolfRole } from '../constants/roles';
-import { BOT_CONFIG } from '../constants/devConfig';
 
 const SUBPHASE_TIMER = 45;
 const SUBPHASE_TIMER_OVERRIDES = { thief: 15, cupid: 15, wolf_hound: 15, seer: 30, saviour: 30, white_wolf: 30 };
@@ -201,7 +200,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   }, [gs.isHost]);
 
   useEffect(() => {
-    if (!gs.isHost || !room || !BOT_CONFIG.enabled || room.status !== 'night') return;
+    if (!gs.isHost || !room || room.status !== 'night') return;
     const { nightSubPhase, players = [], roles = {}, nightActions = {} } = room;
     if (!nightSubPhase || nightSubPhase === 'done') return;
     if (isSubPhaseDone(nightSubPhase, room)) return;

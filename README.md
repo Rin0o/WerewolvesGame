@@ -22,7 +22,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - [Building an Android APK](#building-an-android-apk)
 - [Images and assets](#images-and-assets)
 - [Automated tests](#automated-tests)
-- [Testing with bots](#testing-with-bots)
+- [Bots](#bots)
 - [Versioning and releases](#versioning-and-releases)
 - [Known limitations](#known-limitations)
 - [Ideas for the future](#ideas-for-the-future)
@@ -38,6 +38,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
 - **12 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, White Wolf and Wolf Hound.
+- **Lobby options:** a Quiet or Classic first night, and bots to fill empty seats (see [Bots](#bots)).
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone.
 - **Personal notes:** each player can mark suspicion levels, guess roles and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
@@ -196,8 +197,8 @@ Each event-log entry is written in the same Firestore update that changes the ga
 - Starting a game writes the night status straight away. Deleting the previous game's wolf chat runs in parallel instead of blocking.
 - `useRoom` keeps the last snapshot of the room, so the next screen draws immediately instead of waiting for Firestore again.
 
-### Random roles, even with test bots
-The role list is shuffled every game. Test bots can only play werewolf or villager, so they draw random slots of those two, and humans get everything else. A human can still be dealt a werewolf.
+### Random roles, even with bots
+The role list is shuffled every game. Bots can only play werewolf or villager, so they draw random slots of those two, and humans get everything else. A human can still be dealt a werewolf.
 
 ### Lightweight images
 The artwork is drawn at high resolution. The app ships resized WebP copies at about 3× their on-screen size, which cut the bundled images from about 120 MB to about 8 MB. See [Images and assets](#images-and-assets).
@@ -234,7 +235,7 @@ app/
   utils/session.js         Saved game for Rejoin
   utils/profile.js         Saved player name and sound setting
   utils/roomQr.js          Build and read the QR join link
-  constants/               Roles, compositions, theme, icons, dev settings (bots)
+  constants/               Roles, compositions, theme, icons, bot names
 assets/                    WebP images used by the app, plus sounds
 assets-src/                Full-resolution original artwork (not bundled)
 plugins/                   Expo config plugins
@@ -357,7 +358,8 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `nightOrder.test.js` | Who wakes on night 1 and later nights, skipping dead/absent roles, the next step, when a step is done |
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer |
 | `dayFlow.test.js` | Lynch, ties, lover chain, Hunter shot, winners, starting the next night |
-| `startGame.test.js` | Dealing, witch potions, narrator, chat-cleanup failure, test bots |
+| `startGame.test.js` | Dealing, witch potions, narrator, chat-cleanup failure, bots |
+| `bots.test.js` | How many seats bots may fill (half-table cap), random themed bot names |
 
 Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
 
@@ -371,20 +373,15 @@ npm run test:rules
 
 ---
 
-## Testing with bots
+## Bots
 
-[`app/constants/devConfig.js`](app/constants/devConfig.js) can add test bots, so you can try a game with fewer than 5 people:
+In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seats with bots** in the lobby. Everyone sees the setting and how many bots will join, and the Start button says "Start with N bots".
 
-```js
-export const BOT_CONFIG = {
-  enabled: true,
-  bots: [{ nickname: 'Bot 1' }, { nickname: 'Bot 2' }, ...],
-};
-```
-
-- Bots are dealt random werewolf or villager roles.
-- The host's phone plays for them: bot wolves pick a random victim and bots cast random votes.
-- **Bots are currently disabled** (`enabled: false`). Make sure they're off again before building an APK to share.
+- **How many:** bots fill the table up to 5 players (Normal) or up to the target player count (Custom), but never more than half the table, so there are always at least as many real players as bots. If that isn't enough, the lobby says how many more real players are needed.
+- **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
+- **Roles:** bots only play Werewolf or Villager; special roles always go to real players.
+- **Behaviour:** the host's phone plays for them. Bot wolves pick a random victim and bots cast random votes.
+- Not available in Narrator mode. Play Again removes the bots; the next game adds fresh ones if the setting is still on.
 
 ---
 

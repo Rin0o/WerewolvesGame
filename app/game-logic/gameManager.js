@@ -9,7 +9,7 @@ import {
   clearNightActions,
   clearWerewolfChat,
 } from '../firebase/roomService';
-import { BOT_CONFIG } from '../constants/devConfig';
+import { pickBotNames } from './bots';
 
 function computeBearTamerGrowl(alivePlayers, roles) {
   const idx = alivePlayers.findIndex((p) => roles[p.id] === ROLE.BEAR_TAMER);
@@ -113,7 +113,7 @@ export function isSubPhaseDone(subPhase, room) {
   }
 }
 
-export async function startGame(roomId, players, customComposition = null, classicFirstNight = false) {
+export async function startGame(roomId, players, { composition: customComposition = null, classicFirstNight = false, botCount = 0 } = {}) {
   const clearingChat = clearWerewolfChat(roomId).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
@@ -121,10 +121,11 @@ export async function startGame(roomId, players, customComposition = null, class
   let roleMap = {};
   let witchPotions = {};
 
-  if (BOT_CONFIG.enabled && BOT_CONFIG.bots.length > 0) {
-    const botPlayers = BOT_CONFIG.bots.map((b, i) => ({
+  if (botCount > 0) {
+    const botNames = pickBotNames(botCount, players.map((p) => p.nickname));
+    const botPlayers = botNames.map((nickname, i) => ({
       id: `bot-${i}`,
-      nickname: b.nickname,
+      nickname,
       isAlive: true,
       isHost: false,
       isReady: true,

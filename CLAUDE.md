@@ -1,7 +1,7 @@
 # Werewolves of Miller's Hollow — Claude Context
 
 ## Project Overview
-A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side, coordinated through one Firestore document per room. No backend server. Current version: **1.0.0** (Android). User-facing documentation lives in `README.md`; this file is the developer/AI context and should stay consistent with it.
+A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side, coordinated through one Firestore document per room. No backend server. Current version: **1.1.0** (Android). User-facing documentation lives in `README.md`; this file is the developer/AI context and should stay consistent with it.
 
 ## Tech Stack
 - **Expo ~57** (React Native 0.86, React 19.2) — New Architecture only
@@ -76,6 +76,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
                                resolveNight(), startNextNight(), resolveLynch(), hunterShoot()
     voteManager.js           — allVotesIn(), tallyVotes()
+    bots.js                  — botSeats(humans, target) → { bots, missing } (bots ≤ humans, i.e. at most
+                               half the table); pickBotNames(count, takenNames)
   /firebase/
     config.js                — Firebase app init (project werewolvesgame-46ba0) + Auth persistence
     authService.js           — signInAnon(), subscribeToAuth()
@@ -109,7 +111,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                getCompositionForCount(), buildCustomComposition()
     icons.js                 — ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS, DEAD_ICON
     theme.js                 — DAY, NIGHT theme objects + FONTS, RADIUS, SPACING
-    devConfig.js             — BOT_CONFIG: enable/disable test bots (currently disabled; roles are random)
+    botNames.js              — BOT_NAMES (themed villager names), BOT_MARK (🤖 appended to bot nicknames)
 /plugins/
   withReleaseSigning.js      — Config plugin: signs release builds with the upload key from
                                ~/.gradle/gradle.properties (falls back to the debug key)
@@ -201,6 +203,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
   gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
   classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). Absent = Quiet
+  fillWithBots: bool              // Host's lobby choice (Normal/Custom only): pad empty seats with bots at start
   customRoles: {                  // Only used when gameMode === "custom"
     playerCount: number           // Target total players (must equal effectiveCount to start)
     werewolf: number              // Count (min 1)
@@ -245,7 +248,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 ### Night Order (`computeNightSequence`)
 - **Night 1, Quiet** (default, `classicFirstNight` false): Thief (if alive and roles are available) → Cupid → Wolf Hound → Werewolves (observe only: `werewolfObserved`, no kill). Seer, Witch and Saviour don't wake.
 - **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wolf Hound → Saviour → Werewolves (kill) → Witch → Seer — the official rules.
-- Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, composition, classicFirstNight)` needs the flag to pick the first step.
+- Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, { composition, classicFirstNight, botCount })` needs the flag to pick the first step.
 - **Night 2+**: Saviour → Werewolves (pick victim) → White Wolf (even nights, only while another `werewolf` is alive) → Witch (only if she has a potion left) → Seer
 - The `werewolf` step wakes every wolf role (`isWolfRole`: werewolf + white_wolf). Night action panels are chosen by `nightSubPhase`, not by role, because the White Wolf acts in two steps.
 - Always advance with `updateRoom(roomId, advanceNightUpdate(room, next))`, never a bare `{ nightSubPhase }`: when leaving the `wolf_hound` step it also writes the Hound's new role (and recomputes the next step), so a Hound who picked the pack wakes in that night's `werewolf` step. `myActionDone` resets whenever `nightSubPhase` changes.
@@ -290,7 +293,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Game start**: `startGame()` writes roles + `status: 'night'` immediately and clears the old wolf chat in parallel (don't block the start write on cleanup). The Lobby's Start button shows "Starting..." and ignores double taps.
 - **Back navigation blocked**: NightPhaseScreen and DayPhaseScreen block the Android hardware back button (`BackHandler`) and iOS swipe-back gesture (`navigation.setOptions({ gestureEnabled: false })`). Players exit via an explicit "Leave" button that shows a confirmation dialog. Day: bottom bar (`leave.webp`). Night: bottom bar (`exit_game.webp`). Both call `disconnectPlayer()` + `clearSession()` and go to Home.
 - **Player disconnection**: On confirmed exit, `disconnectPlayer()` adds the player to `disconnectedPlayers` (arrayUnion). On screen focus, `reconnectPlayer()` removes them (arrayRemove). At each phase end (`resolveNight`, `resolveLynch`), disconnected alive players are eliminated and `disconnectedPlayers` is cleared atomically.
-- **Bot support**: `devConfig.js` exports `BOT_CONFIG { enabled, bots: [{ nickname }] }` (currently `enabled: false`). When enabled, bots are injected at game start. The host auto-submits bot night kills and day votes. Roles are random every game: the composition is shuffled, bots take random `werewolf`/`villager` slots (they can't play special roles), and humans get the rest, so a human can be a wolf even with bots on.
+- **Bots**: a lobby setting (`room.fillWithBots`, host toggle, hidden in Narrator mode). The Lobby computes `botSeats(playingHumans, target)` — target is `MIN_PLAYERS` (Normal) or `customRoles.playerCount` (Custom) — and passes `botCount` to `startGame`, which adds bots with `pickBotNames()` (ids `bot-0…`, `isBot: true`, nickname ends in 🤖). Bots never exceed half the table (bots ≤ humans); otherwise the lobby asks for more real players. Bots aren't in `memberIds`; the host writes their actions. Play Again removes bots from `players`. Bot effects in Night/Day screens run whenever the room has living bots (no dev flag). The host auto-submits bot night kills and day votes. Roles are random every game: the composition is shuffled, bots take random `werewolf`/`villager` slots (they can't play special roles), and humans get the rest, so a human can be a wolf even with bots on.
 - **Game modes**: Host selects Normal, Custom, or Narrator in the lobby (`room.gameMode`). Normal uses preset `ROLE_COMPOSITIONS` tables. Custom uses `buildCustomComposition(room.customRoles)` — host configures player count, werewolf count, and special role toggles; villagers auto-fill the remainder. `startGame()` accepts an optional `customComposition` array; passing `null` falls back to the preset table.
 - **Narrator mode**: Host is flagged `isNarrator: true` on their player object and excluded from role assignment, win-condition checks, vote eligibility, and the night-action bot-target pool. The narrator skips `RoleRevealScreen` and goes straight to `NightPhaseScreen`. At night they see `NarratorNightDashboard` (full role visibility, submitted actions, manual Next/Skip to advance sub-phases — no auto-timer). At day they see `NarratorDayDashboard` (per-voter live breakdown, tally bars, Close Votes button) and see all roles in the player list. `useGameState` exposes `gs.isNarrator`. The day discussion timer is hidden in narrator mode; `closeVoting()` (sets `votesClosed: true`) is the narrator's trigger to end voting, which then flows into the normal `resolveLynch` path.
 - **Elimination screen**: A player killed during the night sees an overlay on NightPhaseScreen with a message chosen from `nightDeathCauses[playerId]` (`DEATH_MESSAGES`), then continues to the day as a ghost.
@@ -350,7 +353,7 @@ npm test
 ```
 - Jest 29 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
 - Tests live in `app/game-logic/__tests__/` and cover `roles.js`, `voteManager.js` and `gameManager.js`. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
-- Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` mocks `devConfig` with a mutable `BOT_CONFIG`.
+- Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
 - **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/rooms.rules-test.js` (named `*.rules-test.js` so `npm test` skips it; config `jest.rules.config.js`, node environment) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
@@ -369,7 +372,7 @@ cd android
 - Timers are client-side only — drifts possible on slow devices
 - No server-side role secrecy: the roles map is in the room document, which every signed-in user can read; rules can't hide part of a document
 - Host takeover staleness (25s) is enforced only by the app, not by the rules
-- Bot support is dev/testing only — keep `BOT_CONFIG.enabled` false in shipped builds
+- Bots are simple: random wolf victims and random votes, and they only play Werewolf or Villager
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines

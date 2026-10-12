@@ -33,7 +33,6 @@ import LynchResultModal from '../components/day/LynchResultModal';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
-import { BOT_CONFIG } from '../constants/devConfig';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.webp');
 const EXIT_GAME_ICON       = require('../../assets/leave.webp');
@@ -114,7 +113,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   }, [room?.status]);
 
   useEffect(() => {
-    if (!room || !gs.isHost || room.status !== 'day' || !BOT_CONFIG.enabled || botVotedRef.current) return;
+    if (!room || !gs.isHost || room.status !== 'day' || botVotedRef.current) return;
     botVotedRef.current = true;
     const { players = [] } = room;
     const aliveBots = players.filter((p) => p.isBot && p.isAlive);

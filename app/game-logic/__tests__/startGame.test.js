@@ -3,12 +3,11 @@ jest.mock('../../firebase/roomService', () => ({
   clearWerewolfChat: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
-jest.mock('../../constants/devConfig', () => ({ BOT_CONFIG: { enabled: false, bots: [] } }));
 
 import { startGame, computeNightSequence } from '../gameManager';
 import { updateRoom, clearWerewolfChat } from '../../firebase/roomService';
-import { BOT_CONFIG } from '../../constants/devConfig';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
+import { BOT_MARK } from '../../constants/botNames';
 import { lastUpdate, countRoles, ROOM_ID } from './helpers';
 
 function humans(count) {
@@ -17,16 +16,12 @@ function humans(count) {
   }));
 }
 
-async function start(players, composition = null) {
-  await startGame(ROOM_ID, players, composition);
+async function start(players, options = {}) {
+  await startGame(ROOM_ID, players, options);
   return lastUpdate(updateRoom);
 }
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  BOT_CONFIG.enabled = false;
-  BOT_CONFIG.bots = [];
-});
+beforeEach(() => jest.clearAllMocks());
 
 describe('startGame', () => {
   it('deals the composition and opens night 1', async () => {
@@ -39,9 +34,8 @@ describe('startGame', () => {
 
   it('a classic first night can start with the saviour or wolves instead of only night-1 roles', async () => {
     const composition = ['werewolf', 'saviour', 'villager', 'villager', 'villager'];
-    expect((await start(humans(5), composition)).nightSubPhase).toBe('werewolf');
-    await startGame(ROOM_ID, humans(5), composition, true);
-    expect(lastUpdate(updateRoom).nightSubPhase).toBe('saviour');
+    expect((await start(humans(5), { composition })).nightSubPhase).toBe('werewolf');
+    expect((await start(humans(5), { composition, classicFirstNight: true })).nightSubPhase).toBe('saviour');
   });
 
   it('gives the witch both potions', async () => {
@@ -63,23 +57,33 @@ describe('startGame', () => {
     await expect(startGame(ROOM_ID, humans(6))).resolves.toBeUndefined();
     expect(updateRoom).toHaveBeenCalled();
   });
+
+  it('adds no bots unless asked', async () => {
+    const update = await start(humans(5));
+    expect(update.players.some((p) => p.isBot)).toBe(false);
+  });
 });
 
-describe('startGame with test bots', () => {
-  beforeEach(() => {
-    BOT_CONFIG.enabled = true;
-    BOT_CONFIG.bots = [{ nickname: 'Bot 1' }, { nickname: 'Bot 2' }];
+describe('startGame with bots', () => {
+  it('adds the bots with themed names and deals the full composition', async () => {
+    const update = await start(humans(3), { botCount: 2 });
+    const bots = update.players.filter((p) => p.isBot);
+    expect(bots).toHaveLength(2);
+    bots.forEach((bot) => expect(bot.nickname.endsWith(BOT_MARK)).toBe(true));
+    expect(new Set(bots.map((b) => b.nickname)).size).toBe(2);
+    expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(5)));
   });
 
-  it('adds the bots and deals the full composition', async () => {
-    const update = await start(humans(4));
-    expect(update.players.filter((p) => p.isBot)).toHaveLength(2);
-    expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(6)));
+  it('drops bots left over from the last game', async () => {
+    const leftover = { id: 'bot-0', nickname: 'Old Tom 🤖', isAlive: false, isBot: true };
+    const update = await start([...humans(4), leftover], { botCount: 1 });
+    expect(update.players.filter((p) => p.isBot)).toHaveLength(1);
+    expect(update.players.find((p) => p.isBot).isAlive).toBe(true);
   });
 
   it('bots only ever play werewolf or villager', async () => {
     for (let i = 0; i < 50; i++) {
-      const update = await start(humans(4));
+      const update = await start(humans(4), { botCount: 2 });
       expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-0']);
       expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-1']);
     }
@@ -88,7 +92,7 @@ describe('startGame with test bots', () => {
   it('a human can still be dealt a werewolf', async () => {
     let humanWolf = false;
     for (let i = 0; i < 200 && !humanWolf; i++) {
-      const update = await start(humans(4));
+      const update = await start(humans(4), { botCount: 2 });
       humanWolf = Object.entries(update.roles).some(([id, role]) => id.startsWith('h') && role === ROLE.WEREWOLF);
     }
     expect(humanWolf).toBe(true);
