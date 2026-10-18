@@ -98,10 +98,16 @@ service cloud.firestore {
           && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady']);
       }
 
+      function ownWolfVoteOnly() {
+        return after().nightActions.wolfVotes
+          .diff(before().get('nightActions', {}).get('wolfVotes', {}))
+          .affectedKeys().hasOnly([uid()]);
+      }
+
       function nightAction() {
         let allowed = {
-          'werewolf': ['werewolf', 'werewolfObserved'],
-          'white_wolf': ['werewolf', 'werewolfObserved', 'whiteWolf', 'whiteWolfSkip'],
+          'werewolf': ['wolfVotes', 'werewolfObserved'],
+          'white_wolf': ['wolfVotes', 'werewolfObserved', 'whiteWolf', 'whiteWolfSkip'],
           'wolf_hound': ['wolfHound'],
           'seer': ['seer'],
           'witch': ['witchSave', 'witchPoison', 'witchSkip'],
@@ -109,10 +115,11 @@ service cloud.firestore {
           'thief': ['thief'],
           'saviour': ['saviour']
         };
+        let changed = after().nightActions.diff(before().get('nightActions', {})).affectedKeys();
         return before().status == 'night'
           && changedOnly(['nightActions'])
-          && after().nightActions.diff(before().get('nightActions', {})).affectedKeys()
-               .hasOnly(allowed.get(myRole(), []));
+          && changed.hasOnly(allowed.get(myRole(), []))
+          && (!changed.hasAny(['wolfVotes']) || ownWolfVoteOnly());
       }
 
       function voting() {
@@ -127,6 +134,12 @@ service cloud.firestore {
         let now = after().get('disconnectedPlayers', []).toSet();
         return changedOnly(['disconnectedPlayers'])
           && was.difference(now).union(now.difference(was)).hasOnly([uid()]);
+      }
+
+      function acknowledgingRole() {
+        return before().status == 'night'
+          && changedOnly(['roleAcknowledged'])
+          && after().roleAcknowledged.toSet() == before().get('roleAcknowledged', []).toSet().union([uid()].toSet());
       }
 
       function takingOverHost() {
@@ -159,6 +172,7 @@ service cloud.firestore {
           || nightAction()
           || voting()
           || connection()
+          || acknowledgingRole()
           || takingOverHost()
           || huntersShot()
         ))

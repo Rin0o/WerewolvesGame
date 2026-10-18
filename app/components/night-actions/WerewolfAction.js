@@ -2,13 +2,23 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
 const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
 const NIGHT_CHECK_ICON   = require('../../../assets/night_check.webp');
 
-export default function WerewolfAction({ theme: t, players, observeOnly, wolfTarget, onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {} }) {
+export default function WerewolfAction({
+  theme: t, players, observeOnly, pack = [], packVotes = {}, playerId, wolfTarget, onSelectTarget, onSubmit,
+  suspicions = {}, suspectedRoles = {},
+}) {
+  const myVote = packVotes[playerId];
+  const votesCast = pack.filter((w) => packVotes[w.id]).length;
+  const votersFor = (targetId) => pack.filter((w) => packVotes[w.id] === targetId)
+    .map((w) => (w.id === playerId ? 'You' : w.nickname));
+  const canConfirm = !!wolfTarget && wolfTarget !== myVote;
+
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
       <View style={styles.actionTitleRow}>
@@ -69,23 +79,36 @@ export default function WerewolfAction({ theme: t, players, observeOnly, wolfTar
             data={players}
             keyExtractor={(p) => p.id}
             scrollEnabled={false}
-            renderItem={({ item }) => (
-              <View style={[styles.playerRowBg, { borderColor: wolfTarget === item.id ? t.danger : t.border }]}>
-                <PlayerCard
-                  player={item}
-                  theme={{ ...t, surface: 'transparent', border: 'transparent' }}
-                  selected={wolfTarget === item.id}
-                  onPress={() => onSelectTarget(item.id)}
-                  checkIcon={NIGHT_CHECK_ICON}
-                  noSelectionBorder
-                />
-              </View>
-            )}
+            renderItem={({ item }) => {
+              const voters = votersFor(item.id);
+              return (
+                <View style={[styles.playerRowBg, { borderColor: wolfTarget === item.id ? t.danger : t.border }]}>
+                  <PlayerCard
+                    player={item}
+                    theme={{ ...t, surface: 'transparent', border: 'transparent' }}
+                    selected={wolfTarget === item.id}
+                    onPress={() => onSelectTarget(item.id)}
+                    checkIcon={NIGHT_CHECK_ICON}
+                    noSelectionBorder
+                  />
+                  {voters.length > 0 && (
+                    <Text style={[styles.packVoteLine, { color: t.danger }]}>
+                      🐺 {voters.join(', ')}
+                    </Text>
+                  )}
+                </View>
+              );
+            }}
           />
+          <Text style={[styles.packProgress, { color: t.textSecondary }]}>
+            {myVote
+              ? `Pack votes: ${votesCast} of ${pack.length}. The hunt ends when every wolf has voted — you can still change yours.`
+              : `Pack votes: ${votesCast} of ${pack.length}. The victim with the most votes is taken.`}
+          </Text>
           <TouchableOpacity
-            style={[styles.submitBtn, { opacity: wolfTarget ? 1 : 0.35 }]}
+            style={[styles.submitBtn, { opacity: canConfirm ? 1 : 0.35 }]}
             onPress={onSubmit}
-            disabled={!wolfTarget}
+            disabled={!canConfirm}
             activeOpacity={0.8}
           >
             <Image source={NIGHT_CONFIRM_ICON} style={styles.submitBtnImg} resizeMode="contain" />
@@ -97,17 +120,12 @@ export default function WerewolfAction({ theme: t, players, observeOnly, wolfTar
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
+  playerRowBg: NIGHT_ROW,
   targetBanner: {
     borderWidth: 2,
     borderRadius: RADIUS.lg,
@@ -143,6 +161,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
+  packVoteLine: { ...FONTS.caption, fontWeight: '700', paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
+  packProgress: { ...FONTS.caption, textAlign: 'center', marginTop: SPACING.sm },
   submitBtn: { alignItems: 'center', marginTop: SPACING.md },
   submitBtnImg: { width: '100%', height: 70 },
 });

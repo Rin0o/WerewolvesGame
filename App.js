@@ -3,6 +3,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { NavigationBar } from 'expo-navigation-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import LaunchScreen from './app/screens/LaunchScreen';
@@ -21,6 +22,7 @@ export default function App() {
     <SafeAreaProvider>
       <NavigationContainer>
         <StatusBar style="auto" />
+        <NavigationBar hidden />
         <Stack.Navigator
           initialRouteName="Launch"
           screenOptions={{ headerShown: false, animation: 'fade' }}

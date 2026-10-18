@@ -12,6 +12,8 @@ import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import useHostFailover from '../hooks/useHostFailover';
 import RoleCard from '../components/RoleCard';
+import { acknowledgeRole } from '../firebase/roomService';
+import { ROLE_REVEAL_STEP } from '../game-logic/gameManager';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 export default function RoleRevealScreen({ route, navigation }) {
@@ -23,12 +25,14 @@ export default function RoleRevealScreen({ route, navigation }) {
 
   const t = NIGHT;
 
-  // Navigate to night phase once confirmed and game is in night status
+  const acknowledged = (room?.roleAcknowledged || []).includes(playerId);
+  const stillRevealing = room?.nightSubPhase === ROLE_REVEAL_STEP;
+
   React.useEffect(() => {
-    if (confirmed && room?.status === 'night') {
+    if (confirmed && room?.status === 'night' && (acknowledged || !stillRevealing)) {
       navigation.replace('NightPhase', { roomId, playerId, nickname });
     }
-  }, [confirmed, room?.status]);
+  }, [confirmed, room?.status, acknowledged, stillRevealing]);
 
   if (loading || !room || !gs.myRole) {
     return (
@@ -54,14 +58,17 @@ export default function RoleRevealScreen({ route, navigation }) {
 
         <TouchableOpacity
           style={[styles.confirmBtn, { backgroundColor: t.primary }]}
-          onPress={() => setConfirmed(true)}
+          onPress={() => {
+            setConfirmed(true);
+            acknowledgeRole(roomId, playerId).catch(() => {});
+          }}
         >
           <Text style={styles.confirmText}>I Understand My Role ✓</Text>
         </TouchableOpacity>
 
         {confirmed && (
           <Text style={[styles.waitText, { color: t.textMuted }]}>
-            Waiting for night to begin...
+            Waiting for the village...
           </Text>
         )}
       </ScrollView>

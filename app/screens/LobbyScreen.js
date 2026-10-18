@@ -23,6 +23,7 @@ import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { botSeats } from '../game-logic/bots';
 import { ROLE_ICONS } from '../constants/icons';
 import RoomQrCode from '../components/RoomQrCode';
+import RoleInfoModal from '../components/RoleInfoModal';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
@@ -35,6 +36,7 @@ export default function LobbyScreen({ route, navigation }) {
   const customInitDone = useRef(false);
   const [starting, setStarting] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [infoRole, setInfoRole] = useState(null);
 
   React.useEffect(() => {
     saveSession({ roomId, playerId, nickname });
@@ -203,6 +205,23 @@ export default function LobbyScreen({ route, navigation }) {
     return 'The table is full — no bots needed.';
   }
 
+  function renderRolePill(role, count, backgroundColor) {
+    return (
+      <TouchableOpacity
+        key={role}
+        style={[styles.rolePill, { backgroundColor, borderColor: t.border }]}
+        onPress={() => setInfoRole(role)}
+      >
+        {ROLE_ICONS[role] ? (
+          <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
+        ) : (
+          <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
+        )}
+        {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
+      </TouchableOpacity>
+    );
+  }
+
   const header = (
     <>
       {/* Room Code */}
@@ -292,17 +311,9 @@ export default function LobbyScreen({ route, navigation }) {
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
             Roles for {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}{gameMode === 'narrator' ? ' (host is narrator)' : ''}
           </Text>
+          <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
-            {Object.entries(normalRoleCounts).map(([role, count]) => (
-              <View key={role} style={[styles.rolePill, { backgroundColor: t.surface, borderColor: t.border }]}>
-                {ROLE_ICONS[role] ? (
-                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
-                  )}
-                {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
-              </View>
-            ))}
+            {Object.entries(normalRoleCounts).map(([role, count]) => renderRolePill(role, count, t.surface))}
           </View>
         </View>
       )}
@@ -326,14 +337,15 @@ export default function LobbyScreen({ route, navigation }) {
           </View>
 
           <View style={styles.configRow}>
-            <View style={styles.configLabelRow}>
+            <TouchableOpacity style={styles.configLabelRow} onPress={() => setInfoRole(ROLE.WEREWOLF)}>
               {ROLE_ICONS.werewolf ? (
                 <Image source={ROLE_ICONS.werewolf} style={styles.configLabelIcon} resizeMode="contain" />
               ) : (
                 <Text>🐺 </Text>
               )}
               <Text style={[styles.configLabel, { color: t.text }]}>Werewolves</Text>
-            </View>
+              <Text style={[styles.infoHint, { color: t.textMuted }]}>ⓘ</Text>
+            </TouchableOpacity>
             <View style={styles.stepper}>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changeWerewolves(-1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>−</Text>
@@ -350,14 +362,15 @@ export default function LobbyScreen({ route, navigation }) {
             const enabled = !!cfg[role];
             return (
               <View key={role} style={styles.configRow}>
-                <View style={styles.configLabelRow}>
+                <TouchableOpacity style={styles.configLabelRow} onPress={() => setInfoRole(role)}>
                   {ROLE_ICONS[role] ? (
                     <Image source={ROLE_ICONS[role]} style={styles.configLabelIcon} resizeMode="contain" />
                   ) : (
                     <Text>{info.emoji} </Text>
                   )}
                   <Text style={[styles.configLabel, { color: t.text }]}>{info.name}</Text>
-                </View>
+                  <Text style={[styles.infoHint, { color: t.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: enabled ? t.success : t.surfaceAlt, borderColor: enabled ? t.success : t.border }]}
                   onPress={() => toggleSpecialRole(role)}
@@ -371,14 +384,15 @@ export default function LobbyScreen({ route, navigation }) {
           })}
 
           <View style={[styles.configRow, { borderTopWidth: 1, borderTopColor: t.border, marginTop: SPACING.xs, paddingTop: SPACING.sm }]}>
-            <View style={styles.configLabelRow}>
+            <TouchableOpacity style={styles.configLabelRow} onPress={() => setInfoRole(ROLE.VILLAGER)}>
               {ROLE_ICONS.villager ? (
                 <Image source={ROLE_ICONS.villager} style={styles.configLabelIcon} resizeMode="contain" />
               ) : (
                 <Text>🏡 </Text>
               )}
               <Text style={[styles.configLabel, { color: t.textMuted }]}>Villagers (auto-filled)</Text>
-            </View>
+              <Text style={[styles.infoHint, { color: t.textMuted }]}>ⓘ</Text>
+            </TouchableOpacity>
             <Text style={[styles.stepValue, { color: villagerCount >= 1 ? t.success : t.danger }]}>
               {villagerCount}
             </Text>
@@ -399,16 +413,7 @@ export default function LobbyScreen({ route, navigation }) {
 
           {isValidConfig && (
             <View style={styles.previewRow}>
-              {Object.entries(customRoleCounts).map(([role, count]) => (
-                <View key={role} style={[styles.rolePill, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
-                  {ROLE_ICONS[role] ? (
-                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
-                  )}
-                  {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
-                </View>
-              ))}
+              {Object.entries(customRoleCounts).map(([role, count]) => renderRolePill(role, count, t.surfaceAlt))}
             </View>
           )}
         </View>
@@ -420,17 +425,9 @@ export default function LobbyScreen({ route, navigation }) {
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
             Roles for {cfg.playerCount} players
           </Text>
+          <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
-            {Object.entries(customRoleCounts).map(([role, count]) => (
-              <View key={role} style={[styles.rolePill, { backgroundColor: t.surface, borderColor: t.border }]}>
-                {ROLE_ICONS[role] ? (
-                    <Image source={ROLE_ICONS[role]} style={styles.roleIcon} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.roleEmoji}>{ROLE_DEFINITIONS[role]?.emoji}</Text>
-                  )}
-                {count > 1 && <Text style={[styles.roleCount, { color: t.text }]}>{count}×</Text>}
-              </View>
-            ))}
+            {Object.entries(customRoleCounts).map(([role, count]) => renderRolePill(role, count, t.surface))}
           </View>
         </View>
       )}
@@ -512,6 +509,8 @@ export default function LobbyScreen({ route, navigation }) {
           <Text style={[styles.leaveText, { color: t.danger }]}>Leave Room</Text>
         </TouchableOpacity>
       </View>
+
+      <RoleInfoModal visible={!!infoRole} onClose={() => setInfoRole(null)} theme={t} role={infoRole} />
 
       <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
         <Pressable style={[styles.qrOverlay, { backgroundColor: t.modalOverlay }]} onPress={() => setQrOpen(false)}>
@@ -650,6 +649,7 @@ const styles = StyleSheet.create({
   roleCount: { ...FONTS.body, fontWeight: '700' },
   configLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   configLabelIcon: { width: 28, height: 28 },
+  infoHint: { fontSize: 14, marginLeft: 2 },
   sectionTitle: {
     ...FONTS.caption,
     textTransform: 'uppercase',

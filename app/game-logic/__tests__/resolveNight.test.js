@@ -124,6 +124,20 @@ describe('resolveNight — night 1', () => {
     expect(update.roles.tom).toBe('hunter');
   });
 
+  it('a thief still holding a stolen Witch at dawn gets her potions', async () => {
+    const game = makeGame({ tom: 'thief', will: 'werewolf', vic: 'villager' }, { phase: 1, nightActions: { thief: 'witch' } });
+    const update = await resolve(game);
+    expect(update.roles.tom).toBe('witch');
+    expect(update.witchPotions.tom).toEqual({ save: true, poison: true });
+  });
+
+  it('does not swap twice when the thief already took the role during the night', async () => {
+    const game = makeGame({ tom: 'seer', will: 'werewolf', vic: 'villager' }, { phase: 1, nightActions: { thief: 'seer' } });
+    const update = await resolve(game);
+    expect(update.roles.tom).toBe('seer');
+    expect(eventsOf(update).filter((e) => e.includes('stole'))).toEqual([]);
+  });
+
   it('resets night actions for the next night', async () => {
     const update = await resolve(village({ cupid: ['vic', 'vera'], seer: 'will' }, { phase: 1 }));
     expect(update.nightActions).toEqual({});
@@ -208,6 +222,17 @@ describe('resolveNight — Bear Tamer', () => {
       { nightActions: { werewolf: 'vera' } }
     );
     expect((await resolve(game)).bearTamerGrowl).toBe(true);
+  });
+
+  it('the narrator has no seat, so the bears look past them', async () => {
+    const game = makeGame({ bea: 'bear_tamer', vic: 'villager', vera: 'villager', sam: 'seer', will: 'werewolf' });
+    game.players.unshift({ id: 'nora', nickname: 'Nora', isAlive: true, isHost: true, isReady: true, isNarrator: true });
+    expect((await resolve(game)).bearTamerGrowl).toBe(true);
+  });
+
+  it('is null when the Bear Tamer is dead', async () => {
+    const game = makeGame({ bea: 'bear_tamer', will: 'werewolf', vic: 'villager', vera: 'villager', sam: 'seer' }, { dead: ['bea'] });
+    expect((await resolve(game)).bearTamerGrowl).toBeNull();
   });
 
   it('is null when there is no Bear Tamer', async () => {

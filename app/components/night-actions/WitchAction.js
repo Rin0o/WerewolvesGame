@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS, DEAD_ICON, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
@@ -146,12 +147,7 @@ export default function WitchAction({
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
@@ -191,7 +187,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
+  playerRowBg: NIGHT_ROW,
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,

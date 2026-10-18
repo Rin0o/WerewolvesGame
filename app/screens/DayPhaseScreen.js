@@ -30,6 +30,8 @@ import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
 import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
+import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
+import MyRoleButton from '../components/MyRoleButton';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
@@ -42,9 +44,18 @@ const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.webp');
 const DAY_CHECK_ICON       = require('../../assets/day_check.webp');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
+const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
 
-const DISCUSSION_SECONDS = 240;
+const DISCUSSION_SECONDS_PER_PLAYER = 30;
+const DISCUSSION_MIN_SECONDS = 90;
+const DISCUSSION_MAX_SECONDS = 240;
+
+function discussionSecondsFor(livingPlayers) {
+  return Math.min(DISCUSSION_MAX_SECONDS, Math.max(DISCUSSION_MIN_SECONDS, livingPlayers * DISCUSSION_SECONDS_PER_PLAYER));
+}
 const HUNTER_SHOT_SECONDS = 20;
+const BOT_VOTE_THINKING_MS = [30000, 90000];
+const BOT_VOTE_QUICK_MS = [2000, 5000];
 
 export default function DayPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -55,18 +66,19 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [wolfChatOpen, setWolfChatOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
   const [lastLynchResult, setLastLynchResult] = useState(null);
   const [resultModalVisible, setResultModalVisible] = useState(false);
   const [myVoteTarget, setMyVoteTarget] = useState(null);
-  const botVotedRef = useRef(false);
   const shownResultRef = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
   const hunterTargetRef = useRef(null);
   const discussionTimerExpiredRef = useRef(false);
+  const discussionSecondsRef = useRef(null);
 
   const t = DAY;
 
@@ -112,25 +124,33 @@ export default function DayPhaseScreen({ route, navigation }) {
     }
   }, [room?.status]);
 
-  useEffect(() => {
-    if (!room || !gs.isHost || room.status !== 'day' || botVotedRef.current) return;
-    botVotedRef.current = true;
-    const { players = [] } = room;
-    const aliveBots = players.filter((p) => p.isBot && p.isAlive);
-    for (const bot of aliveBots) {
-      const targets = players.filter((p) => p.isAlive && p.id !== bot.id);
-      if (targets.length > 0) {
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        confirmDayVote(roomId, bot.id, target.id);
-      }
-    }
-  }, [room?.status, gs.isHost]);
-
   const alivePlayers = room?.players?.filter((p) => p.isAlive && !p.isNarrator) || [];
   const disconnected = room?.disconnectedPlayers || [];
   const allIn = room
     ? allVotesIn(room.votes || {}, alivePlayers, disconnected)
     : false;
+  if (room && discussionSecondsRef.current === null) {
+    discussionSecondsRef.current = discussionSecondsFor(alivePlayers.length);
+  }
+  const humansAllVoted = alivePlayers
+    .filter((p) => !p.isBot && !disconnected.includes(p.id))
+    .every((p) => room?.votes?.[p.id]);
+
+  useEffect(() => {
+    if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
+    const pendingBots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
+    if (pendingBots.length === 0) return;
+    const [minMs, maxMs] = humansAllVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
+    const timers = pendingBots.map((bot) => setTimeout(() => {
+      const current = roomRef.current;
+      if (!current || current.status !== 'day' || current.votesClosed || current.votes?.[bot.id]) return;
+      const targets = (current.players || []).filter((p) => p.isAlive && p.id !== bot.id && !p.isNarrator);
+      if (targets.length > 0) {
+        confirmDayVote(roomId, bot.id, targets[Math.floor(Math.random() * targets.length)].id);
+      }
+    }, minMs + Math.random() * (maxMs - minMs)));
+    return () => timers.forEach(clearTimeout);
+  }, [room?.status, room?.votesClosed, humansAllVoted, gs.isHost]);
 
   useEffect(() => {
     if (!room || shownResultRef.current) return;
@@ -277,12 +297,13 @@ export default function DayPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseLabel, { color: t.textMuted }]}>DAY</Text>
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
+        <MyRoleButton theme={t} gs={gs} room={room} />
         <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village Awakens</Text>
         <View style={styles.timerSlot}>
           {hunterTriggered && hunterTriggered === playerId ? (
             <Timer totalSeconds={HUNTER_SHOT_SECONDS} onExpire={handleHunterTimerExpire} theme={t} />
           ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
-            <Timer totalSeconds={DISCUSSION_SECONDS} onExpire={handleDiscussionTimerExpire} theme={t} />
+            <Timer totalSeconds={discussionSecondsRef.current} onExpire={handleDiscussionTimerExpire} theme={t} />
           ) : null}
         </View>
       </View>
@@ -307,7 +328,11 @@ export default function DayPhaseScreen({ route, navigation }) {
             { backgroundColor: room.bearTamerGrowl ? 'rgba(180,40,40,0.18)' : 'rgba(40,120,40,0.15)',
               borderColor: room.bearTamerGrowl ? '#C0392B' : '#27AE60' },
           ]}>
-            <Text style={styles.bearGrowlEmoji}>🐻</Text>
+            <Image
+              source={room.bearTamerGrowl ? BEAR_GROWL_ICON : ROLE_ICONS.bear_tamer}
+              style={styles.bearGrowlIcon}
+              resizeMode="contain"
+            />
             <View style={styles.bearGrowlTextBox}>
               <Text style={[styles.bearGrowlTitle, { color: room.bearTamerGrowl ? '#C0392B' : '#27AE60' }]}>
                 {room.bearTamerGrowl ? 'The bears are growling!' : 'The bears are silent.'}
@@ -469,6 +494,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         <TouchableOpacity style={styles.chatBtn} onPress={() => setChatOpen(true)}>
           <Image source={DAY_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
         </TouchableOpacity>
+        <SeatingTableButton onPress={() => setTableOpen(true)} />
         {gs.isNarrator && (
           <TouchableOpacity style={styles.chatBtn} onPress={() => setWolfChatOpen(true)}>
             <Image source={ROLE_ICONS.werewolf} style={styles.chatBtnImg} resizeMode="contain" />
@@ -502,6 +528,14 @@ export default function DayPhaseScreen({ route, navigation }) {
         players={players}
         events={events}
         playerHooks={playerHooks}
+      />
+
+      <SeatingTable
+        visible={tableOpen}
+        onClose={() => setTableOpen(false)}
+        theme={t}
+        players={players}
+        playerId={playerId}
       />
 
       <DayChat
@@ -569,7 +603,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     gap: SPACING.md,
   },
-  bearGrowlEmoji: { fontSize: 40 },
+  bearGrowlIcon: { width: 56, height: 56 },
   bearGrowlTextBox: { flex: 1 },
   bearGrowlTitle: { ...FONTS.subheading, fontWeight: '700', marginBottom: 2 },
   bearGrowlSub: { ...FONTS.body },

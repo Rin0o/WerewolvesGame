@@ -5,7 +5,8 @@ import { ROLE, ROLE_DEFINITIONS, isWolfRole } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const SUBPHASE_LABELS = {
-  thief:    'Thief Chooses a Role',
+  reveal:   'Players Read Their Roles',
+  thief:   'Thief Chooses a Role',
   cupid:    'Cupid Selects Lovers',
   wolf_hound: 'Wolf Hound Picks a Side',
   werewolf: 'Werewolves Hunt',
@@ -71,7 +72,9 @@ export default function NarratorNightDashboard({
             {SUBPHASE_LABELS[nightSubPhase] || 'Waiting...'}
           </Text>
           <Text style={[styles.subPhaseStatus, { color: actionDone ? t.success : t.textMuted }]}>
-            {actionDone ? '✓ Action submitted' : '⏳ Waiting for action'}
+            {nightSubPhase === 'reveal'
+              ? (actionDone ? '✓ Everyone is ready' : '⏳ Waiting for players to confirm their role')
+              : (actionDone ? '✓ Action submitted' : '⏳ Waiting for action')}
           </Text>
         </View>
       </View>

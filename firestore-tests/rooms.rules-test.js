@@ -193,24 +193,33 @@ describe('night actions', () => {
   beforeEach(() => seed(NIGHT));
 
   it('each role writes only its own action', async () => {
-    await assertSucceeds(updateDoc(as('alice').room, { 'nightActions.werewolf': 'sam' }));
+    await assertSucceeds(updateDoc(as('alice').room, { 'nightActions.wolfVotes.alice': 'sam' }));
     await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.seer': 'alice' }));
     await assertSucceeds(updateDoc(as('wendy').room, { 'nightActions.witchSkip': true }));
   });
 
   it('a role cannot write another role\'s action', async () => {
-    await assertFails(updateDoc(as('sam').room, { 'nightActions.werewolf': 'wendy' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'wendy' }));
     await assertFails(updateDoc(as('alice').room, { 'nightActions.witchPoison': 'sam' }));
     await assertFails(updateDoc(as('bob').room, { 'nightActions.seer': 'alice' }));
   });
 
+  it('a wolf casts only their own vote, and only the host settles the victim', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'werewolf' } });
+    await assertSucceeds(updateDoc(as('alice').room, { 'nightActions.wolfVotes.alice': 'sam' }));
+    await assertSucceeds(updateDoc(as('alice').room, { 'nightActions.wolfVotes.alice': 'wendy' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.wolfVotes.bob': 'sam' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.werewolf': 'sam' }));
+    await assertSucceeds(updateDoc(as('host').room, { 'nightActions.werewolf': 'wendy' }));
+  });
+
   it('the White Wolf hunts with the pack and devours alone; the Wolf Hound picks a side', async () => {
     await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf', sam: 'wolf_hound' } });
-    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.werewolf': 'wendy' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfVotes.bob': 'wendy' }));
     await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.whiteWolf': 'alice' }));
     await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.wolfHound': 'werewolf' }));
     await assertFails(updateDoc(as('alice').room, { 'nightActions.whiteWolf': 'bob' }));
-    await assertFails(updateDoc(as('sam').room, { 'nightActions.werewolf': 'host' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'host' }));
   });
 
   it('nobody but the host advances the night', async () => {
@@ -218,9 +227,15 @@ describe('night actions', () => {
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));
   });
 
+  it('a player marks only themselves as having read their role', async () => {
+    await assertSucceeds(updateDoc(as('alice').room, { roleAcknowledged: arrayUnion('alice') }));
+    await assertSucceeds(updateDoc(as('sam').room, { roleAcknowledged: arrayUnion('sam') }));
+    await assertFails(updateDoc(as('alice').room, { roleAcknowledged: arrayUnion('bob') }));
+  });
+
   it('night actions are refused during the day', async () => {
     await seed(DAY);
-    await assertFails(updateDoc(as('alice').room, { 'nightActions.werewolf': 'sam' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.wolfVotes.alice': 'sam' }));
   });
 });
 

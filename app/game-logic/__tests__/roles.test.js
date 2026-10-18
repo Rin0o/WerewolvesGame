@@ -2,8 +2,10 @@ import {
   assignRoles,
   checkWinCondition,
   getAvailableRolesForThief,
+  getLivingNeighbours,
   getLoversPartner,
   getPlayerWithRole,
+  getSeating,
   getSisters,
   getWerewolves,
 } from '../roles';
@@ -177,5 +179,39 @@ describe('role helpers', () => {
     expect(getLoversPartner('a', ['a', 'b'])).toBe('b');
     expect(getLoversPartner('c', ['a', 'b'])).toBeNull();
     expect(getLoversPartner('a', null)).toBeNull();
+  });
+});
+
+describe('seating', () => {
+  const table = (dead = []) => makeGame(
+    { ana: 'villager', bo: 'villager', cy: 'villager', dan: 'villager', eve: 'villager' },
+    { dead }
+  ).players;
+  const narrator = { id: 'nora', nickname: 'Nora', isAlive: true, isNarrator: true };
+
+  it('seats everyone but the narrator, in join order', () => {
+    expect(getSeating([narrator, ...table()]).map((p) => p.id)).toEqual(['ana', 'bo', 'cy', 'dan', 'eve']);
+  });
+
+  it('wraps around the table', () => {
+    expect(getLivingNeighbours(table(), 'ana')).toEqual(['eve', 'bo']);
+    expect(getLivingNeighbours(table(), 'eve')).toEqual(['dan', 'ana']);
+  });
+
+  it('skips eliminated players', () => {
+    expect(getLivingNeighbours(table(['bo', 'eve']), 'ana')).toEqual(['dan', 'cy']);
+  });
+
+  it('never seats the narrator next to anyone', () => {
+    expect(getLivingNeighbours([narrator, ...table()], 'ana')).toEqual(['eve', 'bo']);
+    expect(getLivingNeighbours([narrator, ...table()], 'nora')).toEqual([]);
+  });
+
+  it('has the same neighbour on both sides with two players left', () => {
+    expect(getLivingNeighbours(table(['bo', 'cy', 'dan']), 'ana')).toEqual(['eve', 'eve']);
+  });
+
+  it('has no neighbours when alone', () => {
+    expect(getLivingNeighbours(table(['bo', 'cy', 'dan', 'eve']), 'ana')).toEqual([]);
   });
 });

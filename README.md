@@ -38,8 +38,9 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
 - **12 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, White Wolf and Wolf Hound.
-- **Lobby options:** a Quiet or Classic first night, and bots to fill empty seats (see [Bots](#bots)).
+- **Lobby options:** a Quiet or Classic first night, and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone.
+- **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
 - **Resilience:**
@@ -52,7 +53,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## How a game works
 
 1. **Lobby:** players join with the room code (typed, or scanned from the QR code behind the lobby's Show QR button) and mark themselves ready. The host picks a game mode and starts. A game needs at least 5 players.
-2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other.
+2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other. The night only starts once everyone has tapped "I understand my role"; after a minute the host can start anyway. During the game, the eye button in the header shows your role again, along with your pack, sister or lover.
 3. **Night:** roles wake up one at a time in a fixed order. Only the player whose turn it is sees an action; everyone else sees a "the village sleeps" screen.
 4. **Dawn:** the app announces who died. If a Bear Tamer is alive and sits next to a werewolf, the bear also growls.
 5. **Day:** players discuss, using the day chat if they want, then each votes for a player.
@@ -77,10 +78,11 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 
 | Step | Time limit |
 |---|---|
-| Thief, Cupid, Wolf Hound, Werewolves on a Quiet night 1 | 15 s |
-| Seer, Saviour, White Wolf | 30 s |
+| Wolf Hound, Werewolves on a Quiet night 1 | 15 s |
+| Seer, Saviour, White Wolf | 25 s |
+| Thief, Cupid | 30 s |
 | Werewolves when hunting, Witch | 45 s |
-| Day discussion and vote | 4 min |
+| Day discussion and vote | 30 s per living player, between 90 s and 4 min (set when the day starts) |
 | Hunter's last shot | 20 s |
 | Vote result screen | 8 s |
 
@@ -98,14 +100,14 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Role | Team | Ability |
 |---|---|---|
 | **Villager** | Village | No ability. Finds the wolves through discussion and votes. |
-| **Werewolf** | Wolves | Each night the wolves pick a victim together, coordinating in the wolf chat. With a Quiet first night they only meet on night 1. |
+| **Werewolf** | Wolves | Each night every wolf (the White Wolf included) votes for a victim, coordinating in the wolf chat; the most-voted player is taken. With a Quiet first night they only meet on night 1. |
 | **Seer** | Village | Each night chooses a player and learns whether they are a werewolf. With a Quiet first night, starts on night 2. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
 | **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |
-| **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on. If none is available, stays with the village. |
+| **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on, starting that same night. If none is available, stays with the village. |
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
-| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours follow join order and wrap around. |
+| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action. |
 | **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
 | **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
@@ -379,8 +381,8 @@ In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seat
 
 - **How many:** bots fill the table up to 5 players (Normal) or up to the target player count (Custom), but never more than half the table, so there are always at least as many real players as bots. If that isn't enough, the lobby says how many more real players are needed.
 - **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
-- **Roles:** bots only play Werewolf or Villager; special roles always go to real players.
-- **Behaviour:** the host's phone plays for them. Bot wolves pick a random victim and bots cast random votes.
+- **Roles:** bots only play Werewolf or Villager; special roles always go to real players. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
+- **Behaviour:** the host's phone plays for them, with a pause so nobody's turn is skipped. Bot wolves vote a few seconds into the hunt and follow the pack's leading choice (or pick at random). Bots cast random day votes 30–90 seconds into the day, or a few seconds after every real player has voted.
 - Not available in Narrator mode. Play Again removes the bots; the next game adds fresh ones if the setting is still on.
 
 ---

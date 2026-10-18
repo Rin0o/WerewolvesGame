@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
@@ -52,17 +53,12 @@ export default function WhiteWolfAction({ theme: t, players, target, onSelectTar
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
+  playerRowBg: NIGHT_ROW,
   submitBtn: { alignItems: 'center', marginTop: SPACING.md },
   submitBtnImg: { width: '100%', height: 70 },
   skipBtn: {

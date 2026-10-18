@@ -1,7 +1,7 @@
 jest.mock('../../firebase/roomService', () => ({}));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate } from '../gameManager';
+import { computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves, wolfVictim } from '../gameManager';
 import { makeGame } from './helpers';
 
 const VILLAGE = {
@@ -123,6 +123,67 @@ describe('Wolf Hound and White Wolf steps', () => {
   it('a Wolf Hound who never chose keeps their role', () => {
     const game = makeGame(PACK, { phase: 1, nightSubPhase: 'wolf_hound' });
     expect(advanceNightUpdate(game, 'werewolf')).toEqual({ nightSubPhase: 'werewolf' });
+  });
+});
+
+describe('Thief takes the stolen role as soon as they choose', () => {
+  const TABLE = { tom: 'thief', will: 'werewolf', sam: 'seer', vic: 'villager', vera: 'villager' };
+  const afterThief = (stolen, overrides = {}) => advanceNightUpdate(
+    makeGame(TABLE, { phase: 1, nightSubPhase: 'thief', nightActions: { thief: stolen }, ...overrides }),
+    'werewolf'
+  );
+
+  it('a Thief who steals Cupid wakes as Cupid that same night', () => {
+    const update = afterThief('cupid');
+    expect(update.roles.tom).toBe('cupid');
+    expect(update.nightSubPhase).toBe('cupid');
+    expect(update.events.arrayUnion).toEqual(['Night 1: A shadowy figure stole a role in the dark.']);
+  });
+
+  it('a Thief who steals the Witch gets both potions', () => {
+    const update = afterThief('witch', { classicFirstNight: true });
+    expect(update.roles.tom).toBe('witch');
+    expect(update.witchPotions.tom).toEqual({ save: true, poison: true });
+    const nextRoom = makeGame({ ...TABLE, tom: 'witch' }, { phase: 1, classicFirstNight: true, witchPotions: update.witchPotions });
+    expect(computeNightSequence(nextRoom)).toContain('witch');
+  });
+
+  it('a Thief who steals Werewolf joins the pack that night', () => {
+    const update = afterThief('werewolf');
+    expect(update.roles.tom).toBe('werewolf');
+    expect(update.nightSubPhase).toBe('werewolf');
+  });
+});
+
+describe('wolfVictim', () => {
+  const PACK = { will: 'werewolf', wanda: 'werewolf', walt: 'white_wolf', vic: 'villager', vera: 'villager', sam: 'seer' };
+  const room = (wolfVotes, overrides = {}) => makeGame(PACK, { phase: 2, nightActions: { wolfVotes }, ...overrides });
+
+  it('waits until every living wolf, the White Wolf included, has voted', () => {
+    expect(wolfVictim(room({ will: 'vic', wanda: 'vic' }))).toBeNull();
+    expect(wolfVictim(room({ will: 'vic', wanda: 'vic', walt: 'vera' }))).toBe('vic');
+  });
+
+  it('the White Wolf\'s vote counts like any other', () => {
+    expect(wolfVictim(room({ will: 'vic', wanda: 'vera', walt: 'vera' }))).toBe('vera');
+  });
+
+  it('does not wait for dead or departed wolves', () => {
+    expect(wolfVictim(room({ will: 'sam', walt: 'sam' }, { dead: ['wanda'] }))).toBe('sam');
+    expect(wolfVictim(room({ will: 'sam', walt: 'sam' }, { disconnectedPlayers: ['wanda'] }))).toBe('sam');
+  });
+
+  it('settles a tie between the most-voted targets', () => {
+    expect(['vic', 'vera', 'sam']).toContain(wolfVictim(room({ will: 'vic', wanda: 'vera', walt: 'sam' })));
+  });
+
+  it('when time runs out, takes the votes cast so far', () => {
+    expect(wolfVictim(room({ will: 'sam' }), { force: true })).toBe('sam');
+    expect(wolfVictim(room({}), { force: true })).toBeNull();
+  });
+
+  it('livingWolves lists every wolf role still in the game', () => {
+    expect(livingWolves(room({}, { dead: ['will'] })).map((p) => p.id)).toEqual(['wanda', 'walt']);
   });
 });
 
