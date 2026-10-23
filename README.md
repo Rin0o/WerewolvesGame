@@ -363,7 +363,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer |
 | `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night |
 | `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots |
-| `bots.test.js` | How many seats bots may fill (half-table cap), random themed bot names, the name list itself |
+| `bots.test.js` | How many seats bots fill (every empty one, so one player can test alone), random themed bot names, the name list itself |
 | `botChat.test.js` | Who a bot votes for (never itself, the dead or its pack; only the tied players in a revote), its chat lines matching that vote, wolf-chat lines |
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
@@ -387,7 +387,7 @@ npm run test:rules
 
 In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seats with bots** in the lobby. Everyone sees the setting and how many bots will join, and the Start button says "Start with N bots".
 
-- **How many:** bots fill the table up to 5 players (Normal) or up to the target player count (Custom), but never more than half the table, so there are always at least as many real players as bots. If that isn't enough, the lobby says how many more real players are needed.
+- **How many:** bots fill every empty seat up to 5 players (Normal) or up to the target player count (Custom). There's no minimum number of real players for now (until version 2.0), so you can play a whole game alone against bots to try things out.
 - **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
 - **Roles:** bots only play Werewolf, Villager or Sister (the Sisters have no night action). Roles with an action always go to real players first; the two Sisters are always dealt as a pair, so if only one fits on the real players, a bot gets the other. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
 - **Behaviour:** the host's phone plays for them, with a pause so nobody's turn is skipped. Bot wolves vote a few seconds into the hunt and follow the pack's leading choice (or pick at random). Bots cast random day votes 30–90 seconds into the day, or a few seconds after every real player has voted.

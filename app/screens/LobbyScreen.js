@@ -91,8 +91,7 @@ export default function LobbyScreen({ route, navigation }) {
 
   const botsAvailable = gameMode !== 'narrator';
   const botTarget = gameMode === 'custom' ? cfg.playerCount : MIN_PLAYERS;
-  const seats = botSeats(playingHumans, botTarget);
-  const botCount = botsAvailable && fillWithBots ? seats.bots : 0;
+  const botCount = botsAvailable && fillWithBots ? botSeats(playingHumans, botTarget) : 0;
   const effectiveCount = playingHumans + botCount;
 
   // Normal mode derived values
@@ -201,11 +200,8 @@ export default function LobbyScreen({ route, navigation }) {
 
   function botHint() {
     if (!fillWithBots) return 'Off — the game waits for real players.';
-    if (botCount > 0 && seats.missing === 0) {
+    if (botCount > 0) {
       return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager or Sister.`;
-    }
-    if (seats.missing > 0) {
-      return `Bots can fill at most half the table — ${seats.missing} more real player(s) needed.`;
     }
     return 'The table is full — no bots needed.';
   }

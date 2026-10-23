@@ -2,15 +2,8 @@ import { BOT_NAMES, BOT_MARK } from '../constants/botNames';
 
 const normalize = (name) => (name || '').trim().toLowerCase();
 
-/**
- * How many bots may fill the empty seats up to targetCount. Bots never take more than
- * half the table, so there are at most as many bots as humans.
- * Returns { bots, missing } — missing is how many more humans are still needed.
- */
 export function botSeats(humanCount, targetCount) {
-  const empty = Math.max(0, targetCount - humanCount);
-  const bots = Math.min(empty, humanCount);
-  return { bots, missing: empty - bots };
+  return Math.max(0, targetCount - humanCount);
 }
 
 export function pickBotNames(count, takenNames = [], random = Math.random) {

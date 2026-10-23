@@ -2,23 +2,18 @@ import { botSeats, pickBotNames } from '../bots';
 import { BOT_NAMES, BOT_MARK } from '../../constants/botNames';
 
 describe('botSeats', () => {
-  it('fills the empty seats up to the target', () => {
-    expect(botSeats(3, 5)).toEqual({ bots: 2, missing: 0 });
+  it('fills every empty seat up to the target', () => {
+    expect(botSeats(3, 5)).toBe(2);
+    expect(botSeats(4, 10)).toBe(6);
   });
 
-  it('never fills more than half the table', () => {
-    expect(botSeats(2, 5)).toEqual({ bots: 2, missing: 1 });
-    expect(botSeats(1, 5)).toEqual({ bots: 1, missing: 3 });
-    expect(botSeats(4, 10)).toEqual({ bots: 4, missing: 2 });
+  it('lets one player fill the rest of the table with bots to test alone', () => {
+    expect(botSeats(1, 5)).toBe(4);
   });
 
   it('adds nothing when the table is already full', () => {
-    expect(botSeats(5, 5)).toEqual({ bots: 0, missing: 0 });
-    expect(botSeats(7, 5)).toEqual({ bots: 0, missing: 0 });
-  });
-
-  it('adds nothing for an empty room', () => {
-    expect(botSeats(0, 5)).toEqual({ bots: 0, missing: 5 });
+    expect(botSeats(5, 5)).toBe(0);
+    expect(botSeats(7, 5)).toBe(0);
   });
 });
 
