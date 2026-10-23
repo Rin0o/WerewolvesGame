@@ -29,10 +29,28 @@ describe('getCompositionForCount', () => {
     }
   });
 
-  it('adds one villager per player above 12', () => {
-    const twelve = countRoles(getCompositionForCount(12));
-    const fifteen = countRoles(getCompositionForCount(15));
-    expect(fifteen[ROLE.VILLAGER] || 0).toBe((twelve[ROLE.VILLAGER] || 0) + 3);
+  it('adds one villager per player above 13', () => {
+    const thirteen = countRoles(getCompositionForCount(13));
+    const sixteen = countRoles(getCompositionForCount(16));
+    expect(sixteen[ROLE.VILLAGER] || 0).toBe((thirteen[ROLE.VILLAGER] || 0) + 3);
+    expect(sixteen[ROLE.WEREWOLF]).toBe(thirteen[ROLE.WEREWOLF]);
+  });
+
+  it('adds a fifth werewolf from 18 players', () => {
+    expect(countRoles(getCompositionForCount(17))[ROLE.WEREWOLF]).toBe(4);
+    expect(countRoles(getCompositionForCount(18))[ROLE.WEREWOLF]).toBe(5);
+    expect(countRoles(getCompositionForCount(20))[ROLE.WEREWOLF]).toBe(5);
+  });
+
+  it('never deals the Thief in Normal games, where every role they could take is already dealt', () => {
+    for (let count = 5; count <= 20; count++) {
+      expect(getCompositionForCount(count)).not.toContain(ROLE.THIEF);
+    }
+  });
+
+  it('returns a fresh array the caller can change', () => {
+    getCompositionForCount(8).push(ROLE.VILLAGER);
+    expect(getCompositionForCount(8)).toHaveLength(8);
   });
 
   it('returns no roles for fewer than 2 players', () => {
