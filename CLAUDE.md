@@ -1,7 +1,7 @@
 # Werewolves of Miller's Hollow — Claude Context
 
 ## Project Overview
-A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side, coordinated through one Firestore document per room. No backend server. Current version: **1.1.1** (Android). User-facing documentation lives in `README.md`; this file is the developer/AI context and should stay consistent with it.
+A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side, coordinated through one Firestore document per room. No backend server. Current version: **1.1.2** (Android). User-facing documentation lives in `README.md`; this file is the developer/AI context and should stay consistent with it.
 
 ## Tech Stack
 - **Expo ~57** (React Native 0.86, React 19.2) — New Architecture only
