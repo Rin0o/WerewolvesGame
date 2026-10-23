@@ -181,17 +181,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validBotMessage(room) {
+      let msg = request.resource.data;
+      return room.hostId == request.auth.uid
+        && msg.keys().hasOnly(['senderId', 'senderNickname', 'text', 'createdAt'])
+        && msg.senderId is string
+        && msg.senderId.matches('^bot-[0-9]+$')
+        && room.get('roles', {}).get(msg.senderId, '') != ''
+        && msg.text is string
+        && msg.text.size() > 0
+        && msg.text.size() <= 500
+        && msg.createdAt == request.time;
+    }
+
+    function botRole(room) {
+      return room.get('roles', {}).get(request.resource.data.senderId, '');
+    }
+
     match /rooms/{roomId}/dayChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
-      allow create: if memberOf(roomAt(roomId)) && validMessage();
+      allow create: if memberOf(roomAt(roomId)) && (validMessage() || validBotMessage(roomAt(roomId)));
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
 
     match /rooms/{roomId}/werewolfChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
-      allow create: if memberOf(roomAt(roomId))
-        && roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf']
-        && validMessage();
+      allow create: if memberOf(roomAt(roomId)) && (
+        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf'] && validMessage())
+        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) in ['werewolf', 'white_wolf'])
+      );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
   }

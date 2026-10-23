@@ -321,6 +321,21 @@ describe('chats', () => {
     await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
   });
 
+  it('the host posts for the bots in the day chat, nobody else does', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, 'bot-0': 'villager' } });
+    await assertSucceeds(addDoc(dayChat(as('host').db), message('bot-0')));
+    await assertFails(addDoc(dayChat(as('alice').db), message('bot-0')));
+    await assertFails(addDoc(dayChat(as('host').db), message('bot-9')));
+    await assertFails(addDoc(dayChat(as('host').db), message('bot-0', 'x'.repeat(501))));
+  });
+
+  it('only wolf bots post in the wolf chat, through the host', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, 'bot-0': 'werewolf', 'bot-1': 'villager' } });
+    await assertSucceeds(addDoc(wolfChat(as('host').db), message('bot-0')));
+    await assertFails(addDoc(wolfChat(as('host').db), message('bot-1')));
+    await assertFails(addDoc(wolfChat(as('alice').db), message('bot-0')));
+  });
+
   it('only the host clears chats', async () => {
     await assertFails(deleteDoc(doc(as('alice').db, 'rooms', ROOM, 'dayChat', 'm1')));
     await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'dayChat', 'm1')));

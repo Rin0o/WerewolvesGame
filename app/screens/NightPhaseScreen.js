@@ -17,7 +17,8 @@ import useRoom from '../hooks/useRoom';
 import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
-import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
+import { submitNightAction, updateRoom, disconnectPlayer, reconnectPlayer, sendWerewolfMessage } from '../firebase/roomService';
+import { botWolfLine } from '../game-logic/botChat';
 import { clearSession } from '../utils/session';
 import {
   resolveNight,
@@ -66,6 +67,7 @@ const WOLF_REVOTE_SECONDS = 30;
 const FORCE_START_AFTER_MS = 60000;
 const WAIT_TITLE_COLOR = '#FFF1CC';
 const WAIT_SUB_COLOR = '#EDE3FF';
+const BOT_WOLF_CHAT_CHANCE = 0.7;
 const BOT_WOLF_MIN_DELAY_MS = 4000;
 const BOT_WOLF_MAX_DELAY_MS = 10000;
 
@@ -293,8 +295,13 @@ export default function NightPhaseScreen({ route, navigation }) {
       const votes = current.nightActions?.wolfVotes || {};
       if (votes[bot.id]) return;
       const allowed = current.nightActions?.wolfRevoteTargets || wolfPrey(current).map((p) => p.id);
-      const target = leadingWolfTarget(current) || (allowed.length > 0 ? randomItem(allowed) : null);
-      if (target) submitNightAction(roomId, `wolfVotes.${bot.id}`, target);
+      const leading = leadingWolfTarget(current);
+      const target = leading || (allowed.length > 0 ? randomItem(allowed) : null);
+      if (!target) return;
+      if (Math.random() < BOT_WOLF_CHAT_CHANCE) {
+        sendWerewolfMessage(roomId, bot.id, bot.nickname, botWolfLine(current, target, !!leading)).catch(() => {});
+      }
+      submitNightAction(roomId, `wolfVotes.${bot.id}`, target);
     }, botDelay()));
     return () => timers.forEach(clearTimeout);
   }, [room?.nightSubPhase, room?.phase, room?.nightActions?.wolfRevoteTargets, gs.isHost]);

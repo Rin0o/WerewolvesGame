@@ -364,6 +364,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night |
 | `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots |
 | `bots.test.js` | How many seats bots may fill (half-table cap), random themed bot names, the name list itself |
+| `botChat.test.js` | Who a bot votes for (never itself, the dead or its pack; only the tied players in a revote), its chat lines matching that vote, wolf-chat lines |
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
@@ -390,6 +391,7 @@ In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seat
 - **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
 - **Roles:** bots only play Werewolf, Villager or Sister (the Sisters have no night action). Roles with an action always go to real players first; the two Sisters are always dealt as a pair, so if only one fits on the real players, a bot gets the other. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
 - **Behaviour:** the host's phone plays for them, with a pause so nobody's turn is skipped. Bot wolves vote a few seconds into the hunt and follow the pack's leading choice (or pick at random). Bots cast random day votes 30–90 seconds into the day, or a few seconds after every real player has voted.
+- **Chat:** to make the village feel alive, bots also talk in the day chat: a line about last night (who died, a quiet night, the bears), a suspicion about someone, and then "I'm voting for X" right before they vote for exactly that player. Wolf bots never accuse their own pack, and in the wolf chat they propose or agree on the night's victim before voting. A bot says at most three things per day and goes quiet once it's dead or the vote is over.
 - Not available in Narrator mode. Play Again removes the bots; the next game adds fresh ones if the setting is still on.
 
 ---

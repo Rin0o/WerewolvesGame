@@ -18,7 +18,8 @@ import useGameState from '../hooks/useGameState';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
-import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
+import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
+import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, TIE_RULE } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
 import Timer from '../components/Timer';
@@ -61,6 +62,11 @@ const HUNTER_SHOT_SECONDS = 20;
 const REVOTE_SECONDS = 60;
 const BOT_VOTE_THINKING_MS = [30000, 90000];
 const BOT_VOTE_QUICK_MS = [2000, 5000];
+const BOT_CHAT_MS = [6000, 28000];
+
+function randomBetween([minMs, maxMs]) {
+  return minMs + Math.random() * (maxMs - minMs);
+}
 
 export default function DayPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -90,6 +96,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const hunterTargetRef = useRef(null);
   const discussionTimerExpiredRef = useRef(false);
   const discussionSecondsRef = useRef(null);
+  const botTargetsRef = useRef({});
 
   const t = DAY;
 
@@ -147,21 +154,47 @@ export default function DayPhaseScreen({ route, navigation }) {
     .filter((p) => !p.isBot && !disconnected.includes(p.id))
     .every((p) => room?.votes?.[p.id]);
 
+  function botTargetFor(current, botId) {
+    const key = `${current.phase}:${(current.revoteTargets || []).join(',')}:${botId}`;
+    const planned = botTargetsRef.current[key];
+    const allowed = current.revoteTargets?.length ? current.revoteTargets : null;
+    const stillValid = planned && (current.players || []).some((p) => p.id === planned && p.isAlive)
+      && (!allowed || allowed.includes(planned));
+    if (!stillValid) botTargetsRef.current[key] = botVoteTarget(current, botId);
+    return botTargetsRef.current[key];
+  }
+
+  function botStillSpeaks(current, bot) {
+    return current && current.status === 'day' && !current.votesClosed && !current.hunterTriggered
+      && (current.players || []).some((p) => p.id === bot.id && p.isAlive);
+  }
+
+  useEffect(() => {
+    if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
+    const bots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
+    const timers = bots.flatMap((bot) => {
+      const lines = botDayChatter(room, bot.id, botTargetFor(room, bot.id));
+      const delays = lines.map(() => randomBetween(BOT_CHAT_MS)).sort((a, b) => a - b);
+      return lines.map((text, i) => setTimeout(() => {
+        if (botStillSpeaks(roomRef.current, bot)) sendDayMessage(roomId, bot.id, bot.nickname, text).catch(() => {});
+      }, delays[i]));
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [room?.status, room?.phase, room?.revoteTargets, gs.isHost]);
+
   useEffect(() => {
     if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
     const pendingBots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
     if (pendingBots.length === 0) return;
-    const [minMs, maxMs] = humansAllVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
+    const timing = humansAllVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
     const timers = pendingBots.map((bot) => setTimeout(() => {
       const current = roomRef.current;
-      if (!current || current.status !== 'day' || current.votesClosed || current.votes?.[bot.id]) return;
-      const allowed = current.revoteTargets?.length ? current.revoteTargets : null;
-      const targets = (current.players || []).filter((p) =>
-        p.isAlive && p.id !== bot.id && !p.isNarrator && (!allowed || allowed.includes(p.id)));
-      if (targets.length > 0) {
-        confirmDayVote(roomId, bot.id, targets[Math.floor(Math.random() * targets.length)].id);
-      }
-    }, minMs + Math.random() * (maxMs - minMs)));
+      if (!botStillSpeaks(current, bot) || current.votes?.[bot.id]) return;
+      const target = botTargetFor(current, bot.id);
+      if (!target) return;
+      sendDayMessage(roomId, bot.id, bot.nickname, botVoteLine(current, target)).catch(() => {});
+      confirmDayVote(roomId, bot.id, target);
+    }, randomBetween(timing)));
     return () => timers.forEach(clearTimeout);
   }, [room?.status, room?.votesClosed, room?.revoteTargets, humansAllVoted, gs.isHost]);
 
