@@ -22,6 +22,13 @@ describe('botSeats', () => {
   });
 });
 
+describe('BOT_NAMES', () => {
+  it('has no duplicates and every name fits the nickname limit', () => {
+    expect(new Set(BOT_NAMES.map((name) => name.toUpperCase())).size).toBe(BOT_NAMES.length);
+    BOT_NAMES.forEach((name) => expect(name.length).toBeLessThanOrEqual(18));
+  });
+});
+
 describe('pickBotNames', () => {
   it('picks distinct themed names marked as bots', () => {
     const names = pickBotNames(4);
