@@ -398,6 +398,8 @@ In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seat
 
 ## Versioning and releases
 
+What changed in each version is listed in [CHANGELOG.md](CHANGELOG.md).
+
 Versions follow **MAJOR.MINOR.PATCH**:
 - **PATCH** for bug fixes.
 - **MINOR** for new features, such as a new role.
