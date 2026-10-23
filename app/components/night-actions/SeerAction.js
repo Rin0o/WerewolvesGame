@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS, SUSPICION_LABELS } from '../../constants/icons';
 import { ROLE_DEFINITIONS } from '../../constants/roles';
 
@@ -15,11 +16,18 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
           <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
           <Text style={[styles.actionTitle, { color: t.accent }]}>Your Vision</Text>
         </View>
-        <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-          {players.find((p) => p.id === seerTarget)?.nickname || 'That player'} is...
-        </Text>
-        <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
-          <Text style={[styles.seerResultText, { color: t.text }]}>{seerResult}</Text>
+        <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: seerResult.isWolf ? t.danger : t.success }]}>
+          <Image
+            source={seerResult.isWolf ? ROLE_ICONS.werewolf : ROLE_ICONS.villager}
+            style={styles.seerResultIcon}
+            resizeMode="contain"
+          />
+          <Text style={[styles.seerResultName, { color: t.text }]} numberOfLines={1} adjustsFontSizeToFit>
+            {seerResult.name}
+          </Text>
+          <Text style={[styles.seerResultText, { color: seerResult.isWolf ? t.danger : t.success }]}>
+            {seerResult.isWolf ? 'is a Werewolf!' : 'is NOT a Werewolf.'}
+          </Text>
         </View>
         <Text style={[styles.actionSub, { color: t.textMuted, marginTop: SPACING.sm }]}>
           Remember this. Dawn will come soon.
@@ -105,12 +113,7 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },
@@ -150,7 +153,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
+  playerRowBg: NIGHT_ROW,
   submitBtn: {
     borderRadius: RADIUS.md,
     padding: SPACING.md,
@@ -165,5 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.md,
   },
+  seerResultIcon: { width: 72, height: 72, marginBottom: SPACING.sm },
+  seerResultName: { fontSize: 30, fontWeight: '800', textAlign: 'center' },
   seerResultText: { ...FONTS.heading, textAlign: 'center' },
 });

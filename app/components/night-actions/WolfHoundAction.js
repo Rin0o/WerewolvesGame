@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL } from './nightStyles';
 import { ROLE_ICONS } from '../../constants/icons';
 import { ROLE } from '../../constants/roles';
 
@@ -55,12 +56,7 @@ export default function WolfHoundAction({ theme: t, choice, onSelect, onSubmit }
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitle: { ...FONTS.heading },

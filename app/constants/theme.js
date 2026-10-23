@@ -41,7 +41,7 @@ export const NIGHT = {
   cardGradient: ['#1A1035', '#0D0820'],
   overlay: 'rgba(13,8,32,0.95)',
   glassHeader: 'rgba(13,8,32,0.45)',
-  glassCard: 'rgba(10,5,28,0.78)',
+  glassCard: 'rgba(10,5,28,0.62)',
   glassWait: 'rgba(10,5,28,0.55)',
   glassToolbar: 'rgba(13,8,32,0.88)',
   modalOverlay: 'rgba(0,0,0,0.5)',

@@ -6,7 +6,7 @@ import { ROLE_ICONS } from '../../constants/icons';
 
 const DISPLAY_SECONDS = 8;
 
-export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles }) {
+export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles, willRevote = false }) {
   const [countdown, setCountdown] = useState(DISPLAY_SECONDS);
   const countRef = useRef(DISPLAY_SECONDS);
   const onExpireRef = useRef(onExpire);
@@ -84,9 +84,11 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
               <>
                 <Text style={styles.noVictimEmoji}>{isTie ? '⚖️' : '🌫️'}</Text>
                 <Text style={[styles.noVictimText, { color: t.textMuted }]}>
-                  {isTie
-                    ? 'The village could not reach a decision.'
-                    : 'The village remained silent.'}
+                  {isTie && willRevote
+                    ? 'The vote is tied. The village will vote again between the tied players.'
+                    : isTie
+                      ? 'The village could not reach a decision.'
+                      : 'The village remained silent.'}
                 </Text>
               </>
             )}

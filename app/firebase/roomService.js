@@ -144,6 +144,10 @@ export async function eliminatePlayer(roomId, playerId) {
 
 // ─── Night actions ────────────────────────────────────────────────────────────
 
+export async function acknowledgeRole(roomId, playerId) {
+  await updateDoc(doc(db, 'rooms', roomId), { roleAcknowledged: arrayUnion(playerId) });
+}
+
 export async function submitNightAction(roomId, role, action) {
   await updateDoc(doc(db, 'rooms', roomId), {
     [`nightActions.${role}`]: action,

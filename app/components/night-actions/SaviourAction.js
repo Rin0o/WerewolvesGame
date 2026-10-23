@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
+import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 export default function SaviourAction({ theme: t, players, lastProtected, saviourTarget, onSelectTarget, onSubmit }) {
@@ -55,18 +56,13 @@ export default function SaviourAction({ theme: t, players, lastProtected, saviou
 }
 
 const styles = StyleSheet.create({
-  actionBox: {
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
+  actionBox: NIGHT_PANEL,
   actionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   actionTitleIcon: { width: 40, height: 40 },
   actionTitleEmoji: { fontSize: 28 },
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
-  playerRowBg: { marginBottom: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 2, backgroundColor: 'rgba(20,10,50,0.82)' },
+  playerRowBg: NIGHT_ROW,
   disabledRow: { opacity: 0.45 },
   protectedBadge: { alignItems: 'center', marginTop: -SPACING.xs, marginBottom: SPACING.xs },
   protectedText: { ...FONTS.caption, fontStyle: 'italic' },

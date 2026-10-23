@@ -2,7 +2,7 @@
   "expo": {
     "name": "Werewolves of Miller's Hollow",
     "slug": "werewolves-millers-hollow",
-    "version": "1.1.0",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/game_icon.png",
     "userInterfaceStyle": "automatic",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.millardshollow.werewolves",
-      "versionCode": 2,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/game_icon.png",
         "backgroundColor": "#0D0820"

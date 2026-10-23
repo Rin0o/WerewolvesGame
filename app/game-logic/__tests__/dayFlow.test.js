@@ -6,7 +6,7 @@ jest.mock('../../firebase/roomService', () => ({
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { resolveLynch, hunterShoot, startNextNight } from '../gameManager';
+import { resolveLynch, hunterShoot, startNextNight, tiedForRevote, startRevote, TIE_RULE } from '../gameManager';
 import { getRoom, updateRoom, eliminatePlayer, clearNightActions } from '../../firebase/roomService';
 import { makeGame, votesFor, lastUpdate, eventsOf, ROOM_ID } from './helpers';
 
@@ -30,6 +30,41 @@ async function lynch(game) {
 }
 
 beforeEach(() => jest.clearAllMocks());
+
+describe('tie rule', () => {
+  const tied = votesFor({ sam: 'will', vic: 'vera', sal: 'will', hank: 'vera', wanda: 'sam' });
+
+  it('a tie with the default rule lynches nobody without a revote', () => {
+    expect(tiedForRevote(day(VILLAGE, { votes: tied }))).toBeNull();
+  });
+
+  it('a tie with the revote rule asks for a new vote between the tied players only', () => {
+    expect(tiedForRevote(day(VILLAGE, { votes: tied, tieRule: TIE_RULE.REVOTE })).sort()).toEqual(['vera', 'will']);
+  });
+
+  it('there is only one revote: a second tie lynches nobody', () => {
+    const room = day(VILLAGE, { votes: tied, tieRule: TIE_RULE.REVOTE, revoteTargets: ['vera', 'will'] });
+    expect(tiedForRevote(room)).toBeNull();
+  });
+
+  it('a clear result needs no revote', () => {
+    const room = day(VILLAGE, { votes: votesFor({ sam: 'will', vic: 'will', sal: 'vera' }), tieRule: TIE_RULE.REVOTE });
+    expect(tiedForRevote(room)).toBeNull();
+  });
+
+  it('starting a revote clears the votes and records the tied players', async () => {
+    await startRevote(ROOM_ID, day(VILLAGE, { votesClosed: true }), ['will', 'vera']);
+    const update = lastUpdate(updateRoom);
+    expect(update).toMatchObject({ votes: {}, votesClosed: false, revoteTargets: ['will', 'vera'] });
+    expect(eventsOf(update)).toEqual(['Day 2: The vote was tied between Will and Vera. The village votes again.']);
+  });
+
+  it('the lynch that follows clears the revote', async () => {
+    const update = await lynch(day(VILLAGE, { votes: tied, revoteTargets: ['vera', 'will'] }));
+    expect(update.revoteTargets).toBeNull();
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+  });
+});
 
 describe('resolveLynch', () => {
   it('lynches the top-voted player and starts the next night', async () => {

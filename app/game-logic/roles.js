@@ -111,4 +111,30 @@ export function getSisters(roleMap) {
     .map(([id]) => id);
 }
 
+/**
+ * Returns the players seated at the table, in seating (join) order. The narrator has no seat.
+ */
+export function getSeating(players) {
+  return players.filter((p) => !p.isNarrator);
+}
+
+/**
+ * Returns [leftId, rightId]: the nearest living seat on each side of the player, wrapping around.
+ * Empty when fewer than two seated players are alive or the player isn't seated.
+ */
+export function getLivingNeighbours(players, playerId) {
+  const seats = getSeating(players);
+  const idx = seats.findIndex((p) => p.id === playerId);
+  if (idx === -1 || seats.filter((p) => p.isAlive && p.id !== playerId).length === 0) return [];
+  const n = seats.length;
+  const nearest = (step) => {
+    for (let i = 1; i < n; i++) {
+      const seat = seats[(idx + step * i + n * n) % n];
+      if (seat.isAlive) return seat.id;
+    }
+    return null;
+  };
+  return [nearest(-1), nearest(1)];
+}
+
 export { ROLE };

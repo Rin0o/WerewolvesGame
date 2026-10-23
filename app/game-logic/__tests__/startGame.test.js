@@ -4,7 +4,9 @@ jest.mock('../../firebase/roomService', () => ({
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { startGame, computeNightSequence } from '../gameManager';
+import {
+  startGame, computeNightSequence, nextNightSubPhase, isSubPhaseDone, playersStillReading, ROLE_REVEAL_STEP,
+} from '../gameManager';
 import { updateRoom, clearWerewolfChat } from '../../firebase/roomService';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
 import { BOT_MARK } from '../../constants/botNames';
@@ -28,14 +30,36 @@ describe('startGame', () => {
     const update = await start(humans(8));
     expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(8)));
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
-    expect(update.nightSubPhase).toBe(computeNightSequence({ ...update, disconnectedPlayers: [] })[0]);
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
+  });
+
+  it('records the dealt composition so players can see which roles are in the game', async () => {
+    const update = await start(humans(8));
+    expect(update.roleComposition).toEqual(countRoles(getCompositionForCount(8)));
+  });
+
+  it('opens night 1 by waiting for everyone to read their role', async () => {
+    const update = await start(humans(8));
+    expect(update.nightSubPhase).toBe(ROLE_REVEAL_STEP);
+    expect(update.roleAcknowledged).toEqual([]);
+    expect(isSubPhaseDone(ROLE_REVEAL_STEP, update)).toBe(false);
+    expect(nextNightSubPhase(update, ROLE_REVEAL_STEP)).toBe(computeNightSequence({ ...update, disconnectedPlayers: [] })[0]);
+  });
+
+  it('the night begins once every player still at the table has read their role', async () => {
+    const update = await start(humans(5), { botCount: 2 });
+    const room = { ...update, disconnectedPlayers: ['h4'] };
+    expect(playersStillReading(room).map((p) => p.id)).toEqual(['h0', 'h1', 'h2', 'h3']);
+    expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2'] })).toBe(false);
+    expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2', 'h3'] })).toBe(true);
   });
 
   it('a classic first night can start with the saviour or wolves instead of only night-1 roles', async () => {
     const composition = ['werewolf', 'saviour', 'villager', 'villager', 'villager'];
-    expect((await start(humans(5), { composition })).nightSubPhase).toBe('werewolf');
-    expect((await start(humans(5), { composition, classicFirstNight: true })).nightSubPhase).toBe('saviour');
+    const quiet = await start(humans(5), { composition });
+    expect(nextNightSubPhase(quiet, ROLE_REVEAL_STEP)).toBe('werewolf');
+    const classic = await start(humans(5), { composition });
+    expect(nextNightSubPhase({ ...classic, classicFirstNight: true }, ROLE_REVEAL_STEP)).toBe('saviour');
   });
 
   it('gives the witch both potions', async () => {
@@ -81,11 +105,29 @@ describe('startGame with bots', () => {
     expect(update.players.find((p) => p.isBot).isAlive).toBe(true);
   });
 
-  it('bots only ever play werewolf or villager', async () => {
+  it('bots only play roles without a night action: werewolf, villager or sister', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER];
     for (let i = 0; i < 50; i++) {
-      const update = await start(humans(4), { botCount: 2 });
-      expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-0']);
-      expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-1']);
+      const update = await start(humans(3), { botCount: 3, composition });
+      ['bot-0', 'bot-1', 'bot-2'].forEach((id) =>
+        expect([ROLE.WEREWOLF, ROLE.VILLAGER, ROLE.SISTER]).toContain(update.roles[id]));
+    }
+  });
+
+  it('the sisters are always dealt as a pair, a bot taking the second one when needed', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))[ROLE.SISTER]).toBe(2);
+    }
+  });
+
+  it('roles with a night action go to the real players before the sisters do', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(update.roles.h0).toBe(ROLE.SEER);
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
     }
   });
 
@@ -96,5 +138,25 @@ describe('startGame with bots', () => {
       humanWolf = Object.entries(update.roles).some(([id, role]) => id.startsWith('h') && role === ROLE.WEREWOLF);
     }
     expect(humanWolf).toBe(true);
+  });
+
+  it('every seat, human or bot, is equally likely to be the werewolf', async () => {
+    const runs = 600;
+    let humanWolves = 0;
+    for (let i = 0; i < runs; i++) {
+      const update = await start(humans(4), { botCount: 2 });
+      humanWolves += Object.entries(update.roles).filter(([id, role]) => id.startsWith('h') && role === ROLE.WEREWOLF).length;
+    }
+    const expected = 4 / 6;
+    expect(Math.abs(humanWolves / runs - expected)).toBeLessThan(0.08);
+  });
+
+  it('moves a wolf to a bot when the humans are needed for the special roles', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.THIEF, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(3), { botCount: 3, composition });
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+      ['bot-0', 'bot-1', 'bot-2'].forEach((id) => expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles[id]));
+    }
   });
 });

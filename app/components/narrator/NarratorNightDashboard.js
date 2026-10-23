@@ -5,7 +5,8 @@ import { ROLE, ROLE_DEFINITIONS, isWolfRole } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const SUBPHASE_LABELS = {
-  thief:    'Thief Chooses a Role',
+  reveal:   'Players Read Their Roles',
+  thief:   'Thief Chooses a Role',
   cupid:    'Cupid Selects Lovers',
   wolf_hound: 'Wolf Hound Picks a Side',
   werewolf: 'Werewolves Hunt',
@@ -41,6 +42,9 @@ export default function NarratorNightDashboard({
   const seerRevealedRole  = seerTarget ? roles[seerTarget.id] : null;
   const seerIsWolf        = isWolfRole(seerRevealedRole);
   const wolfObserved      = nightActions.werewolfObserved === true;
+  const wolfRevoteNames   = nightActions.wolfRevoteTargets
+    ? nightActions.wolfRevoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' / ')
+    : null;
   const houndSide         = nightActions.wolfHound;
   const whiteWolfPrey     = nightActions.whiteWolf ? players.find((p) => p.id === nightActions.whiteWolf) : null;
 
@@ -48,7 +52,7 @@ export default function NarratorNightDashboard({
   const subPhaseIcon = subPhaseIconKey ? ROLE_ICONS[subPhaseIconKey] : null;
 
   const hasAnyAction =
-    wolfTargetPlayer || wolfObserved || saviourProtected || witchSavedPlayer ||
+    wolfTargetPlayer || wolfObserved || wolfRevoteNames || nightActions.wolfNoKill || saviourProtected || witchSavedPlayer ||
     witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
     houndSide || whiteWolfPrey || nightActions.whiteWolfSkip;
 
@@ -71,7 +75,9 @@ export default function NarratorNightDashboard({
             {SUBPHASE_LABELS[nightSubPhase] || 'Waiting...'}
           </Text>
           <Text style={[styles.subPhaseStatus, { color: actionDone ? t.success : t.textMuted }]}>
-            {actionDone ? '✓ Action submitted' : '⏳ Waiting for action'}
+            {nightSubPhase === 'reveal'
+              ? (actionDone ? '✓ Everyone is ready' : '⏳ Waiting for players to confirm their role')
+              : (actionDone ? '✓ Action submitted' : '⏳ Waiting for action')}
           </Text>
         </View>
       </View>
@@ -83,6 +89,12 @@ export default function NarratorNightDashboard({
 
           {wolfTargetPlayer && (
             <ActionRow icon={ROLE_ICONS.werewolf} label="Wolf target" value={wolfTargetPlayer.nickname} valueColor={t.danger} theme={t} />
+          )}
+          {wolfRevoteNames && !wolfTargetPlayer && !nightActions.wolfNoKill && (
+            <ActionRow icon={ROLE_ICONS.werewolf} label="Pack split, revote" value={wolfRevoteNames} valueColor={t.accent} theme={t} />
+          )}
+          {nightActions.wolfNoKill && (
+            <ActionRow icon={ROLE_ICONS.werewolf} label="Wolves" value="Split twice, no kill" valueColor={t.textMuted} theme={t} />
           )}
           {wolfObserved && phase === 1 && (
             <ActionRow icon={ROLE_ICONS.werewolf} label="Wolves" value="Observed (night 1)" valueColor={t.textMuted} theme={t} />
