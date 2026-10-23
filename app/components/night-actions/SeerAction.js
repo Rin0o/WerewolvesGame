@@ -16,11 +16,18 @@ export default function SeerAction({ theme: t, players, seerTarget, onSelectTarg
           <Image source={ROLE_ICONS.seer} style={styles.actionTitleIcon} resizeMode="contain" />
           <Text style={[styles.actionTitle, { color: t.accent }]}>Your Vision</Text>
         </View>
-        <Text style={[styles.actionSub, { color: t.textSecondary }]}>
-          {players.find((p) => p.id === seerTarget)?.nickname || 'That player'} is...
-        </Text>
-        <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: t.primary }]}>
-          <Text style={[styles.seerResultText, { color: t.text }]}>{seerResult}</Text>
+        <View style={[styles.seerResult, { backgroundColor: t.surfaceAlt, borderColor: seerResult.isWolf ? t.danger : t.success }]}>
+          <Image
+            source={seerResult.isWolf ? ROLE_ICONS.werewolf : ROLE_ICONS.villager}
+            style={styles.seerResultIcon}
+            resizeMode="contain"
+          />
+          <Text style={[styles.seerResultName, { color: t.text }]} numberOfLines={1} adjustsFontSizeToFit>
+            {seerResult.name}
+          </Text>
+          <Text style={[styles.seerResultText, { color: seerResult.isWolf ? t.danger : t.success }]}>
+            {seerResult.isWolf ? 'is a Werewolf!' : 'is NOT a Werewolf.'}
+          </Text>
         </View>
         <Text style={[styles.actionSub, { color: t.textMuted, marginTop: SPACING.sm }]}>
           Remember this. Dawn will come soon.
@@ -161,5 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.md,
   },
+  seerResultIcon: { width: 72, height: 72, marginBottom: SPACING.sm },
+  seerResultName: { fontSize: 30, fontWeight: '800', textAlign: 'center' },
   seerResultText: { ...FONTS.heading, textAlign: 'center' },
 });

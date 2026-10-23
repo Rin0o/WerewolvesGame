@@ -105,11 +105,29 @@ describe('startGame with bots', () => {
     expect(update.players.find((p) => p.isBot).isAlive).toBe(true);
   });
 
-  it('bots only ever play werewolf or villager', async () => {
+  it('bots only play roles without a night action: werewolf, villager or sister', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER];
     for (let i = 0; i < 50; i++) {
-      const update = await start(humans(4), { botCount: 2 });
-      expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-0']);
-      expect([ROLE.WEREWOLF, ROLE.VILLAGER]).toContain(update.roles['bot-1']);
+      const update = await start(humans(3), { botCount: 3, composition });
+      ['bot-0', 'bot-1', 'bot-2'].forEach((id) =>
+        expect([ROLE.WEREWOLF, ROLE.VILLAGER, ROLE.SISTER]).toContain(update.roles[id]));
+    }
+  });
+
+  it('the sisters are always dealt as a pair, a bot taking the second one when needed', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))[ROLE.SISTER]).toBe(2);
+    }
+  });
+
+  it('roles with a night action go to the real players before the sisters do', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(update.roles.h0).toBe(ROLE.SEER);
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
     }
   });
 

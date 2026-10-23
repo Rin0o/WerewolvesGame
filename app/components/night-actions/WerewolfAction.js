@@ -10,14 +10,13 @@ const NIGHT_CONFIRM_ICON = require('../../../assets/night_confirm.webp');
 const NIGHT_CHECK_ICON   = require('../../../assets/night_check.webp');
 
 export default function WerewolfAction({
-  theme: t, players, observeOnly, pack = [], packVotes = {}, playerId, wolfTarget, onSelectTarget, onSubmit,
-  suspicions = {}, suspectedRoles = {},
+  theme: t, players, observeOnly, revoteTargets = null, pack = [], packVotes = {}, playerId, wolfTarget,
+  onSelectTarget, onSubmit, suspicions = {}, suspectedRoles = {},
 }) {
   const myVote = packVotes[playerId];
   const votesCast = pack.filter((w) => packVotes[w.id]).length;
   const votersFor = (targetId) => pack.filter((w) => packVotes[w.id] === targetId)
     .map((w) => (w.id === playerId ? 'You' : w.nickname));
-  const canConfirm = !!wolfTarget && wolfTarget !== myVote;
 
   return (
     <View style={[styles.actionBox, { backgroundColor: t.glassCard }]}>
@@ -39,10 +38,20 @@ export default function WerewolfAction({
         </>
       ) : (
         <>
+          {revoteTargets && (
+            <View style={[styles.revoteBanner, { borderColor: t.accent }]}>
+              <Text style={[styles.bannerStateLabel, { color: t.accent }]}>The pack is split — vote again</Text>
+              <Text style={[styles.actionSub, { color: t.text, marginBottom: 0 }]}>
+                Choose between {players.map((p) => p.nickname).join(' and ')}. If the pack is split again, nobody dies tonight.
+              </Text>
+            </View>
+          )}
           <View style={[styles.targetBanner, { borderColor: wolfTarget ? t.danger : t.border }]}>
             {wolfTarget ? (
               <>
-                <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>Targeting</Text>
+                <Text style={[styles.bannerStateLabel, { color: t.textSecondary }]}>
+                  {wolfTarget === myVote ? 'Your vote' : 'Targeting'}
+                </Text>
                 <Text style={[styles.bannerTargetName, { color: t.danger }]}>
                   {players.find((p) => p.id === wolfTarget)?.nickname}
                 </Text>
@@ -103,16 +112,8 @@ export default function WerewolfAction({
           <Text style={[styles.packProgress, { color: t.textSecondary }]}>
             {myVote
               ? `Pack votes: ${votesCast} of ${pack.length}. The hunt ends when every wolf has voted — you can still change yours.`
-              : `Pack votes: ${votesCast} of ${pack.length}. The victim with the most votes is taken.`}
+              : `Pack votes: ${votesCast} of ${pack.length}. The victim with the most votes is taken; a tie means a second vote.`}
           </Text>
-          <TouchableOpacity
-            style={[styles.submitBtn, { opacity: canConfirm ? 1 : 0.35 }]}
-            onPress={onSubmit}
-            disabled={!canConfirm}
-            activeOpacity={0.8}
-          >
-            <Image source={NIGHT_CONFIRM_ICON} style={styles.submitBtnImg} resizeMode="contain" />
-          </TouchableOpacity>
         </>
       )}
     </View>
@@ -126,6 +127,13 @@ const styles = StyleSheet.create({
   actionTitle: { ...FONTS.heading },
   actionSub: { ...FONTS.body, marginBottom: SPACING.md },
   playerRowBg: NIGHT_ROW,
+  revoteBanner: {
+    borderWidth: 2,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
   targetBanner: {
     borderWidth: 2,
     borderRadius: RADIUS.lg,

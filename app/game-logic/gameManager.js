@@ -123,18 +123,59 @@ export function livingWolves(room) {
   return players.filter((p) => p.isAlive && isWolfRole(roles[p.id]) && !disconnectedPlayers.includes(p.id));
 }
 
-export function wolfVictim(room, { force = false } = {}) {
+export const WOLF_OUTCOME = { WAIT: 'wait', KILL: 'kill', REVOTE: 'revote', NO_KILL: 'no_kill' };
+
+function randomOf(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+export function wolfPrey(room) {
+  const { players = [], roles = {} } = room;
+  return players.filter((p) => p.isAlive && !isWolfRole(roles[p.id]) && !p.isNarrator);
+}
+
+function castWolfVotes(room) {
   const { players = [], nightActions = {} } = room;
   const votes = nightActions.wolfVotes || {};
-  const wolves = livingWolves(room);
-  const targets = wolves
-    .map((w) => votes[w.id])
-    .filter((id) => players.some((p) => p.id === id && p.isAlive));
-  if (targets.length === 0 || (!force && targets.length < wolves.length)) return null;
+  const allowed = nightActions.wolfRevoteTargets || null;
+  const isValid = (id) => players.some((p) => p.id === id && p.isAlive) && (!allowed || allowed.includes(id));
+  return livingWolves(room).map((w) => votes[w.id]).filter(isValid);
+}
+
+function mostVoted(targets) {
   const counts = targets.reduce((acc, id) => ({ ...acc, [id]: (acc[id] || 0) + 1 }), {});
   const top = Math.max(...Object.values(counts));
-  const tied = Object.keys(counts).filter((id) => counts[id] === top);
-  return tied[Math.floor(Math.random() * tied.length)];
+  return Object.keys(counts).filter((id) => counts[id] === top);
+}
+
+export function leadingWolfTarget(room) {
+  const targets = castWolfVotes(room);
+  return targets.length ? randomOf(mostVoted(targets)) : null;
+}
+
+export function wolfVoteOutcome(room, { force = false } = {}) {
+  const revoteTargets = room.nightActions?.wolfRevoteTargets || null;
+  const targets = castWolfVotes(room);
+  if (!force && targets.length < livingWolves(room).length) return { type: WOLF_OUTCOME.WAIT };
+  if (targets.length === 0) {
+    if (!force) return { type: WOLF_OUTCOME.WAIT };
+    const pool = revoteTargets
+      ? revoteTargets.filter((id) => (room.players || []).some((p) => p.id === id && p.isAlive))
+      : wolfPrey(room).map((p) => p.id);
+    return pool.length ? { type: WOLF_OUTCOME.KILL, target: randomOf(pool) } : { type: WOLF_OUTCOME.NO_KILL };
+  }
+  const tied = mostVoted(targets);
+  if (tied.length === 1) return { type: WOLF_OUTCOME.KILL, target: tied[0] };
+  return revoteTargets ? { type: WOLF_OUTCOME.NO_KILL } : { type: WOLF_OUTCOME.REVOTE, targets: tied };
+}
+
+export function wolfOutcomeUpdate(outcome) {
+  switch (outcome.type) {
+    case WOLF_OUTCOME.KILL: return { 'nightActions.werewolf': outcome.target };
+    case WOLF_OUTCOME.REVOTE: return { 'nightActions.wolfVotes': {}, 'nightActions.wolfRevoteTargets': outcome.targets };
+    case WOLF_OUTCOME.NO_KILL: return { 'nightActions.wolfNoKill': true };
+    default: return null;
+  }
 }
 
 export function isSubPhaseDone(subPhase, room) {
@@ -144,7 +185,9 @@ export function isSubPhaseDone(subPhase, room) {
     case 'thief':    return !!nightActions.thief;
     case 'cupid':    return Array.isArray(nightActions.cupid) && nightActions.cupid.length === 2;
     case 'wolf_hound': return !!nightActions.wolfHound;
-    case 'werewolf': return isQuietFirstNight(room) ? nightActions.werewolfObserved === true : !!nightActions.werewolf;
+    case 'werewolf': return isQuietFirstNight(room)
+      ? nightActions.werewolfObserved === true
+      : !!nightActions.werewolf || nightActions.wolfNoKill === true;
     case 'white_wolf': return !!nightActions.whiteWolf || nightActions.whiteWolfSkip === true;
     case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
     case 'seer':     return !!nightActions.seer;
@@ -157,28 +200,39 @@ function countRoles(roleMap) {
   return Object.values(roleMap).reduce((acc, role) => ({ ...acc, [role]: (acc[role] || 0) + 1 }), {});
 }
 
+const BOT_PLAYABLE_SPECIALS = [ROLE.SISTER];
+
 function dealWithBots(humanPlayers, botPlayers, composition) {
   const wolfCount = composition.filter((r) => r === ROLE.WEREWOLF).length;
-  const specials = shuffleArr(composition.filter((r) => r !== ROLE.WEREWOLF && r !== ROLE.VILLAGER));
+  const specials = composition.filter((r) => r !== ROLE.WEREWOLF && r !== ROLE.VILLAGER);
+  const humanOnly = shuffleArr(specials.filter((r) => !BOT_PLAYABLE_SPECIALS.includes(r)));
+  const botPlayable = specials.filter((r) => BOT_PLAYABLE_SPECIALS.includes(r));
   const wolfIds = new Set(shuffleArr([...humanPlayers, ...botPlayers]).slice(0, wolfCount).map((p) => p.id));
 
   const humanWolves = shuffleArr(humanPlayers.filter((p) => wolfIds.has(p.id)));
-  const freeBots = shuffleArr(botPlayers.filter((p) => !wolfIds.has(p.id)));
-  while (humanPlayers.length - humanWolves.length < specials.length && humanWolves.length > 0 && freeBots.length > 0) {
+  const wolfFreeBots = shuffleArr(botPlayers.filter((p) => !wolfIds.has(p.id)));
+  while (humanPlayers.length - humanWolves.length < humanOnly.length && humanWolves.length > 0 && wolfFreeBots.length > 0) {
     wolfIds.delete(humanWolves.pop().id);
-    wolfIds.add(freeBots.pop().id);
+    wolfIds.add(wolfFreeBots.pop().id);
   }
+
+  const freeHumans = shuffleArr(humanPlayers.filter((p) => !wolfIds.has(p.id)));
+  const forHumans = [...humanOnly, ...shuffleArr(botPlayable)];
+  const humanRoles = forHumans.slice(0, freeHumans.length);
+  const leftForBots = forHumans.slice(freeHumans.length).filter((r) => BOT_PLAYABLE_SPECIALS.includes(r));
 
   const roleMap = {};
   const witchPotions = {};
-  shuffleArr(humanPlayers.filter((p) => !wolfIds.has(p.id))).forEach((p, i) => {
-    const role = specials[i] || ROLE.VILLAGER;
+  freeHumans.forEach((p, i) => {
+    const role = humanRoles[i] || ROLE.VILLAGER;
     roleMap[p.id] = role;
     if (role === ROLE.WITCH) witchPotions[p.id] = { save: true, poison: true };
   });
+  shuffleArr(botPlayers.filter((p) => !wolfIds.has(p.id))).forEach((p, i) => {
+    roleMap[p.id] = leftForBots[i] || ROLE.VILLAGER;
+  });
   [...humanPlayers, ...botPlayers].forEach((p) => {
     if (wolfIds.has(p.id)) roleMap[p.id] = ROLE.WEREWOLF;
-    else if (!roleMap[p.id]) roleMap[p.id] = ROLE.VILLAGER;
   });
   return { roleMap, witchPotions };
 }

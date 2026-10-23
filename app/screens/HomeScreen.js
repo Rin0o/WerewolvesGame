@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInAnon, subscribeToAuth } from '../firebase/authService';
@@ -250,6 +251,12 @@ export default function HomeScreen({ navigation }) {
           >
             <Text style={[styles.btnText, { color: t.primary }]}>📷 Scan QR Code</Text>
           </TouchableOpacity>
+
+          {Platform.OS === 'android' && (
+            <TouchableOpacity style={styles.closeAppBtn} onPress={() => BackHandler.exitApp()}>
+              <Text style={[styles.closeAppText, { color: t.textMuted }]}>Close the app</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -314,4 +321,6 @@ const styles = StyleSheet.create({
   resumeText: { ...FONTS.body, marginBottom: SPACING.md },
   resumeBtn: { marginBottom: SPACING.sm },
   forgetText: { ...FONTS.caption, textAlign: 'center' },
+  closeAppBtn: { alignSelf: 'center', marginTop: SPACING.xl, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg },
+  closeAppText: { ...FONTS.body, fontWeight: '600', textDecorationLine: 'underline' },
 });

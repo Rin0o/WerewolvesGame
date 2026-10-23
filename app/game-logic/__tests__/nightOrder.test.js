@@ -1,7 +1,10 @@
 jest.mock('../../firebase/roomService', () => ({}));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves, wolfVictim } from '../gameManager';
+import {
+  computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves,
+  wolfVoteOutcome, wolfOutcomeUpdate, leadingWolfTarget, WOLF_OUTCOME,
+} from '../gameManager';
 import { makeGame } from './helpers';
 
 const VILLAGE = {
@@ -155,31 +158,79 @@ describe('Thief takes the stolen role as soon as they choose', () => {
   });
 });
 
-describe('wolfVictim', () => {
+describe('wolfVoteOutcome', () => {
   const PACK = { will: 'werewolf', wanda: 'werewolf', walt: 'white_wolf', vic: 'villager', vera: 'villager', sam: 'seer' };
-  const room = (wolfVotes, overrides = {}) => makeGame(PACK, { phase: 2, nightActions: { wolfVotes }, ...overrides });
+  const room = (wolfVotes, overrides = {}, extraActions = {}) =>
+    makeGame(PACK, { phase: 2, nightActions: { wolfVotes, ...extraActions }, ...overrides });
+  const revote = (wolfVotes, targets = ['vic', 'vera']) => room(wolfVotes, {}, { wolfRevoteTargets: targets });
+  const kill = (target) => ({ type: WOLF_OUTCOME.KILL, target });
 
   it('waits until every living wolf, the White Wolf included, has voted', () => {
-    expect(wolfVictim(room({ will: 'vic', wanda: 'vic' }))).toBeNull();
-    expect(wolfVictim(room({ will: 'vic', wanda: 'vic', walt: 'vera' }))).toBe('vic');
+    expect(wolfVoteOutcome(room({ will: 'vic', wanda: 'vic' })).type).toBe(WOLF_OUTCOME.WAIT);
+    expect(wolfVoteOutcome(room({ will: 'vic', wanda: 'vic', walt: 'vera' }))).toEqual(kill('vic'));
   });
 
   it('the White Wolf\'s vote counts like any other', () => {
-    expect(wolfVictim(room({ will: 'vic', wanda: 'vera', walt: 'vera' }))).toBe('vera');
+    expect(wolfVoteOutcome(room({ will: 'vic', wanda: 'vera', walt: 'vera' }))).toEqual(kill('vera'));
   });
 
   it('does not wait for dead or departed wolves', () => {
-    expect(wolfVictim(room({ will: 'sam', walt: 'sam' }, { dead: ['wanda'] }))).toBe('sam');
-    expect(wolfVictim(room({ will: 'sam', walt: 'sam' }, { disconnectedPlayers: ['wanda'] }))).toBe('sam');
+    expect(wolfVoteOutcome(room({ will: 'sam', walt: 'sam' }, { dead: ['wanda'] }))).toEqual(kill('sam'));
+    expect(wolfVoteOutcome(room({ will: 'sam', walt: 'sam' }, { disconnectedPlayers: ['wanda'] }))).toEqual(kill('sam'));
   });
 
-  it('settles a tie between the most-voted targets', () => {
-    expect(['vic', 'vera', 'sam']).toContain(wolfVictim(room({ will: 'vic', wanda: 'vera', walt: 'sam' })));
+  it('a split pack votes again, only between the tied players', () => {
+    const outcome = wolfVoteOutcome(room({ will: 'vic', wanda: 'vera', walt: 'sam' }));
+    expect(outcome.type).toBe(WOLF_OUTCOME.REVOTE);
+    expect(outcome.targets.sort()).toEqual(['sam', 'vera', 'vic']);
   });
 
-  it('when time runs out, takes the votes cast so far', () => {
-    expect(wolfVictim(room({ will: 'sam' }), { force: true })).toBe('sam');
-    expect(wolfVictim(room({}), { force: true })).toBeNull();
+  it('a clear revote result is the victim', () => {
+    expect(wolfVoteOutcome(revote({ will: 'vera', wanda: 'vera', walt: 'vic' }))).toEqual(kill('vera'));
+  });
+
+  it('a second split means nobody dies tonight', () => {
+    expect(wolfVoteOutcome(revote({ will: 'vera', wanda: 'vic' }, ['vic', 'vera']), { force: true }).type)
+      .toBe(WOLF_OUTCOME.NO_KILL);
+  });
+
+  it('votes for players outside the revote do not count', () => {
+    const outdated = revote({ will: 'sam', wanda: 'vera', walt: 'vera' });
+    expect(wolfVoteOutcome(outdated).type).toBe(WOLF_OUTCOME.WAIT);
+    expect(wolfVoteOutcome(outdated, { force: true })).toEqual(kill('vera'));
+  });
+
+  it('when time runs out, the votes cast so far decide', () => {
+    expect(wolfVoteOutcome(room({ will: 'sam' }), { force: true })).toEqual(kill('sam'));
+    expect(wolfVoteOutcome(room({ will: 'sam', wanda: 'vic' }), { force: true }).type).toBe(WOLF_OUTCOME.REVOTE);
+  });
+
+  it('when time runs out with no votes, the victim is drawn at random', () => {
+    const outcome = wolfVoteOutcome(room({}), { force: true });
+    expect(outcome.type).toBe(WOLF_OUTCOME.KILL);
+    expect(['vic', 'vera', 'sam']).toContain(outcome.target);
+    const inRevote = wolfVoteOutcome(revote({}), { force: true });
+    expect(['vic', 'vera']).toContain(inRevote.target);
+  });
+
+  it('writes the right night action for each outcome', () => {
+    expect(wolfOutcomeUpdate(kill('vic'))).toEqual({ 'nightActions.werewolf': 'vic' });
+    expect(wolfOutcomeUpdate({ type: WOLF_OUTCOME.REVOTE, targets: ['vic', 'vera'] }))
+      .toEqual({ 'nightActions.wolfVotes': {}, 'nightActions.wolfRevoteTargets': ['vic', 'vera'] });
+    expect(wolfOutcomeUpdate({ type: WOLF_OUTCOME.NO_KILL })).toEqual({ 'nightActions.wolfNoKill': true });
+    expect(wolfOutcomeUpdate({ type: WOLF_OUTCOME.WAIT })).toBeNull();
+  });
+
+  it('the wolf step is over once there is a victim or the pack gave up', () => {
+    expect(isSubPhaseDone('werewolf', room({}, {}, { werewolf: 'vic' }))).toBe(true);
+    expect(isSubPhaseDone('werewolf', room({}, {}, { wolfNoKill: true }))).toBe(true);
+    expect(isSubPhaseDone('werewolf', revote({ will: 'vic' }))).toBe(false);
+  });
+
+  it('bots follow the leading choice, within the revote', () => {
+    expect(leadingWolfTarget(room({ will: 'sam' }))).toBe('sam');
+    expect(leadingWolfTarget(revote({ will: 'sam', wanda: 'vic' }))).toBe('vic');
+    expect(leadingWolfTarget(room({}))).toBeNull();
   });
 
   it('livingWolves lists every wolf role still in the game', () => {

@@ -202,7 +202,7 @@ export default function LobbyScreen({ route, navigation }) {
   function botHint() {
     if (!fillWithBots) return 'Off — the game waits for real players.';
     if (botCount > 0 && seats.missing === 0) {
-      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf or Villager.`;
+      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager or Sister.`;
     }
     if (seats.missing > 0) {
       return `Bots can fill at most half the table — ${seats.missing} more real player(s) needed.`;

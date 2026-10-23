@@ -100,7 +100,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Role | Team | Ability |
 |---|---|---|
 | **Villager** | Village | No ability. Finds the wolves through discussion and votes. |
-| **Werewolf** | Wolves | Each night every wolf (the White Wolf included) votes for a victim, coordinating in the wolf chat; the most-voted player is taken. With a Quiet first night they only meet on night 1. |
+| **Werewolf** | Wolves | Each night every wolf (the White Wolf included) votes for a victim, coordinating in the wolf chat; the most-voted player is taken. If the pack is split, it votes once more (30 s) only between the tied players; if it's split again, nobody dies that night. With a Quiet first night they only meet on night 1. |
 | **Seer** | Village | Each night chooses a player and learns whether they are a werewolf. With a Quiet first night, starts on night 2. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
 | **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
@@ -388,7 +388,7 @@ In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seat
 
 - **How many:** bots fill the table up to 5 players (Normal) or up to the target player count (Custom), but never more than half the table, so there are always at least as many real players as bots. If that isn't enough, the lobby says how many more real players are needed.
 - **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
-- **Roles:** bots only play Werewolf or Villager; special roles always go to real players. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
+- **Roles:** bots only play Werewolf, Villager or Sister (the Sisters have no night action). Roles with an action always go to real players first; the two Sisters are always dealt as a pair, so if only one fits on the real players, a bot gets the other. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
 - **Behaviour:** the host's phone plays for them, with a pause so nobody's turn is skipped. Bot wolves vote a few seconds into the hunt and follow the pack's leading choice (or pick at random). Bots cast random day votes 30–90 seconds into the day, or a few seconds after every real player has voted.
 - Not available in Narrator mode. Play Again removes the bots; the next game adds fresh ones if the setting is still on.
 

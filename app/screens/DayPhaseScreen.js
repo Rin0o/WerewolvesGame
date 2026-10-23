@@ -34,6 +34,7 @@ import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
 import MyRoleButton from '../components/MyRoleButton';
 import BarButton from '../components/BarButton';
 import GameOptionsModal from '../components/GameOptionsModal';
+import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import useUnreadMessages from '../hooks/useUnreadMessages';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
@@ -539,17 +540,13 @@ export default function DayPhaseScreen({ route, navigation }) {
       </ScrollView>
 
       {canConfirmVote && (
-        <TouchableOpacity
-          style={[styles.confirmVoteBtn, { backgroundColor: t.primary, borderColor: t.primaryDark }]}
+        <ConfirmChoiceButton
+          theme={t}
+          icon={DAY_CONFIRM_ICON}
+          label="Confirm your vote"
+          targetName={selectedTarget?.nickname}
           onPress={handleConfirmVote}
-          activeOpacity={0.85}
-        >
-          <Image source={DAY_CONFIRM_ICON} style={styles.confirmVoteIcon} resizeMode="contain" />
-          <View style={styles.confirmVoteTextCol}>
-            <Text style={styles.confirmVoteLabel}>Confirm your vote</Text>
-            <Text style={styles.confirmVoteTarget} numberOfLines={1}>{selectedTarget?.nickname}</Text>
-          </View>
-        </TouchableOpacity>
+        />
       )}
 
       <View style={[styles.bottomBar, { borderTopColor: t.glassBorder, backgroundColor: t.glassToolbar }]}>
@@ -762,24 +759,4 @@ const styles = StyleSheet.create({
   revoteIcon: { fontSize: 32 },
   revoteTextCol: { flex: 1, gap: 2 },
   revoteText: { ...FONTS.body },
-  confirmVoteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
-  },
-  confirmVoteIcon: { width: 52, height: 52 },
-  confirmVoteTextCol: { flex: 1 },
-  confirmVoteLabel: { ...FONTS.caption, color: '#FFE9CC', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' },
-  confirmVoteTarget: { ...FONTS.heading, color: '#fff' },
 });
