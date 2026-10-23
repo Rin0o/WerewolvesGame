@@ -19,7 +19,7 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer } from '../firebase/roomService';
-import { resolveLynch, startNextNight, hunterShoot } from '../game-logic/gameManager';
+import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, TIE_RULE } from '../game-logic/gameManager';
 import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
 import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
@@ -32,12 +32,14 @@ import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
 import MyRoleButton from '../components/MyRoleButton';
+import BarButton from '../components/BarButton';
+import GameOptionsModal from '../components/GameOptionsModal';
+import useUnreadMessages from '../hooks/useUnreadMessages';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.webp');
-const EXIT_GAME_ICON       = require('../../assets/leave.webp');
 const NOTES_ICON           = require('../../assets/notes.webp');
 const DAY_CHAT_ICON        = require('../../assets/day_chat.webp');
 const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.webp');
@@ -45,6 +47,7 @@ const DAY_CHECK_ICON       = require('../../assets/day_check.webp');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
 const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
+const OPTIONS_ICON         = require('../../assets/options.webp');
 
 const DISCUSSION_SECONDS_PER_PLAYER = 30;
 const DISCUSSION_MIN_SECONDS = 90;
@@ -54,6 +57,7 @@ function discussionSecondsFor(livingPlayers) {
   return Math.min(DISCUSSION_MAX_SECONDS, Math.max(DISCUSSION_MIN_SECONDS, livingPlayers * DISCUSSION_SECONDS_PER_PLAYER));
 }
 const HUNTER_SHOT_SECONDS = 20;
+const REVOTE_SECONDS = 60;
 const BOT_VOTE_THINKING_MS = [30000, 90000];
 const BOT_VOTE_QUICK_MS = [2000, 5000];
 
@@ -67,6 +71,12 @@ export default function DayPhaseScreen({ route, navigation }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [wolfChatOpen, setWolfChatOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const unreadDayMessages = useUnreadMessages(roomId, 'day', playerId, { isOpen: chatOpen });
+  const unreadWolfMessages = useUnreadMessages(roomId, 'werewolf', playerId, {
+    isOpen: wolfChatOpen,
+    enabled: !!gs.isNarrator,
+  });
   const [resolving, setResolving] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
@@ -144,13 +154,20 @@ export default function DayPhaseScreen({ route, navigation }) {
     const timers = pendingBots.map((bot) => setTimeout(() => {
       const current = roomRef.current;
       if (!current || current.status !== 'day' || current.votesClosed || current.votes?.[bot.id]) return;
-      const targets = (current.players || []).filter((p) => p.isAlive && p.id !== bot.id && !p.isNarrator);
+      const allowed = current.revoteTargets?.length ? current.revoteTargets : null;
+      const targets = (current.players || []).filter((p) =>
+        p.isAlive && p.id !== bot.id && !p.isNarrator && (!allowed || allowed.includes(p.id)));
       if (targets.length > 0) {
         confirmDayVote(roomId, bot.id, targets[Math.floor(Math.random() * targets.length)].id);
       }
     }, minMs + Math.random() * (maxMs - minMs)));
     return () => timers.forEach(clearTimeout);
-  }, [room?.status, room?.votesClosed, humansAllVoted, gs.isHost]);
+  }, [room?.status, room?.votesClosed, room?.revoteTargets, humansAllVoted, gs.isHost]);
+
+  useEffect(() => {
+    discussionTimerExpiredRef.current = false;
+    setMyVoteTarget(null);
+  }, [room?.revoteTargets]);
 
   useEffect(() => {
     if (!room || shownResultRef.current) return;
@@ -237,6 +254,11 @@ export default function DayPhaseScreen({ route, navigation }) {
     setMyVoteTarget(null);
     shownResultRef.current = false;
     if (!gs.isHost || resolvingRef.current) return;
+    const tied = tiedForRevote(roomRef.current);
+    if (tied) {
+      startRevote(roomId, roomRef.current, tied);
+      return;
+    }
     setResolving(true);
     resolveLynch(roomId, roomRef.current)
       .catch(() => setResolving(false))
@@ -282,6 +304,10 @@ export default function DayPhaseScreen({ route, navigation }) {
     ? players.find((p) => p.id === myVoteEntry?.target)
     : players.find((p) => p.id === myVoteTarget);
 
+  const revoteTargets = room.revoteTargets?.length ? room.revoteTargets : null;
+  const canBeVoted = (id) => !revoteTargets || revoteTargets.includes(id);
+  const canConfirmVote = gs.isAlive && !gs.isNarrator && !lastLynchResult && !hunterTriggered
+    && !!myVoteTarget && !myVoteConfirmed;
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
   const totalEligible = alivePlayers.filter((p) => !disconnected.includes(p.id)).length;
 
@@ -298,12 +324,24 @@ export default function DayPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
         <MyRoleButton theme={t} gs={gs} room={room} />
-        <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village Awakens</Text>
+        <Text
+          style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          The Village Awakens
+        </Text>
         <View style={styles.timerSlot}>
           {hunterTriggered && hunterTriggered === playerId ? (
             <Timer totalSeconds={HUNTER_SHOT_SECONDS} onExpire={handleHunterTimerExpire} theme={t} />
           ) : !hunterTriggered && !lastLynchResult && room.gameMode !== 'narrator' ? (
-            <Timer totalSeconds={discussionSecondsRef.current} onExpire={handleDiscussionTimerExpire} theme={t} />
+            <Timer
+              key={revoteTargets ? 'revote' : 'discussion'}
+              totalSeconds={revoteTargets ? REVOTE_SECONDS : discussionSecondsRef.current}
+              onExpire={handleDiscussionTimerExpire}
+              theme={t}
+            />
           ) : null}
         </View>
       </View>
@@ -375,6 +413,18 @@ export default function DayPhaseScreen({ route, navigation }) {
 
         {!lastLynchResult && !hunterTriggered && (
           <>
+            {revoteTargets && (
+              <View style={[styles.revoteBanner, { backgroundColor: t.glassCard, borderColor: t.accent }]}>
+                <Text style={styles.revoteIcon}>⚖️</Text>
+                <View style={styles.revoteTextCol}>
+                  <Text style={[styles.bannerStateLabel, { color: t.accent }]}>Tie — vote again</Text>
+                  <Text style={[styles.revoteText, { color: t.text }]}>
+                    Only {revoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' and ')} can be chosen.
+                    A second tie spares everyone.
+                  </Text>
+                </View>
+              </View>
+            )}
             {gs.isAlive && !gs.isNarrator && (
               <View style={[
                 styles.votingForBanner,
@@ -448,7 +498,11 @@ export default function DayPhaseScreen({ route, navigation }) {
                 return (
                   <View
                     key={item.id}
-                    style={[styles.playerRowBg, item.isAlive ? aliveRowStyle : deadRowStyle]}
+                    style={[
+                      styles.playerRowBg,
+                      item.isAlive ? aliveRowStyle : deadRowStyle,
+                      item.isAlive && !canBeVoted(item.id) && styles.notInRevote,
+                    ]}
                   >
                     <View style={styles.playerRowInner}>
                       <View style={styles.playerCardWrap}>
@@ -458,8 +512,8 @@ export default function DayPhaseScreen({ route, navigation }) {
                             ? { ...t, surface: 'transparent', border: 'transparent' }
                             : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
                           }
-                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && !gs.isNarrator && handleSelectVote(item.id)}
-                          disabled={gs.isNarrator || !gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed}
+                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && !gs.isNarrator && canBeVoted(item.id) && handleSelectVote(item.id)}
+                          disabled={gs.isNarrator || !gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed || !canBeVoted(item.id)}
                           selected={false}
                           roleMap={gs.isNarrator || !item.isAlive ? roles : {}}
                           showRole={gs.isNarrator || !item.isAlive}
@@ -484,33 +538,47 @@ export default function DayPhaseScreen({ route, navigation }) {
         <View style={{ height: SPACING.xl }} />
       </ScrollView>
 
+      {canConfirmVote && (
+        <TouchableOpacity
+          style={[styles.confirmVoteBtn, { backgroundColor: t.primary, borderColor: t.primaryDark }]}
+          onPress={handleConfirmVote}
+          activeOpacity={0.85}
+        >
+          <Image source={DAY_CONFIRM_ICON} style={styles.confirmVoteIcon} resizeMode="contain" />
+          <View style={styles.confirmVoteTextCol}>
+            <Text style={styles.confirmVoteLabel}>Confirm your vote</Text>
+            <Text style={styles.confirmVoteTarget} numberOfLines={1}>{selectedTarget?.nickname}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       <View style={[styles.bottomBar, { borderTopColor: t.glassBorder, backgroundColor: t.glassToolbar }]}>
-        <TouchableOpacity onPress={handleExit} style={styles.exitBtnBottom}>
-          <Image source={EXIT_GAME_ICON} style={styles.exitGameImg} resizeMode="contain" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.notesBtn} onPress={() => setNotesOpen(true)}>
-          <Image source={NOTES_ICON} style={styles.notesIcon} resizeMode="contain" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.chatBtn} onPress={() => setChatOpen(true)}>
-          <Image source={DAY_CHAT_ICON} style={styles.chatBtnImg} resizeMode="contain" />
-        </TouchableOpacity>
+        <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
+        <BarButton
+          source={DAY_CHAT_ICON}
+          onPress={() => setChatOpen(true)}
+          unread={unreadDayMessages}
+          accessibilityLabel="Village chat"
+        />
         <SeatingTableButton onPress={() => setTableOpen(true)} />
         {gs.isNarrator && (
-          <TouchableOpacity style={styles.chatBtn} onPress={() => setWolfChatOpen(true)}>
-            <Image source={ROLE_ICONS.werewolf} style={styles.chatBtnImg} resizeMode="contain" />
-          </TouchableOpacity>
+          <BarButton
+            source={ROLE_ICONS.werewolf}
+            onPress={() => setWolfChatOpen(true)}
+            unread={unreadWolfMessages}
+            accessibilityLabel="Wolf chat"
+          />
         )}
-        {gs.isAlive && !gs.isNarrator && !lastLynchResult && !hunterTriggered && (
-          <TouchableOpacity
-            style={[styles.confirmBtn, { opacity: (myVoteTarget && !myVoteConfirmed) ? 1 : 0.35 }]}
-            onPress={handleConfirmVote}
-            disabled={!myVoteTarget || myVoteConfirmed}
-            activeOpacity={0.8}
-          >
-            <Image source={DAY_CONFIRM_ICON} style={styles.confirmBtnImg} resizeMode="contain" />
-          </TouchableOpacity>
-        )}
+        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
+
+      <GameOptionsModal
+        visible={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        theme={t}
+        room={room}
+        onLeave={handleExit}
+      />
 
       <LynchResultModal
         visible={resultModalVisible}
@@ -519,6 +587,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         result={lastLynchResult}
         players={players}
         roles={roles}
+        willRevote={!!lastLynchResult?.tie && room.tieRule === TIE_RULE.REVOTE && !revoteTargets}
       />
 
       <NotesPanel
@@ -585,7 +654,7 @@ const styles = StyleSheet.create({
     minWidth: 52,
   },
   timerSlot: {
-    width: 80,
+    width: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -673,18 +742,44 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   bannerCheckImg: { width: 28, height: 28 },
-  confirmBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnImg: { width: '100%', height: 70 },
   bottomBar: {
     flexDirection: 'row',
     gap: SPACING.sm,
     padding: SPACING.sm,
     borderTopWidth: 1,
   },
-  exitBtnBottom: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  exitGameImg: { width: '100%', height: 70 },
-  notesBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notesIcon: { width: '100%', height: 70 },
-  chatBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  chatBtnImg: { width: '100%', height: 70 },
+  notInRevote: { opacity: 0.45 },
+  revoteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    margin: SPACING.md,
+    marginBottom: 0,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 2,
+  },
+  revoteIcon: { fontSize: 32 },
+  revoteTextCol: { flex: 1, gap: 2 },
+  revoteText: { ...FONTS.body },
+  confirmVoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  confirmVoteIcon: { width: 52, height: 52 },
+  confirmVoteTextCol: { flex: 1 },
+  confirmVoteLabel: { ...FONTS.caption, color: '#FFE9CC', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' },
+  confirmVoteTarget: { ...FONTS.heading, color: '#fff' },
 });

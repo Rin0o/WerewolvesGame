@@ -38,8 +38,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
 - **12 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, White Wolf and Wolf Hound.
-- **Lobby options:** a Quiet or Classic first night, and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
-- **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone.
+- **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
+- **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
@@ -53,12 +53,12 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## How a game works
 
 1. **Lobby:** players join with the room code (typed, or scanned from the QR code behind the lobby's Show QR button) and mark themselves ready. The host picks a game mode and starts. A game needs at least 5 players.
-2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other. The night only starts once everyone has tapped "I understand my role"; after a minute the host can start anyway. During the game, the eye button in the header shows your role again, along with your pack, sister or lover.
+2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other. The night only starts once everyone has tapped "I understand my role"; after a minute the host can start anyway. During the game, the eye button in the header shows your role again, along with your pack, sister or lover, and every role in this game as it was dealt.
 3. **Night:** roles wake up one at a time in a fixed order. Only the player whose turn it is sees an action; everyone else sees a "the village sleeps" screen.
 4. **Dawn:** the app announces who died. If a Bear Tamer is alive and sits next to a werewolf, the bear also growls.
 5. **Day:** players discuss, using the day chat if they want, then each votes for a player.
    - The player with the most votes is eliminated, and their role is revealed.
-   - A tie, or no votes at all, means nobody dies.
+   - No votes at all means nobody dies. A tie also means nobody dies, unless the host chose "Vote again" in the lobby: then the village votes once more (60 s), only between the tied players, and a second tie spares everyone.
    - Either way, night falls next.
 6. The game alternates between night and day until someone wins. The game-over screen shows the winner, every role and the full event log. The host can then start a new game in the same room.
 
@@ -117,16 +117,18 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Players | Wolves | Other roles |
 |---|---|---|
 | 5 | 1 | Hunter, 3 Villagers |
-| 6 | 1 | Seer, Witch, Thief, 2 Villagers |
-| 7 | 2 | Seer, Witch, Thief, 2 Villagers |
-| 8 | 2 | Seer, Witch, Hunter, Cupid, Thief, 1 Villager |
-| 9 | 2 | Seer, Witch, Hunter, Cupid, Thief, Saviour, 1 Villager |
-| 10 | 3 | Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer |
-| 11 | 3 | Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, 1 Villager |
-| 12 | 3 | Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, 2 Sisters |
-| 13+ | 3 | As for 12, plus extra Villagers |
+| 6 | 1 | Seer, 4 Villagers |
+| 7 | 2 | Seer, Witch, Hunter, 2 Villagers |
+| 8 | 2 | Seer, Witch, Hunter, 3 Villagers |
+| 9 | 2 | Seer, Witch, Hunter, Cupid, 3 Villagers |
+| 10 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 2 Villagers |
+| 11 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 3 Villagers |
+| 12 | 3 | Seer, Witch, Hunter, Saviour, Cupid, 2 Sisters, 2 Villagers |
+| 13 | 4 | Seer, Witch, Hunter, Saviour, Cupid, Bear Tamer, 2 Sisters, 1 Villager |
+| 14–17 | 4 | As for 13, plus one Villager per extra player |
+| 18+ | 5 | As for 13, plus Villagers for the rest |
 
-Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The White Wolf and Wolf Hound are only available in Custom mode for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The White Wolf and Wolf Hound are only available in Custom mode for now.
 
 ---
 
@@ -351,17 +353,22 @@ Prebuild **deletes and recreates `android/`**. Afterwards, re-create `android/lo
 npm test
 ```
 
-Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/):
+Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/), plus helpers in [`app/utils/__tests__/`](app/utils/__tests__/) and [`app/hooks/__tests__/`](app/hooks/__tests__/):
 
 | File | Covers |
 |---|---|
-| `roles.test.js` | Compositions, custom compositions, random role dealing, win conditions, Thief/lover/sister helpers |
-| `voteManager.test.js` | Vote counting, ties, unconfirmed votes, when all votes are in |
-| `nightOrder.test.js` | Who wakes on night 1 and later nights, skipping dead/absent roles, the next step, when a step is done |
+| `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions, seating, Thief/lover/sister helpers |
+| `voteManager.test.js` | Vote counting, ties and who is tied, unconfirmed votes, when all votes are in |
+| `nightOrder.test.js` | Who wakes on night 1 and later nights, skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote |
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer |
-| `dayFlow.test.js` | Lynch, ties, lover chain, Hunter shot, winners, starting the next night |
-| `startGame.test.js` | Dealing, witch potions, narrator, chat-cleanup failure, bots |
-| `bots.test.js` | How many seats bots may fill (half-table cap), random themed bot names |
+| `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night |
+| `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots |
+| `bots.test.js` | How many seats bots may fill (half-table cap), random themed bot names, the name list itself |
+| `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
+| `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
+| `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid) — nobody else's role leaks |
+| `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
 
 Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
 
@@ -414,7 +421,7 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Rooms are readable by any signed-in user,** because joining by code has to find the room before the player is a member. Writes are restricted (see [Firestore rules](#firestore-rules)).
 - **Host takeover isn't checked by the server.** The rules let any member make themselves host; only the app waits for 25 seconds of silence first.
 - **Timers run on each phone**, so they can drift slightly on slow devices.
-- **Leaving mid-game:** a player who taps *Leave* is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
+- **Leaving mid-game:** *Leave game* sits in the Options pop-up (the gear button at the end of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
 - **Bear Tamer neighbours** are based on join order, not on where people actually sit.

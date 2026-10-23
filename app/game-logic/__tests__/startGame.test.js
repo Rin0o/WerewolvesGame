@@ -33,6 +33,11 @@ describe('startGame', () => {
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
   });
 
+  it('records the dealt composition so players can see which roles are in the game', async () => {
+    const update = await start(humans(8));
+    expect(update.roleComposition).toEqual(countRoles(getCompositionForCount(8)));
+  });
+
   it('opens night 1 by waiting for everyone to read their role', async () => {
     const update = await start(humans(8));
     expect(update.nightSubPhase).toBe(ROLE_REVEAL_STEP);

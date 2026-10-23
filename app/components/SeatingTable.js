@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, Modal, TouchableOpacity, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { getSeating, getLivingNeighbours } from '../game-logic/roles';
+import BarButton from './BarButton';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const AVATAR_UNKNOWN = require('../../assets/role_icons/unknown.webp');
@@ -25,12 +26,8 @@ function neighbourText(players, neighbours) {
   return `Your neighbours: ${name(left)} and ${name(right)}`;
 }
 
-export function SeatingTableButton({ onPress, style }) {
-  return (
-    <TouchableOpacity style={[styles.barBtn, style]} onPress={onPress} accessibilityLabel="Show the table">
-      <Image source={TABLE_VIEW_ICON} style={styles.barBtnImg} resizeMode="contain" />
-    </TouchableOpacity>
-  );
+export function SeatingTableButton({ onPress }) {
+  return <BarButton source={TABLE_VIEW_ICON} onPress={onPress} accessibilityLabel="Show the table" />;
 }
 
 export default function SeatingTable({ visible, onClose, theme: t, players, playerId }) {
@@ -147,6 +144,4 @@ const styles = StyleSheet.create({
   name: { ...FONTS.caption, textAlign: 'center' },
   neighbours: { ...FONTS.body, fontWeight: '600', textAlign: 'center' },
   caption: { ...FONTS.caption, textAlign: 'center' },
-  barBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  barBtnImg: { width: '100%', height: 70 },
 });

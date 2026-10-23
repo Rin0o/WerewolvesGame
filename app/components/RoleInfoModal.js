@@ -9,7 +9,7 @@ const TEAM_LABELS = {
   werewolves: 'Werewolves',
 };
 
-export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [] }) {
+export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [], children }) {
   if (!role) return null;
   const info = getRoleInfo(role);
   const shownGroups = groups.filter((g) => g.names.length > 0);
@@ -51,6 +51,7 @@ export default function RoleInfoModal({ visible, onClose, theme: t, role, title,
                 <Text style={[styles.body, { color: t.text }]}>{info.ability}</Text>
               </>
             )}
+            {children}
             <Text style={[styles.caption, { color: t.textMuted, marginTop: SPACING.md }]}>Tap outside to close</Text>
           </ScrollView>
         </Pressable>

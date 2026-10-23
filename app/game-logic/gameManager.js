@@ -153,6 +153,10 @@ export function isSubPhaseDone(subPhase, room) {
   }
 }
 
+function countRoles(roleMap) {
+  return Object.values(roleMap).reduce((acc, role) => ({ ...acc, [role]: (acc[role] || 0) + 1 }), {});
+}
+
 function dealWithBots(humanPlayers, botPlayers, composition) {
   const wolfCount = composition.filter((r) => r === ROLE.WEREWOLF).length;
   const specials = shuffleArr(composition.filter((r) => r !== ROLE.WEREWOLF && r !== ROLE.VILLAGER));
@@ -219,6 +223,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     nightActions: {},
     nightSubPhase: ROLE_REVEAL_STEP,
     roleAcknowledged: [],
+    roleComposition: countRoles(roleMap),
     eliminatedThisNight: null,
     events: [`Game started with ${allPlayers.length} players.`],
     winner: null,
@@ -361,10 +366,33 @@ export async function resolveNight(roomId, roomData) {
     disconnectedPlayers: [],
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
+    revoteTargets: null,
     events: arrayUnion(...events),
   });
 
   return { winner, eliminatedId };
+}
+
+function nicknames(players, ids) {
+  return ids.map((id) => players.find((p) => p.id === id)?.nickname || '?');
+}
+
+export const TIE_RULE = { NO_LYNCH: 'no_lynch', REVOTE: 'revote' };
+
+export function tiedForRevote(room) {
+  if (room.tieRule !== TIE_RULE.REVOTE || room.revoteTargets?.length) return null;
+  const { tied } = tallyVotes(room.votes || {});
+  return tied.length > 1 ? tied : null;
+}
+
+export async function startRevote(roomId, room, tied) {
+  await updateRoom(roomId, {
+    votes: {},
+    votesClosed: false,
+    revoteTargets: tied,
+    phaseStartedAt: new Date().toISOString(),
+    events: arrayUnion(`Day ${room.phase}: The vote was tied between ${nicknames(room.players || [], tied).join(' and ')}. The village votes again.`),
+  });
 }
 
 export async function startNextNight(roomId) {
@@ -391,7 +419,7 @@ export async function resolveLynch(roomId, roomData) {
   const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
   const events = [];
 
-  const { tallyMap, eliminatedId, tie } = tallyVotes(votes);
+  const { tallyMap, eliminatedId, tie, tied } = tallyVotes(votes);
 
   const allEliminated = new Set();
 
@@ -402,7 +430,7 @@ export async function resolveLynch(roomId, roomData) {
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, lovers, events, `Day ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
   } else if (tie) {
-    const tiedNames = Object.keys(tallyMap).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ');
+    const tiedNames = nicknames(players, tied).join(', ');
     events.push(`Day ${phase}: The vote ended in a tie (${tiedNames}) — no one was eliminated.`);
   } else {
     events.push(`Day ${phase}: No votes were confirmed — the village remains divided.`);
@@ -439,6 +467,7 @@ export async function resolveLynch(roomId, roomData) {
     hunterDiedDuring: hunterTriggered ? 'day' : null,
     votes: {},
     votesClosed: false,
+    revoteTargets: null,
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),

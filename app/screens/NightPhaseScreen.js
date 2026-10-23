@@ -47,6 +47,9 @@ import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
 import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
 import MyRoleButton from '../components/MyRoleButton';
+import BarButton from '../components/BarButton';
+import GameOptionsModal from '../components/GameOptionsModal';
+import useUnreadMessages from '../hooks/useUnreadMessages';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE, isWolfRole } from '../constants/roles';
 
@@ -54,6 +57,8 @@ const SUBPHASE_TIMER = 45;
 const SUBPHASE_TIMER_OVERRIDES = { thief: 30, cupid: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25 };
 const OBSERVE_ONLY_WEREWOLF_TIMER = 15;
 const FORCE_START_AFTER_MS = 60000;
+const WAIT_TITLE_COLOR = '#FFF1CC';
+const WAIT_SUB_COLOR = '#EDE3FF';
 const BOT_WOLF_MIN_DELAY_MS = 4000;
 const BOT_WOLF_MAX_DELAY_MS = 10000;
 
@@ -109,8 +114,9 @@ const DEATH_MESSAGES = {
 
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
-const LEAVE_ICON       = require('../../assets/exit_game.webp');
 const NIGHT_CHAT_ICON  = require('../../assets/night_chat.webp');
+const DEAD_ICON        = require('../../assets/suspicion_level_icons/dead.webp');
+const OPTIONS_ICON     = require('../../assets/options.webp');
 
 export default function NightPhaseScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -133,10 +139,16 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [chatVisible, setChatVisible] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [showTransition, setShowTransition] = useState(true);
   const [eliminatedOverlay, setEliminatedOverlay] = useState(false);
   const [canForceStart, setCanForceStart] = useState(false);
+  const canUseWolfChat = isWolfRole(gs.myRole) || !!gs.isNarrator;
+  const unreadWolfMessages = useUnreadMessages(roomId, 'werewolf', playerId, {
+    isOpen: chatVisible,
+    enabled: canUseWolfChat,
+  });
   const pendingDay = useRef(false);
   const roomRef = useRef(null);
   const resolvingRef = useRef(false);
@@ -498,7 +510,14 @@ export default function NightPhaseScreen({ route, navigation }) {
           <Text style={[styles.phaseNumber, { color: t.accent }]}>{phase}</Text>
         </View>
         <MyRoleButton theme={t} gs={gs} room={room} />
-        <Text style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}>The Village goes to sleep</Text>
+        <Text
+          style={[styles.title, { color: t.text, flex: 1, textAlign: 'center' }]}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          The Village goes to sleep
+        </Text>
         <View style={styles.timerSlot}>
           {nightSubPhase && nightSubPhase !== 'done' && nightSubPhase !== ROLE_REVEAL_STEP && !resolving && room.gameMode !== 'narrator' && (
             <Timer key={nightSubPhase} totalSeconds={subPhaseSeconds(nightSubPhase, room)} onExpire={handleSubPhaseTimerExpire} theme={t} />
@@ -525,15 +544,16 @@ export default function NightPhaseScreen({ route, navigation }) {
             <View style={styles.moonGlow}>
               <Text style={styles.moonBig}>🌕</Text>
             </View>
+            <View style={styles.waitVeil}>
             {nightSubPhase === ROLE_REVEAL_STEP ? (
               <>
-                <Text style={[styles.waitTitle, { color: t.text }]}>{SUBPHASE_FLAVOR.reveal.title}</Text>
-                <Text style={[styles.waitSub, { color: t.textMuted }]}>{SUBPHASE_FLAVOR.reveal.sub}</Text>
+                <Text style={styles.waitTitle}>{SUBPHASE_FLAVOR.reveal.title}</Text>
+                <Text style={styles.waitSub}>{SUBPHASE_FLAVOR.reveal.sub}</Text>
                 <Text style={[styles.revealCount, { color: t.accent }]}>
                   {readyCount} of {readyCount + stillReading.length} ready
                 </Text>
                 {stillReading.length > 0 && (
-                  <Text style={[styles.waitSub, { color: t.textSecondary }]}>
+                  <Text style={styles.waitSub}>
                     Still reading: {stillReading.map((p) => p.nickname).join(', ')}
                   </Text>
                 )}
@@ -548,26 +568,27 @@ export default function NightPhaseScreen({ route, navigation }) {
               </>
             ) : resolving || nightSubPhase === 'done' ? (
               <>
-                <Text style={[styles.waitTitle, { color: t.text }]}>{SUBPHASE_FLAVOR.done.title}</Text>
-                <Text style={[styles.waitSub, { color: t.textMuted }]}>{SUBPHASE_FLAVOR.done.sub}</Text>
+                <Text style={styles.waitTitle}>{SUBPHASE_FLAVOR.done.title}</Text>
+                <Text style={styles.waitSub}>{SUBPHASE_FLAVOR.done.sub}</Text>
                 <ActivityIndicator color={t.accent} style={{ marginTop: SPACING.lg }} />
               </>
             ) : !gs.isAlive ? (
               <>
-                <Text style={[styles.waitTitle, { color: t.text }]}>Night is falling...</Text>
-                <Text style={[styles.waitSub, { color: t.textMuted }]}>You watch from the shadows as a ghost.</Text>
+                <Text style={styles.waitTitle}>Night is falling...</Text>
+                <Text style={styles.waitSub}>You watch from the shadows as a ghost.</Text>
               </>
             ) : nightSubPhase && SUBPHASE_FLAVOR[nightSubPhase] ? (
               <>
-                <Text style={[styles.waitTitle, { color: t.text }]}>{SUBPHASE_FLAVOR[nightSubPhase].title}</Text>
-                <Text style={[styles.waitSub, { color: t.textMuted }]}>{SUBPHASE_FLAVOR[nightSubPhase].sub}</Text>
+                <Text style={styles.waitTitle}>{SUBPHASE_FLAVOR[nightSubPhase].title}</Text>
+                <Text style={styles.waitSub}>{SUBPHASE_FLAVOR[nightSubPhase].sub}</Text>
               </>
             ) : (
               <>
-                <Text style={[styles.waitTitle, { color: t.text }]}>Night is falling...</Text>
-                <Text style={[styles.waitSub, { color: t.textMuted }]}>Wait for dawn.</Text>
+                <Text style={styles.waitTitle}>Night is falling...</Text>
+                <Text style={styles.waitSub}>Wait for dawn.</Text>
               </>
             )}
+            </View>
           </View>
         )}
 
@@ -677,19 +698,26 @@ export default function NightPhaseScreen({ route, navigation }) {
       </ScrollView>
 
       <View style={[styles.bottomBar, { borderTopColor: t.border, backgroundColor: t.glassToolbar }]}>
-        <TouchableOpacity style={styles.barBtn} onPress={handleExit}>
-          <Image source={LEAVE_ICON} style={styles.barBtnImg} resizeMode="contain" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.barBtn} onPress={() => setNotesOpen(true)}>
-          <Image source={NOTES_ICON} style={styles.barBtnImg} resizeMode="contain" />
-        </TouchableOpacity>
+        <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
         <SeatingTableButton onPress={() => setTableOpen(true)} />
-        {(isWolfRole(gs.myRole) || gs.isNarrator) && (
-          <TouchableOpacity style={styles.barBtn} onPress={() => setChatVisible(true)}>
-            <Image source={NIGHT_CHAT_ICON} style={styles.barBtnImg} resizeMode="contain" />
-          </TouchableOpacity>
+        {canUseWolfChat && (
+          <BarButton
+            source={NIGHT_CHAT_ICON}
+            onPress={() => setChatVisible(true)}
+            unread={unreadWolfMessages}
+            accessibilityLabel="Wolf chat"
+          />
         )}
+        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
+
+      <GameOptionsModal
+        visible={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        theme={t}
+        room={room}
+        onLeave={handleExit}
+      />
 
       <WerewolfChat
         visible={chatVisible}
@@ -721,23 +749,26 @@ export default function NightPhaseScreen({ route, navigation }) {
       <Modal
         visible={eliminatedOverlay}
         transparent
+        statusBarTranslucent
+        navigationBarTranslucent
         animationType="fade"
         onRequestClose={() => navigation.replace('DayPhase', { roomId, playerId, nickname })}
       >
         <View style={styles.eliminatedOverlay}>
-          <View style={styles.eliminatedCard}>
-            <Text style={styles.eliminatedSkull}>💀</Text>
-            <Text style={styles.eliminatedTitle}>You were eliminated</Text>
-            <Text style={styles.eliminatedSub}>
-              {DEATH_MESSAGES[room.nightDeathCauses?.[playerId]] || 'You did not survive the night.'} You will join the village as a ghost.
-            </Text>
-            <TouchableOpacity
-              style={styles.eliminatedBtn}
-              onPress={() => navigation.replace('DayPhase', { roomId, playerId, nickname })}
-            >
-              <Text style={styles.eliminatedBtnText}>Continue to Day</Text>
-            </TouchableOpacity>
-          </View>
+          <Image source={DEAD_ICON} style={styles.eliminatedIcon} resizeMode="contain" />
+          <Text style={styles.eliminatedTitle}>You were eliminated</Text>
+          <Text style={styles.eliminatedCause}>
+            {DEATH_MESSAGES[room.nightDeathCauses?.[playerId]] || 'You did not survive the night.'}
+          </Text>
+          <Text style={styles.eliminatedSub}>
+            You will watch the rest of the game as a ghost. Keep your secrets — the dead do not speak.
+          </Text>
+          <TouchableOpacity
+            style={styles.eliminatedBtn}
+            onPress={() => navigation.replace('DayPhase', { roomId, playerId, nickname })}
+          >
+            <Text style={styles.eliminatedBtnText}>Continue as a ghost</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </SafeAreaView>
@@ -766,7 +797,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   timerSlot: {
-    width: 80,
+    width: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -776,8 +807,6 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     borderTopWidth: 1,
   },
-  barBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  barBtnImg: { width: '100%', height: 70 },
   title: { ...FONTS.heading, textAlign: 'center' },
   phaseLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 2 },
   phaseNumber: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
@@ -815,46 +844,72 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   forceStartText: { ...FONTS.button },
-  waitTitle: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.sm },
-  waitSub: { ...FONTS.body, textAlign: 'center', lineHeight: 24 },
+  waitVeil: {
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.xl,
+    backgroundColor: 'rgba(8,4,24,0.6)',
+  },
+  waitTitle: {
+    ...FONTS.heading,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+    color: WAIT_TITLE_COLOR,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  waitSub: {
+    ...FONTS.body,
+    textAlign: 'center',
+    lineHeight: 24,
+    color: WAIT_SUB_COLOR,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   eliminatedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5,2,18,0.92)',
+    flex: 1,
+    backgroundColor: 'rgba(4,2,12,0.96)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
-  },
-  eliminatedCard: {
-    backgroundColor: 'rgba(30,12,50,0.98)',
-    borderWidth: 2,
-    borderColor: '#E85090',
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginHorizontal: SPACING.xl,
-    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
     gap: SPACING.md,
   },
-  eliminatedSkull: { fontSize: 80 },
+  eliminatedIcon: { width: 168, height: 168, marginBottom: SPACING.md },
   eliminatedTitle: {
     ...FONTS.title,
-    color: '#E85090',
+    color: '#F2E6FF',
+    textAlign: 'center',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(192,132,245,0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  eliminatedCause: {
+    ...FONTS.subheading,
+    color: '#E8A0C8',
+    fontStyle: 'italic',
     textAlign: 'center',
   },
   eliminatedSub: {
     ...FONTS.body,
-    color: '#C0A8E8',
+    color: '#A898C8',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   eliminatedBtn: {
-    marginTop: SPACING.sm,
-    backgroundColor: '#E85090',
-    borderRadius: RADIUS.md,
+    marginTop: SPACING.xl,
+    borderWidth: 1.5,
+    borderColor: 'rgba(242,230,255,0.5)',
+    borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm + 4,
   },
   eliminatedBtnText: {
     ...FONTS.button,
-    color: '#fff',
+    color: '#F2E6FF',
   },
 });

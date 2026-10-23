@@ -12,7 +12,7 @@ export function tallyVotes(votes) {
     tallyMap[v.target] = (tallyMap[v.target] || 0) + 1;
   }
   if (Object.keys(tallyMap).length === 0) {
-    return { tallyMap, eliminatedId: null, tie: false };
+    return { tallyMap, eliminatedId: null, tie: false, tied: [] };
   }
   const maxVotes = Math.max(...Object.values(tallyMap));
   const top = Object.entries(tallyMap).filter(([, c]) => c === maxVotes).map(([id]) => id);
@@ -20,5 +20,6 @@ export function tallyVotes(votes) {
     tallyMap,
     eliminatedId: top.length === 1 ? top[0] : null,
     tie: top.length > 1,
+    tied: top.length > 1 ? top : [],
   };
 }

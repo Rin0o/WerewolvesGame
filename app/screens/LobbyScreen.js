@@ -17,7 +17,7 @@ import useRoom from '../hooks/useRoom';
 import useHostFailover from '../hooks/useHostFailover';
 import { saveSession, clearSession } from '../utils/session';
 import { setPlayerReady, leaveRoom, updateRoom } from '../firebase/roomService';
-import { startGame } from '../game-logic/gameManager';
+import { startGame, TIE_RULE } from '../game-logic/gameManager';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { botSeats } from '../game-logic/bots';
@@ -78,6 +78,7 @@ export default function LobbyScreen({ route, navigation }) {
 
   const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false } = room;
   const gameMode = rawMode || 'normal';
+  const revoteOnTie = room.tieRule === TIE_RULE.REVOTE;
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
   const humanPlayers = players.filter((p) => !p.isBot);
@@ -117,6 +118,10 @@ export default function LobbyScreen({ route, navigation }) {
 
   function setClassicFirstNight(classic) {
     updateRoom(roomId, { classicFirstNight: classic });
+  }
+
+  function setTieRule(tieRule) {
+    updateRoom(roomId, { tieRule });
   }
 
   async function patchConfig(patch) {
@@ -302,6 +307,34 @@ export default function LobbyScreen({ route, navigation }) {
           {classicFirstNight
             ? 'The wolves hunt from night 1. The Seer, Witch and Saviour also wake on night 1.'
             : 'On night 1 the wolves only meet each other. Hunting and the Seer, Witch and Saviour start on night 2.'}
+        </Text>
+      </View>
+
+      {/* Tied vote rule — host picks, everyone sees */}
+      <View style={[styles.firstNightBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+        <Text style={[styles.compTitle, { color: t.textSecondary }]}>Tied Vote</Text>
+        {isHost ? (
+          <View style={styles.firstNightTabs}>
+            <TouchableOpacity
+              style={[styles.modeTab, !revoteOnTie && { backgroundColor: t.primary }]}
+              onPress={() => setTieRule(TIE_RULE.NO_LYNCH)}
+            >
+              <Text style={[styles.modeTabText, { color: !revoteOnTie ? '#fff' : t.textMuted }]}>🕊️ No lynch</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, revoteOnTie && { backgroundColor: t.primary }]}
+              onPress={() => setTieRule(TIE_RULE.REVOTE)}
+            >
+              <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>⚖️ Vote again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={[styles.modeBadgeText, { color: t.text }]}>{revoteOnTie ? '⚖️ Vote again' : '🕊️ No lynch'}</Text>
+        )}
+        <Text style={[styles.firstNightHint, { color: t.textMuted }]}>
+          {revoteOnTie
+            ? 'On a tie the village votes once more, only between the tied players. A second tie spares everyone.'
+            : 'On a tie nobody is lynched and night falls.'}
         </Text>
       </View>
 
