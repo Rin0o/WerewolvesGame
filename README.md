@@ -136,7 +136,7 @@ These tables were balanced with a simulation of 20,000 games per player count, a
 
 | Part | Technology |
 |---|---|
-| App | Expo SDK 57, React Native 0.86, React 19.2 (New Architecture only) |
+| App | Expo SDK 58, React Native 0.88, React 19.3 (New Architecture only) |
 | Navigation | React Navigation 7 (native stack) |
 | Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
 | Animation | react-native-reanimated 4 |

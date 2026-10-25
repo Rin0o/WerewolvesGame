@@ -4,7 +4,7 @@
 A React Native (Expo) mobile app for the social deduction game "The Werewolves of Miller's Hollow". All game logic runs client-side, coordinated through one Firestore document per room. No backend server. Current version: **1.1.3** (Android). User-facing documentation lives in `README.md`; this file is the developer/AI context and should stay consistent with it.
 
 ## Tech Stack
-- **Expo ~57** (React Native 0.86, React 19.2) — New Architecture only
+- **Expo ~58** (React Native 0.88, React 19.3) — New Architecture only. `metro.config.js` turns package exports off only for `firebase/*` imports (Firebase 10 breaks with them on)
 - **Firebase 10** — Firestore (real-time game state) + Anonymous Auth (UID persisted via AsyncStorage, so it survives app restarts)
 - **React Navigation 7** — Native Stack (`createNativeStackNavigator`). In v7 `navigate()` never goes back to a screen already in the stack (it pushes a new one); every Leave button uses `navigation.popTo('Home')`
 - **react-native-reanimated 4** — PhaseTransition animation
@@ -399,7 +399,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 ```bash
 npm test
 ```
-- Jest 29 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
+- Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
 - Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
