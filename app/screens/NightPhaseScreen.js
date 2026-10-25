@@ -22,21 +22,21 @@ import { botWolfLine } from '../game-logic/botChat';
 import { clearSession } from '../utils/session';
 import {
   resolveNight,
-  computeNightSequence,
-  nextNightSubPhase,
   isSubPhaseDone,
-  advanceNightUpdate,
   isQuietFirstNight,
   livingWolves,
-  wolfPrey,
-  wolfVoteOutcome,
-  wolfOutcomeUpdate,
-  leadingWolfTarget,
-  WOLF_OUTCOME,
   playersStillReading,
   ROLE_REVEAL_STEP,
 } from '../game-logic/gameManager';
-import { getAvailableRolesForThief } from '../game-logic/roles';
+import {
+  subPhaseSeconds,
+  advanceNightPlan,
+  hostNightPlan,
+  nightTimeoutPlan,
+  narratorAdvancePlan,
+  botWolvesToWake,
+  botWolfMove,
+} from '../game-logic/hostDecisions';
 import Timer from '../components/Timer';
 import WerewolfChat from '../components/WerewolfChat';
 import PhaseTransition from '../components/PhaseTransition';
@@ -60,10 +60,6 @@ import useUnreadMessages from '../hooks/useUnreadMessages';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { ROLE, isWolfRole } from '../constants/roles';
 
-const SUBPHASE_TIMER = 45;
-const SUBPHASE_TIMER_OVERRIDES = { thief: 30, cupid: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25 };
-const OBSERVE_ONLY_WEREWOLF_TIMER = 15;
-const WOLF_REVOTE_SECONDS = 30;
 const FORCE_START_AFTER_MS = 60000;
 const WAIT_TITLE_COLOR = '#FFF1CC';
 const WAIT_SUB_COLOR = '#EDE3FF';
@@ -73,16 +69,6 @@ const BOT_WOLF_MAX_DELAY_MS = 10000;
 
 function botDelay() {
   return BOT_WOLF_MIN_DELAY_MS + Math.random() * (BOT_WOLF_MAX_DELAY_MS - BOT_WOLF_MIN_DELAY_MS);
-}
-
-function randomItem(items) {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function subPhaseSeconds(subPhase, room) {
-  if (subPhase === 'werewolf' && isQuietFirstNight(room)) return OBSERVE_ONLY_WEREWOLF_TIMER;
-  if (subPhase === 'werewolf' && room.nightActions?.wolfRevoteTargets) return WOLF_REVOTE_SECONDS;
-  return SUBPHASE_TIMER_OVERRIDES[subPhase] ?? SUBPHASE_TIMER;
 }
 
 const SUBPHASE_TO_ROLE = {
@@ -214,19 +200,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   }, [room?.status]);
 
   useEffect(() => {
-    if (!gs.isHost || !room || room.status !== 'night') return;
-    const { nightSubPhase } = room;
-    const revealing = nightSubPhase === ROLE_REVEAL_STEP;
-    if (room.gameMode === 'narrator' && !revealing) return;
-    if (!nightSubPhase) {
-      const seq = computeNightSequence(room);
-      updateRoom(roomId, { nightSubPhase: seq[0] || 'done' });
-      return;
-    }
-    if (nightSubPhase === 'done' || resolvingRef.current) return;
-    const activePlayerLeft = !revealing && !computeNightSequence(room).includes(nightSubPhase);
-    if (!isSubPhaseDone(nightSubPhase, room) && !activePlayerLeft) return;
-    advanceFrom(room);
+    if (!gs.isHost || resolvingRef.current) return;
+    runPlan(hostNightPlan(room));
   }, [room?.nightActions, room?.nightSubPhase, room?.status, room?.disconnectedPlayers, room?.roleAcknowledged, gs.isHost]);
 
   useEffect(() => {
@@ -244,13 +219,13 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }, [room?.nightSubPhase, gs.isNarrator]);
 
-  function advanceFrom(current) {
-    const next = nextNightSubPhase(current, current.nightSubPhase);
-    if (next === 'done') {
+  async function runPlan(plan) {
+    if (!plan) return;
+    if (plan.update) await updateRoom(roomId, plan.update);
+    if (plan.resolveNight) {
+      resolvingRef.current = true;
       setResolving(true);
-      resolveNight(roomId, roomRef.current).catch(() => setResolving(false));
-    } else {
-      updateRoom(roomId, advanceNightUpdate(current, next));
+      resolveNight(roomId, plan.resolveNight).catch(() => setResolving(false));
     }
   }
 
@@ -264,44 +239,24 @@ export default function NightPhaseScreen({ route, navigation }) {
   }, [gs.isHost]);
 
   useEffect(() => {
-    if (!gs.isHost || !room || room.status !== 'night' || room.nightSubPhase !== 'werewolf') return;
-    if (isQuietFirstNight(room) || isSubPhaseDone('werewolf', room)) return;
-    const update = wolfOutcomeUpdate(wolfVoteOutcome(room));
-    if (update) updateRoom(roomId, update);
-  }, [room?.nightActions, room?.nightSubPhase, room?.status, room?.disconnectedPlayers, gs.isHost]);
-
-  useEffect(() => {
     subPhaseTimerExpiredRef.current = false;
     setWolfTarget(null);
   }, [room?.nightActions?.wolfRevoteTargets]);
 
   useEffect(() => {
-    if (!gs.isHost || !room || room.status !== 'night' || room.nightSubPhase !== 'werewolf') return;
-    if (isSubPhaseDone('werewolf', room)) return;
-    const wolves = livingWolves(room);
-    const botWolves = wolves.filter((w) => w.isBot);
-    if (botWolves.length === 0) return;
-    const quiet = isQuietFirstNight(room);
-    if (quiet && botWolves.length < wolves.length) return;
-
-    const timers = (quiet ? botWolves.slice(0, 1) : botWolves).map((bot) => setTimeout(() => {
+    if (!gs.isHost) return;
+    const timers = botWolvesToWake(room).map((bot) => setTimeout(() => {
       const current = roomRef.current;
-      if (!current || current.status !== 'night' || current.nightSubPhase !== 'werewolf') return;
-      if (isSubPhaseDone('werewolf', current)) return;
-      if (quiet) {
+      const move = botWolfMove(current, bot.id);
+      if (!move) return;
+      if (move.observe) {
         submitNightAction(roomId, 'werewolfObserved', true);
         return;
       }
-      const votes = current.nightActions?.wolfVotes || {};
-      if (votes[bot.id]) return;
-      const allowed = current.nightActions?.wolfRevoteTargets || wolfPrey(current).map((p) => p.id);
-      const leading = leadingWolfTarget(current);
-      const target = leading || (allowed.length > 0 ? randomItem(allowed) : null);
-      if (!target) return;
       if (current.botChat && Math.random() < BOT_WOLF_CHAT_CHANCE) {
-        sendWerewolfMessage(roomId, bot.id, bot.nickname, botWolfLine(current, target, !!leading)).catch(() => {});
+        sendWerewolfMessage(roomId, bot.id, bot.nickname, botWolfLine(current, move.target, move.followsLeader)).catch(() => {});
       }
-      submitNightAction(roomId, `wolfVotes.${bot.id}`, target);
+      submitNightAction(roomId, `wolfVotes.${bot.id}`, move.target);
     }, botDelay()));
     return () => timers.forEach(clearTimeout);
   }, [room?.nightSubPhase, room?.phase, room?.nightActions?.wolfRevoteTargets, gs.isHost]);
@@ -414,75 +369,11 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   async function handleTimerExpire() {
     if (!gs.isHost) return;
-    const currentRoom = roomRef.current;
-    if (!currentRoom || currentRoom.status !== 'night') return;
-    const subPhase = currentRoom.nightSubPhase;
-    if (!subPhase || subPhase === 'done') return;
-    if (isSubPhaseDone(subPhase, currentRoom)) return;
-
-    const { players: rPlayers = [], roles: rRoles = {}, saviourLastProtected: svlp = null } = currentRoom;
-    switch (subPhase) {
-      case 'werewolf': {
-        if (isQuietFirstNight(currentRoom)) {
-          await submitNightAction(roomId, 'werewolfObserved', true);
-        } else {
-          const update = wolfOutcomeUpdate(wolfVoteOutcome(currentRoom, { force: true }));
-          if (update) await updateRoom(roomId, update);
-        }
-        break;
-      }
-      case 'wolf_hound':
-        await submitNightAction(roomId, 'wolfHound', ROLE.VILLAGER);
-        break;
-      case 'white_wolf':
-        await submitNightAction(roomId, 'whiteWolfSkip', true);
-        break;
-      case 'seer': {
-        const tgts = rPlayers.filter((p) => p.isAlive);
-        if (tgts.length > 0) await submitNightAction(roomId, 'seer', tgts[0].id);
-        break;
-      }
-      case 'witch':
-        await submitNightAction(roomId, 'witchSkip', true);
-        break;
-      case 'cupid': {
-        const tgts = rPlayers.filter((p) => p.isAlive).slice(0, 2).map((p) => p.id);
-        if (tgts.length === 2) await submitNightAction(roomId, 'cupid', tgts);
-        break;
-      }
-      case 'thief': {
-        const avail = getAvailableRolesForThief(rRoles);
-        if (avail.length > 0) await submitNightAction(roomId, 'thief', avail[0]);
-        break;
-      }
-      case 'saviour': {
-        const tgts = rPlayers.filter((p) => p.isAlive && p.id !== svlp);
-        if (tgts.length > 0) await submitNightAction(roomId, 'saviour', tgts[0].id);
-        break;
-      }
-      default: break;
-    }
+    await runPlan(nightTimeoutPlan(roomRef.current));
   }
 
   async function doNarratorAdvance() {
-    let currentRoom = roomRef.current;
-    if (!currentRoom) return;
-    const { nightSubPhase: step, nightActions: actions = {} } = currentRoom;
-    if (step === 'werewolf' && !isQuietFirstNight(currentRoom) && !isSubPhaseDone('werewolf', currentRoom)) {
-      const outcome = wolfVoteOutcome(currentRoom, { force: true });
-      const update = wolfOutcomeUpdate(outcome);
-      if (update) await updateRoom(roomId, update);
-      if (outcome.type === WOLF_OUTCOME.REVOTE) return;
-      if (outcome.type === WOLF_OUTCOME.KILL) currentRoom = { ...currentRoom, nightActions: { ...actions, werewolf: outcome.target } };
-      if (outcome.type === WOLF_OUTCOME.NO_KILL) currentRoom = { ...currentRoom, nightActions: { ...actions, wolfNoKill: true } };
-    }
-    const next = nextNightSubPhase(currentRoom, currentRoom.nightSubPhase);
-    if (next === 'done') {
-      setResolving(true);
-      resolveNight(roomId, currentRoom).catch(() => setResolving(false));
-    } else {
-      updateRoom(roomId, advanceNightUpdate(currentRoom, next));
-    }
+    if (roomRef.current) await runPlan(narratorAdvancePlan(roomRef.current));
   }
 
   function handleNarratorAdvance() {
@@ -579,7 +470,7 @@ export default function NightPhaseScreen({ route, navigation }) {
                 {gs.isHost && canForceStart && (
                   <TouchableOpacity
                     style={[styles.forceStartBtn, { borderColor: t.accent }]}
-                    onPress={() => advanceFrom(room)}
+                    onPress={() => runPlan(advanceNightPlan(room))}
                   >
                     <Text style={[styles.forceStartText, { color: t.accent }]}>Start anyway</Text>
                   </TouchableOpacity>

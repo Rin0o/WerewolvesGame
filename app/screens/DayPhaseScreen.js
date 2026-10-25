@@ -21,7 +21,8 @@ import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, TIE_RULE } from '../game-logic/gameManager';
-import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
+import { tallyVotes } from '../game-logic/voteManager';
+import { discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak } from '../game-logic/hostDecisions';
 import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
@@ -51,13 +52,6 @@ const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.we
 const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
 const OPTIONS_ICON         = require('../../assets/options.webp');
 
-const DISCUSSION_SECONDS_PER_PLAYER = 30;
-const DISCUSSION_MIN_SECONDS = 90;
-const DISCUSSION_MAX_SECONDS = 240;
-
-function discussionSecondsFor(livingPlayers) {
-  return Math.min(DISCUSSION_MAX_SECONDS, Math.max(DISCUSSION_MIN_SECONDS, livingPlayers * DISCUSSION_SECONDS_PER_PLAYER));
-}
 const HUNTER_SHOT_SECONDS = 20;
 const REVOTE_SECONDS = 60;
 const BOT_VOTE_THINKING_MS = [30000, 90000];
@@ -144,15 +138,11 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   const alivePlayers = room?.players?.filter((p) => p.isAlive && !p.isNarrator) || [];
   const disconnected = room?.disconnectedPlayers || [];
-  const allIn = room
-    ? allVotesIn(room.votes || {}, alivePlayers, disconnected)
-    : false;
+  const allIn = room ? allDayVotesCast(room) : false;
   if (room && discussionSecondsRef.current === null) {
     discussionSecondsRef.current = discussionSecondsFor(alivePlayers.length);
   }
-  const humansAllVoted = alivePlayers
-    .filter((p) => !p.isBot && !disconnected.includes(p.id))
-    .every((p) => room?.votes?.[p.id]);
+  const everyHumanVoted = room ? humansAllVoted(room) : true;
 
   function botTargetFor(current, botId) {
     const key = `${current.phase}:${(current.revoteTargets || []).join(',')}:${botId}`;
@@ -164,39 +154,31 @@ export default function DayPhaseScreen({ route, navigation }) {
     return botTargetsRef.current[key];
   }
 
-  function botStillSpeaks(current, bot) {
-    return current && current.status === 'day' && !current.votesClosed && !current.hunterTriggered
-      && (current.players || []).some((p) => p.id === bot.id && p.isAlive);
-  }
-
   useEffect(() => {
-    if (!room || !gs.isHost || !room.botChat || room.status !== 'day' || room.votesClosed) return;
-    const bots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
-    const timers = bots.flatMap((bot) => {
+    if (!gs.isHost || !room?.botChat) return;
+    const timers = botsYetToVote(room).flatMap((bot) => {
       const lines = botDayChatter(room, bot.id, botTargetFor(room, bot.id));
       const delays = lines.map(() => randomBetween(BOT_CHAT_MS)).sort((a, b) => a - b);
       return lines.map((text, i) => setTimeout(() => {
-        if (botStillSpeaks(roomRef.current, bot)) sendDayMessage(roomId, bot.id, bot.nickname, text).catch(() => {});
+        if (botMaySpeak(roomRef.current, bot.id)) sendDayMessage(roomId, bot.id, bot.nickname, text).catch(() => {});
       }, delays[i]));
     });
     return () => timers.forEach(clearTimeout);
   }, [room?.status, room?.phase, room?.revoteTargets, room?.botChat, gs.isHost]);
 
   useEffect(() => {
-    if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
-    const pendingBots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
-    if (pendingBots.length === 0) return;
-    const timing = humansAllVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
-    const timers = pendingBots.map((bot) => setTimeout(() => {
+    if (!gs.isHost) return;
+    const timing = everyHumanVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
+    const timers = botsYetToVote(room).map((bot) => setTimeout(() => {
       const current = roomRef.current;
-      if (!botStillSpeaks(current, bot) || current.votes?.[bot.id]) return;
+      if (!botMaySpeak(current, bot.id) || current.votes?.[bot.id]) return;
       const target = botTargetFor(current, bot.id);
       if (!target) return;
       if (current.botChat) sendDayMessage(roomId, bot.id, bot.nickname, botVoteLine(current, target)).catch(() => {});
       confirmDayVote(roomId, bot.id, target);
     }, randomBetween(timing)));
     return () => timers.forEach(clearTimeout);
-  }, [room?.status, room?.votesClosed, room?.revoteTargets, humansAllVoted, gs.isHost]);
+  }, [room?.status, room?.votesClosed, room?.revoteTargets, everyHumanVoted, gs.isHost]);
 
   useEffect(() => {
     discussionTimerExpiredRef.current = false;
@@ -235,9 +217,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     const current = roomRef.current;
     if (!gs.isHost || !current || current.status !== 'day') return;
     if (current.hunterTriggered || resultModalVisible || resolvingRef.current) return;
-    const voters = (current.players || []).filter((p) => p.isAlive && !p.isNarrator);
-    const votingDone = current.votesClosed || allVotesIn(current.votes || {}, voters, current.disconnectedPlayers || []);
-    if (votingDone) handleResultExpire();
+    if (votingDone(current)) handleResultExpire();
     else if (discussionTimerExpiredRef.current) handleTimerExpire();
   }, [gs.isHost]);
 
