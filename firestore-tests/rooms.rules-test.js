@@ -341,3 +341,35 @@ describe('chats', () => {
     await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'dayChat', 'm1')));
   });
 });
+
+describe('sisters chat', () => {
+  const sisterChat = (db) => collection(db, 'rooms', ROOM, 'sisterChat');
+  const SISTERS_NIGHT = { ...NIGHT, roles: { ...NIGHT.roles, bob: 'sister', sam: 'sister' } };
+
+  beforeEach(() => seed(SISTERS_NIGHT, { sisterChat: { m1: { senderId: 'bob', senderNickname: 'bob', text: 'hi', createdAt: new Date() } } }));
+
+  it('only sisters post, and only at night', async () => {
+    await assertSucceeds(addDoc(sisterChat(as('bob').db), message('bob')));
+    await assertFails(addDoc(sisterChat(as('alice').db), message('alice')));
+    await assertFails(addDoc(sisterChat(as('bob').db), message('sam')));
+    await seed({ ...SISTERS_NIGHT, status: 'day' });
+    await assertFails(addDoc(sisterChat(as('bob').db), message('bob')));
+  });
+
+  it('members read it, strangers cannot', async () => {
+    await assertSucceeds(getDocs(sisterChat(as('host').db)));
+    await assertFails(getDocs(sisterChat(as('stranger').db)));
+  });
+
+  it('only sister bots post, through the host', async () => {
+    await seed({ ...SISTERS_NIGHT, roles: { ...SISTERS_NIGHT.roles, 'bot-0': 'sister', 'bot-1': 'villager' } });
+    await assertSucceeds(addDoc(sisterChat(as('host').db), message('bot-0')));
+    await assertFails(addDoc(sisterChat(as('host').db), message('bot-1')));
+    await assertFails(addDoc(sisterChat(as('bob').db), message('bot-0')));
+  });
+
+  it('only the host clears it', async () => {
+    await assertFails(deleteDoc(doc(as('bob').db, 'rooms', ROOM, 'sisterChat', 'm1')));
+    await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'sisterChat', 'm1')));
+  });
+});

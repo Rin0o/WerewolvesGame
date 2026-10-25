@@ -27,7 +27,7 @@ import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import DayChat from '../components/day/DayChat';
-import WerewolfChat from '../components/WerewolfChat';
+import PrivateChat from '../components/PrivateChat';
 import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
 import NightAnnouncement from '../components/day/NightAnnouncement';
 import HunterSection from '../components/day/HunterSection';
@@ -628,7 +628,8 @@ export default function DayPhaseScreen({ route, navigation }) {
       />
 
       {gs.isNarrator && (
-        <WerewolfChat
+        <PrivateChat
+          chat="werewolf"
           visible={wolfChatOpen}
           onClose={() => setWolfChatOpen(false)}
           roomId={roomId}

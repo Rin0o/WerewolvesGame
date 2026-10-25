@@ -1,13 +1,14 @@
 jest.mock('../../firebase/roomService', () => ({
   updateRoom: jest.fn(() => Promise.resolve()),
   clearWerewolfChat: jest.fn(() => Promise.resolve()),
+  clearSisterChat: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import {
   startGame, computeNightSequence, nextNightSubPhase, isSubPhaseDone, playersStillReading, ROLE_REVEAL_STEP,
 } from '../gameManager';
-import { updateRoom, clearWerewolfChat } from '../../firebase/roomService';
+import { updateRoom, clearWerewolfChat, clearSisterChat } from '../../firebase/roomService';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
 import { BOT_MARK } from '../../constants/botNames';
 import { lastUpdate, countRoles, ROOM_ID } from './helpers';
@@ -31,6 +32,7 @@ describe('startGame', () => {
     expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(8)));
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
+    expect(clearSisterChat).toHaveBeenCalledWith(ROOM_ID);
   });
 
   it('records the dealt composition so players can see which roles are in the game', async () => {
@@ -76,8 +78,9 @@ describe('startGame', () => {
     expect(update.players.map((p) => p.id)).toContain('nar');
   });
 
-  it('still starts when clearing the old wolf chat fails', async () => {
+  it('still starts when clearing the old chats fails', async () => {
     clearWerewolfChat.mockRejectedValueOnce(new Error('offline'));
+    clearSisterChat.mockRejectedValueOnce(new Error('offline'));
     await expect(startGame(ROOM_ID, humans(6))).resolves.toBeUndefined();
     expect(updateRoom).toHaveBeenCalled();
   });

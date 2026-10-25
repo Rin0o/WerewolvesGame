@@ -8,6 +8,7 @@ import {
   eliminatePlayer,
   clearNightActions,
   clearWerewolfChat,
+  clearSisterChat,
 } from '../firebase/roomService';
 import { pickBotNames } from './bots';
 
@@ -238,7 +239,7 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
 }
 
 export async function startGame(roomId, players, { composition: customComposition = null, classicFirstNight = false, botCount = 0 } = {}) {
-  const clearingChat = clearWerewolfChat(roomId).catch(() => {});
+  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId)]).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
@@ -290,7 +291,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     saviourLastProtected: null,
     bearTamerGrowl: null,
   });
-  await clearingChat;
+  await clearingChats;
 }
 
 // Eliminates a player and their lover if applicable. Returns list of all eliminated IDs.

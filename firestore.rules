@@ -212,5 +212,14 @@ service cloud.firestore {
       );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
+
+    match /rooms/{roomId}/sisterChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId));
+      allow create: if memberOf(roomAt(roomId)) && roomAt(roomId).status == 'night' && (
+        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') == 'sister' && validMessage())
+        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) == 'sister')
+      );
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
   }
 }

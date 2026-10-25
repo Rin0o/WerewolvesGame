@@ -38,7 +38,7 @@ import {
   botWolfMove,
 } from '../game-logic/hostDecisions';
 import Timer from '../components/Timer';
-import WerewolfChat from '../components/WerewolfChat';
+import PrivateChat from '../components/PrivateChat';
 import PhaseTransition from '../components/PhaseTransition';
 import WerewolfAction from '../components/night-actions/WerewolfAction';
 import NarratorNightDashboard from '../components/narrator/NarratorNightDashboard';
@@ -106,6 +106,7 @@ const DEATH_MESSAGES = {
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
 const NIGHT_CHAT_ICON  = require('../../assets/night_chat.webp');
+const SISTERS_CHAT_ICON = require('../../assets/sisters_chat.webp');
 const DEAD_ICON        = require('../../assets/suspicion_level_icons/dead.webp');
 const OPTIONS_ICON     = require('../../assets/options.webp');
 const MOON_IMAGE       = require('../../assets/moon_borderless.webp');
@@ -129,6 +130,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
+  const [sisterChatVisible, setSisterChatVisible] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -140,6 +142,11 @@ export default function NightPhaseScreen({ route, navigation }) {
   const unreadWolfMessages = useUnreadMessages(roomId, 'werewolf', playerId, {
     isOpen: chatVisible,
     enabled: canUseWolfChat,
+  });
+  const canUseSisterChat = gs.myRole === ROLE.SISTER || (!!gs.isNarrator && !!room?.roleComposition?.[ROLE.SISTER]);
+  const unreadSisterMessages = useUnreadMessages(roomId, 'sister', playerId, {
+    isOpen: sisterChatVisible,
+    enabled: canUseSisterChat,
   });
   const pendingDay = useRef(false);
   const roomRef = useRef(null);
@@ -630,6 +637,14 @@ export default function NightPhaseScreen({ route, navigation }) {
             accessibilityLabel="Wolf chat"
           />
         )}
+        {canUseSisterChat && (
+          <BarButton
+            source={SISTERS_CHAT_ICON}
+            onPress={() => setSisterChatVisible(true)}
+            unread={unreadSisterMessages}
+            accessibilityLabel="Sisters chat"
+          />
+        )}
         <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
 
@@ -641,7 +656,8 @@ export default function NightPhaseScreen({ route, navigation }) {
         onLeave={handleExit}
       />
 
-      <WerewolfChat
+      <PrivateChat
+        chat="werewolf"
         visible={chatVisible}
         onClose={() => setChatVisible(false)}
         roomId={roomId}
@@ -650,6 +666,19 @@ export default function NightPhaseScreen({ route, navigation }) {
         isAlive={gs.isAlive && !gs.isNarrator}
         isNarrator={gs.isNarrator}
       />
+
+      {canUseSisterChat && (
+        <PrivateChat
+          chat="sister"
+          visible={sisterChatVisible}
+          onClose={() => setSisterChatVisible(false)}
+          roomId={roomId}
+          playerId={playerId}
+          nickname={nickname}
+          isAlive={gs.isAlive && !gs.isNarrator}
+          isNarrator={gs.isNarrator}
+        />
+      )}
 
       <SeatingTable
         visible={tableOpen}

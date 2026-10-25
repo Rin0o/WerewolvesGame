@@ -108,7 +108,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on, starting that same night. If none is available, stays with the village. |
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
 | **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
-| **Sisters** (2) | Village | Know each other's identity from the start. No night action. |
+| **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
 | **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
 | **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
 
@@ -149,7 +149,7 @@ These tables were balanced with a simulation of 20,000 games per player count, a
 ## Architecture and key decisions
 
 ### No backend: one Firestore document per room
-All game state for a room lives in `rooms/{roomId}`: players, roles, night actions, votes, events, winner and so on. Every phone subscribes to that document in real time. Werewolf chat and day chat live in subcollections.
+All game state for a room lives in `rooms/{roomId}`: players, roles, night actions, votes, events, winner and so on. Every phone subscribes to that document in real time. Werewolf chat, sisters chat and day chat live in subcollections.
 
 *Why:* there's no server to host or pay for, and the game is meant for friends playing together in one room, not strangers online.
 
@@ -184,7 +184,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 | A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote. Any time: mark themselves gone/back, take over as host (for themselves only) |
 | The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
-| Chats | Members read and post as themselves (1–500 characters); only werewolves (White Wolf included) post in the wolf chat; only the host deletes |
+| Chats | Members read and post as themselves (1–500 characters); only werewolves (White Wolf included) post in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
 
 Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. Nobody can delete a room.
 
@@ -198,7 +198,7 @@ Each event-log entry is written in the same Firestore update that changes the ga
 *Why:* separate writes caused race conditions. Phones saw the new status before the matching events had arrived.
 
 ### Fast screen changes
-- Starting a game writes the night status straight away. Deleting the previous game's wolf chat runs in parallel instead of blocking.
+- Starting a game writes the night status straight away. Deleting the previous game's wolf and sisters chats runs in parallel instead of blocking.
 - `useRoom` keeps the last snapshot of the room, so the next screen draws immediately instead of waiting for Firestore again.
 
 ### Random roles, even with bots
