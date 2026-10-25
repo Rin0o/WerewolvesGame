@@ -157,9 +157,24 @@ describe('nightTimeoutPlan', () => {
     expect(nightTimeoutPlan(night('witch'))).toEqual({ update: { 'nightActions.witchSkip': true } });
   });
 
+  it('never makes the Saviour protect themself', () => {
+    expect(nightTimeoutPlan(night('saviour'))).toEqual({ update: { 'nightActions.saviour': 'will' } });
+  });
+
   it('never makes the Saviour protect last night\'s player again', () => {
-    const plan = nightTimeoutPlan(night('saviour', {}, { saviourLastProtected: 'sal' }));
-    expect(plan).toEqual({ update: { 'nightActions.saviour': 'will' } });
+    const plan = nightTimeoutPlan(night('saviour', {}, { saviourLastProtected: 'will' }));
+    expect(plan).toEqual({ update: { 'nightActions.saviour': 'wolf' } });
+  });
+
+  it('never makes the Seer inspect themself', () => {
+    const room = makeGame({ sam: 'seer', will: 'werewolf', vic: 'villager' }, { nightSubPhase: 'seer' });
+    expect(nightTimeoutPlan(room)).toEqual({ update: { 'nightActions.seer': 'will' } });
+  });
+
+  it('never picks the narrator', () => {
+    const room = makeGame({ sam: 'seer', vic: 'villager' }, { nightSubPhase: 'seer' });
+    const narrated = { ...room, players: [{ id: 'ned', isAlive: true, isNarrator: true }, ...room.players] };
+    expect(nightTimeoutPlan(narrated)).toEqual({ update: { 'nightActions.seer': 'vic' } });
   });
 
   it('gives the Thief a role nobody was dealt', () => {

@@ -1,5 +1,5 @@
 import { ROLE } from '../constants/roles';
-import { getAvailableRolesForThief } from './roles';
+import { getAvailableRolesForThief, getPlayerWithRole } from './roles';
 import { allVotesIn } from './voteManager';
 import {
   computeNightSequence,
@@ -67,7 +67,8 @@ export function nightTimeoutPlan(room) {
   const step = room.nightSubPhase;
   if (!step || step === 'done' || isSubPhaseDone(step, room)) return null;
   const { players = [], roles = {}, saviourLastProtected = null } = room;
-  const living = players.filter((p) => p.isAlive);
+  const living = players.filter((p) => p.isAlive && !p.isNarrator);
+  const othersThan = (role) => living.filter((p) => p.id !== getPlayerWithRole(roles, role));
   switch (step) {
     case 'werewolf': {
       if (isQuietFirstNight(room)) return nightActionUpdate('werewolfObserved', true);
@@ -80,8 +81,10 @@ export function nightTimeoutPlan(room) {
       return nightActionUpdate('whiteWolfSkip', true);
     case 'witch':
       return nightActionUpdate('witchSkip', true);
-    case 'seer':
-      return living.length > 0 ? nightActionUpdate('seer', living[0].id) : null;
+    case 'seer': {
+      const inspectable = othersThan(ROLE.SEER);
+      return inspectable.length > 0 ? nightActionUpdate('seer', inspectable[0].id) : null;
+    }
     case 'cupid': {
       const lovers = living.slice(0, 2).map((p) => p.id);
       return lovers.length === 2 ? nightActionUpdate('cupid', lovers) : null;
@@ -91,7 +94,7 @@ export function nightTimeoutPlan(room) {
       return available.length > 0 ? nightActionUpdate('thief', available[0]) : null;
     }
     case 'saviour': {
-      const protectable = living.filter((p) => p.id !== saviourLastProtected);
+      const protectable = othersThan(ROLE.SAVIOUR).filter((p) => p.id !== saviourLastProtected);
       return protectable.length > 0 ? nightActionUpdate('saviour', protectable[0].id) : null;
     }
     default:
