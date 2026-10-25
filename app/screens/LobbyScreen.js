@@ -76,7 +76,7 @@ export default function LobbyScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false } = room;
+  const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false, botChat = false } = room;
   const gameMode = rawMode || 'normal';
   const revoteOnTie = room.tieRule === TIE_RULE.REVOTE;
   const isHost = playerId === hostId;
@@ -177,6 +177,10 @@ export default function LobbyScreen({ route, navigation }) {
 
   function setFillWithBots(fill) {
     updateRoom(roomId, { fillWithBots: fill });
+  }
+
+  function setBotChat(enabled) {
+    updateRoom(roomId, { botChat: enabled });
   }
 
   function startLabelWithBots() {
@@ -482,6 +486,30 @@ export default function LobbyScreen({ route, navigation }) {
             )}
           </View>
           <Text style={[styles.firstNightHint, { color: t.textMuted }]}>{botHint()}</Text>
+          {fillWithBots && (
+            <>
+              <View style={[styles.configRow, styles.botChatRow]}>
+                <View style={styles.configLabelRow}>
+                  <Text style={[styles.configLabel, { color: t.text }]}>💬 Bots write in the chats</Text>
+                </View>
+                {isHost ? (
+                  <TouchableOpacity
+                    style={[styles.toggle, { backgroundColor: botChat ? t.success : t.surface, borderColor: botChat ? t.success : t.border }]}
+                    onPress={() => setBotChat(!botChat)}
+                  >
+                    <Text style={[styles.toggleText, { color: botChat ? '#fff' : t.textMuted }]}>
+                      {botChat ? 'ON' : 'OFF'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.modeBadgeText, { color: t.text }]}>{botChat ? 'ON' : 'OFF'}</Text>
+                )}
+              </View>
+              <Text style={[styles.firstNightHint, { color: t.textMuted }]}>
+                {botChat ? 'Bots comment the night and announce their votes.' : 'Off — bots vote silently.'}
+              </Text>
+            </>
+          )}
         </View>
       )}
 
@@ -629,6 +657,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   configTitle: { ...FONTS.subheading, marginBottom: SPACING.sm },
+  botChatRow: { marginTop: SPACING.md },
   configRow: {
     flexDirection: 'row',
     alignItems: 'center',

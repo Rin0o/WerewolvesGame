@@ -170,7 +170,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   }
 
   useEffect(() => {
-    if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
+    if (!room || !gs.isHost || !room.botChat || room.status !== 'day' || room.votesClosed) return;
     const bots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
     const timers = bots.flatMap((bot) => {
       const lines = botDayChatter(room, bot.id, botTargetFor(room, bot.id));
@@ -180,7 +180,7 @@ export default function DayPhaseScreen({ route, navigation }) {
       }, delays[i]));
     });
     return () => timers.forEach(clearTimeout);
-  }, [room?.status, room?.phase, room?.revoteTargets, gs.isHost]);
+  }, [room?.status, room?.phase, room?.revoteTargets, room?.botChat, gs.isHost]);
 
   useEffect(() => {
     if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
@@ -192,7 +192,7 @@ export default function DayPhaseScreen({ route, navigation }) {
       if (!botStillSpeaks(current, bot) || current.votes?.[bot.id]) return;
       const target = botTargetFor(current, bot.id);
       if (!target) return;
-      sendDayMessage(roomId, bot.id, bot.nickname, botVoteLine(current, target)).catch(() => {});
+      if (current.botChat) sendDayMessage(roomId, bot.id, bot.nickname, botVoteLine(current, target)).catch(() => {});
       confirmDayVote(roomId, bot.id, target);
     }, randomBetween(timing)));
     return () => timers.forEach(clearTimeout);

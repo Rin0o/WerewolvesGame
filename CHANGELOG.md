@@ -2,6 +2,11 @@
 
 All notable changes to Werewolves of Miller's Hollow (Android). Newest version first.
 
+## [1.1.3] — 2026-10-25
+
+### Changed
+- **Bot chat is now a lobby option.** When bots fill empty seats, the host can switch on "Bots write in the chats". It is off by default: bots then vote without posting in the day chat or the wolf chat. The Options pop-up shows whether bot chat is on.
+
 ## [1.1.2] — 2026-10-23
 
 ### Added

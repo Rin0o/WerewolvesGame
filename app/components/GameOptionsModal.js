@@ -62,6 +62,9 @@ export default function GameOptionsModal({ visible, onClose, theme: t, room, onL
               label="Tied vote"
               value={room?.tieRule === TIE_RULE.REVOTE ? 'Vote again' : 'No lynch'}
             />
+            {room?.players?.some((p) => p.isBot) && (
+              <RuleRow theme={t} label="Bot chat" value={room?.botChat ? 'On' : 'Off'} />
+            )}
           </View>
 
           <TouchableOpacity

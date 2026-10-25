@@ -298,7 +298,7 @@ export default function NightPhaseScreen({ route, navigation }) {
       const leading = leadingWolfTarget(current);
       const target = leading || (allowed.length > 0 ? randomItem(allowed) : null);
       if (!target) return;
-      if (Math.random() < BOT_WOLF_CHAT_CHANCE) {
+      if (current.botChat && Math.random() < BOT_WOLF_CHAT_CHANCE) {
         sendWerewolfMessage(roomId, bot.id, bot.nickname, botWolfLine(current, target, !!leading)).catch(() => {});
       }
       submitNightAction(roomId, `wolfVotes.${bot.id}`, target);
