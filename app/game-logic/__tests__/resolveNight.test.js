@@ -239,3 +239,33 @@ describe('resolveNight — Bear Tamer', () => {
     expect((await resolve(village({}))).bearTamerGrowl).toBeNull();
   });
 });
+
+describe('resolveNight — Fox', () => {
+  const foxGame = (nightActions, overrides = {}) => makeGame({ ...VILLAGE, fox: 'fox' }, { nightActions, ...overrides });
+
+  it('keeps the power when a wolf was among the three', async () => {
+    expect((await resolve(foxGame({ fox: 'sam' }))).foxPowerLost).toBe(false);
+  });
+
+  it('loses the power when none of the three is a wolf', async () => {
+    expect((await resolve(foxGame({ fox: 'hank' }))).foxPowerLost).toBe(true);
+  });
+
+  it('sniffs the table as it was before tonight\'s deaths', async () => {
+    const game = makeGame(
+      { fox: 'fox', vic: 'villager', will: 'werewolf', vera: 'villager', sam: 'seer', wendy: 'witch' },
+      { witchPotions: { wendy: { save: true, poison: true } }, nightActions: { fox: 'vic', witchPoison: 'will' } }
+    );
+    const update = await resolve(game);
+    expect(update.eliminatedThisNight).toEqual(['will']);
+    expect(update.foxPowerLost).toBe(false);
+  });
+
+  it('keeps the power when the Fox stayed hidden', async () => {
+    expect((await resolve(foxGame({ foxSkip: true }))).foxPowerLost).toBe(false);
+  });
+
+  it('never gets the power back', async () => {
+    expect((await resolve(foxGame({}, { foxPowerLost: true }))).foxPowerLost).toBe(true);
+  });
+});

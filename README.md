@@ -37,7 +37,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
-- **12 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, White Wolf and Wolf Hound.
+- **13 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, White Wolf and Wolf Hound.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
@@ -67,8 +67,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 | Night | Order |
 |---|---|
 | **Night 1 — Quiet** (default) | Thief → Cupid → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
-| **Night 1 — Classic** | Thief → Cupid → Wolf Hound → Saviour → Werewolves (choose a victim) → Witch → Seer |
-| **Later nights** | Saviour → Werewolves (choose a victim) → White Wolf (even nights only) → Witch (if she has potions left) → Seer |
+| **Night 1 — Classic** | Thief → Cupid → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Witch → Seer |
+| **Later nights** | Saviour → Fox (until it loses its power) → Werewolves (choose a victim) → White Wolf (even nights only) → Witch (if she has potions left) → Seer |
 
 The host picks **Quiet** or **Classic** for the first night in the lobby; everyone sees the choice. Classic follows the official rules. Roles that aren't in the game, or whose player is dead, are skipped.
 
@@ -109,6 +109,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
 | **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
+| **Fox** | Village | Each night (from night 2 with a Quiet first night) may point at another player and learns whether that player or either of their living neighbours is a werewolf. While choosing, the Fox sees exactly which players will be sniffed. If none of the three is a wolf, the Fox loses its power and never wakes again. If the timer runs out, the Fox stays hidden and keeps its power. |
 | **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
 | **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
 
@@ -128,7 +129,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The White Wolf and Wolf Hound are only available in Custom mode for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, White Wolf and Wolf Hound are only available in Custom mode for now.
 
 ---
 

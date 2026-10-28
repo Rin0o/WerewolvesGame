@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE, ROLE_DEFINITIONS, isWolfRole } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
+import { getFoxGroup, foxSmellsWolf } from '../../game-logic/roles';
 
 const SUBPHASE_LABELS = {
   reveal:   'Players Read Their Roles',
@@ -14,12 +15,13 @@ const SUBPHASE_LABELS = {
   witch:    'Witch Decides',
   seer:     'Seer Inspects',
   saviour:  'Saviour Protects',
+  fox:      'Fox Sniffs',
   done:     'Night Resolves',
 };
 
 const SUBPHASE_ICON_KEY = {
   thief: 'thief', cupid: 'cupid', wolf_hound: 'wolf_hound', werewolf: 'werewolf',
-  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour',
+  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox',
 };
 
 export default function NarratorNightDashboard({
@@ -47,6 +49,10 @@ export default function NarratorNightDashboard({
     : null;
   const houndSide         = nightActions.wolfHound;
   const whiteWolfPrey     = nightActions.whiteWolf ? players.find((p) => p.id === nightActions.whiteWolf) : null;
+  const foxGroupNames     = nightActions.fox
+    ? getFoxGroup(players, nightActions.fox).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ')
+    : null;
+  const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, roles, nightActions.fox) : false;
 
   const subPhaseIconKey = SUBPHASE_ICON_KEY[nightSubPhase];
   const subPhaseIcon = subPhaseIconKey ? ROLE_ICONS[subPhaseIconKey] : null;
@@ -54,7 +60,7 @@ export default function NarratorNightDashboard({
   const hasAnyAction =
     wolfTargetPlayer || wolfObserved || wolfRevoteNames || nightActions.wolfNoKill || saviourProtected || witchSavedPlayer ||
     witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
-    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip;
+    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip;
 
   return (
     <View style={[styles.dashboard, { backgroundColor: t.glassCard, borderColor: t.primary }]}>
@@ -134,6 +140,18 @@ export default function NarratorNightDashboard({
               valueColor={seerIsWolf ? t.danger : t.success}
               theme={t}
             />
+          )}
+          {foxGroupNames && (
+            <ActionRow
+              icon={ROLE_ICONS.fox}
+              label="Fox sniffed"
+              value={`${foxGroupNames} → ${foxFoundWolf ? '🐺 Wolf nearby' : 'No wolf, power lost'}`}
+              valueColor={foxFoundWolf ? t.danger : t.textMuted}
+              theme={t}
+            />
+          )}
+          {nightActions.foxSkip && (
+            <ActionRow icon={ROLE_ICONS.fox} label="Fox" value="Stayed hidden" valueColor={t.textMuted} theme={t} />
           )}
           {cupidLovers && (
             <ActionRow icon={ROLE_ICONS.cupid} label="Lovers" value={cupidLovers.join(' ❤️ ')} valueColor={t.accent} theme={t} />

@@ -1,7 +1,9 @@
 import {
   assignRoles,
   checkWinCondition,
+  foxSmellsWolf,
   getAvailableRolesForThief,
+  getFoxGroup,
   getLivingNeighbours,
   getLoversPartner,
   getPlayerWithRole,
@@ -231,5 +233,29 @@ describe('seating', () => {
 
   it('has no neighbours when alone', () => {
     expect(getLivingNeighbours(table(['bo', 'cy', 'dan', 'eve']), 'ana')).toEqual([]);
+  });
+});
+
+describe('the Fox', () => {
+  const ROLES = { ana: 'fox', bo: 'villager', cy: 'villager', dan: 'werewolf', eve: 'villager' };
+  const table = (dead = []) => makeGame(ROLES, { dead }).players;
+
+  it('sniffs the target and both living neighbours, in seating order', () => {
+    expect(getFoxGroup(table(), 'cy')).toEqual(['bo', 'cy', 'dan']);
+    expect(getFoxGroup(table(['dan']), 'cy')).toEqual(['bo', 'cy', 'eve']);
+  });
+
+  it('counts each player once when the table is small', () => {
+    expect(getFoxGroup(table(['bo', 'cy', 'dan']), 'eve')).toEqual(['ana', 'eve']);
+  });
+
+  it('smells a wolf when one of the three is a wolf', () => {
+    expect(foxSmellsWolf(table(), ROLES, 'cy')).toBe(true);
+    expect(foxSmellsWolf(table(), ROLES, 'eve')).toBe(true);
+    expect(foxSmellsWolf(table(), ROLES, 'ana')).toBe(false);
+  });
+
+  it('smells the White Wolf too', () => {
+    expect(foxSmellsWolf(table(), { ...ROLES, dan: 'villager', bo: 'white_wolf' }, 'ana')).toBe(true);
   });
 });

@@ -137,4 +137,17 @@ export function getLivingNeighbours(players, playerId) {
   return [nearest(-1), nearest(1)];
 }
 
+/**
+ * Returns the players the Fox sniffs when pointing at targetId, in seating order:
+ * the target's living neighbour on one side, the target, then the other neighbour (no duplicates).
+ */
+export function getFoxGroup(players, targetId) {
+  const [left, right] = getLivingNeighbours(players, targetId);
+  return [...new Set([left, targetId, right].filter(Boolean))];
+}
+
+export function foxSmellsWolf(players, roleMap, targetId) {
+  return getFoxGroup(players, targetId).some((id) => isWolfRole(roleMap[id]));
+}
+
 export { ROLE };

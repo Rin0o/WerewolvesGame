@@ -47,6 +47,8 @@ import WitchAction from '../components/night-actions/WitchAction';
 import CupidAction from '../components/night-actions/CupidAction';
 import ThiefAction from '../components/night-actions/ThiefAction';
 import SaviourAction from '../components/night-actions/SaviourAction';
+import FoxAction from '../components/night-actions/FoxAction';
+import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
 import WolfHoundAction from '../components/night-actions/WolfHoundAction';
 import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
@@ -80,6 +82,7 @@ const SUBPHASE_TO_ROLE = {
   saviour: ROLE.SAVIOUR,
   wolf_hound: ROLE.WOLF_HOUND,
   white_wolf: ROLE.WHITE_WOLF,
+  fox: ROLE.FOX,
 };
 
 const SUBPHASE_FLAVOR = {
@@ -92,6 +95,7 @@ const SUBPHASE_FLAVOR = {
   witch:    { title: 'The Witch Brews...', sub: 'A potion is being carefully considered.' },
   seer:     { title: 'The Seer Dreams...', sub: 'A mystic peers into the souls of the village.' },
   saviour:  { title: 'A Guardian Watches...', sub: 'Someone is being chosen for protection tonight.' },
+  fox:      { title: 'A Fox Sniffs the Air...', sub: 'Something cunning creeps between the houses.' },
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
@@ -127,6 +131,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [thiefChoice, setThiefChoice] = useState(null);
   const [thiefStolenRole, setThiefStolenRole] = useState(null);
   const [saviourTarget, setSaviourTarget] = useState(null);
+  const [foxTarget, setFoxTarget] = useState(null);
+  const [foxResult, setFoxResult] = useState(null);
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
@@ -195,7 +201,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         setEliminatedOverlay(true);
         return;
       }
-      if (seerResult) {
+      if (seerResult || foxResult) {
         pendingDay.current = true;
       } else {
         navigation.replace('DayPhase', { roomId, playerId, nickname });
@@ -312,6 +318,28 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }
 
+  async function submitFoxSniff() {
+    if (!foxTarget) return;
+    setFoxResult({
+      names: getFoxGroup(players, foxTarget).map((id) => players.find((p) => p.id === id)?.nickname || '?'),
+      foundWolf: foxSmellsWolf(players, roles, foxTarget),
+    });
+    await submitNightAction(roomId, 'fox', foxTarget);
+  }
+
+  function dismissFoxResult() {
+    setFoxResult(null);
+    setMyActionDone(true);
+    if (pendingDay.current) {
+      navigation.replace('DayPhase', { roomId, playerId, nickname });
+    }
+  }
+
+  async function submitFoxSkip() {
+    await submitNightAction(roomId, 'foxSkip', true);
+    setMyActionDone(true);
+  }
+
   async function submitWitchSave() {
     await submitNightAction(roomId, 'witchSave', victimId);
     setMyActionDone(true);
@@ -405,9 +433,12 @@ export default function NightPhaseScreen({ route, navigation }) {
   const isMyTurn = gs.isAlive && !gs.isNarrator
     && (gs.myRole === activeRole || (nightSubPhase === 'werewolf' && isWolfRole(gs.myRole)));
   const showSeerResult = !!seerResult;
+  const showFoxResult = !!foxResult;
   const showThiefReveal = !!thiefStolenRole;
-  const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showSeerResult && !showThiefReveal;
-  const showWaiting = !gs.isNarrator && !showAction && !showSeerResult && !showThiefReveal;
+  const showingResult = showSeerResult || showFoxResult || showThiefReveal;
+  const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showingResult;
+  const showWaiting = !gs.isNarrator && !showAction && !showingResult;
+  const foxPowerLostNote = gs.myRole === ROLE.FOX && gs.isAlive && !!room.foxPowerLost;
   const myWolfVote = nightActions.wolfVotes?.[playerId];
   const canConfirmWolfVote = showAction && nightSubPhase === 'werewolf' && !isQuietFirstNight(room)
     && !!wolfTarget && wolfTarget !== myWolfVote;
@@ -505,6 +536,14 @@ export default function NightPhaseScreen({ route, navigation }) {
                 <Text style={styles.waitSub}>Wait for dawn.</Text>
               </>
             )}
+            {foxPowerLostNote && nightSubPhase !== ROLE_REVEAL_STEP && (
+              <View style={[styles.foxLostNote, { borderColor: t.danger }]}>
+                <Image source={ROLE_ICONS.fox} style={styles.foxLostIcon} resizeMode="contain" />
+                <Text style={[styles.foxLostText, { color: WAIT_TITLE_COLOR }]}>
+                  You have lost your power. As the Fox, you no longer wake up at night.
+                </Text>
+              </View>
+            )}
             </View>
           </View>
         )}
@@ -599,6 +638,21 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSelectRole={setThiefChoice}
             onSubmit={submitThiefChoice}
             onDismissReveal={() => { setMyActionDone(true); setThiefStolenRole(null); }}
+          />
+        )}
+
+        {(showFoxResult || (showAction && nightSubPhase === 'fox')) && (
+          <FoxAction
+            theme={t}
+            players={alivePlayers}
+            seating={players}
+            playerId={playerId}
+            target={foxTarget}
+            onSelectTarget={setFoxTarget}
+            onSubmit={submitFoxSniff}
+            onSkip={submitFoxSkip}
+            result={foxResult}
+            onDismissResult={dismissFoxResult}
           />
         )}
 
@@ -787,6 +841,18 @@ const styles = StyleSheet.create({
   },
   moonBig: { width: 124, height: 124 },
   revealCount: { ...FONTS.subheading, marginTop: SPACING.md },
+  foxLostNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(192,57,43,0.25)',
+  },
+  foxLostIcon: { width: 36, height: 36 },
+  foxLostText: { ...FONTS.body, flex: 1 },
   forceStartBtn: {
     marginTop: SPACING.lg,
     borderWidth: 1.5,

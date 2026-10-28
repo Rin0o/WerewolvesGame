@@ -1,6 +1,6 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount, isWolfRole } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours } from './roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf } from './roles';
 import { tallyVotes } from './voteManager';
 import {
   getRoom,
@@ -44,6 +44,7 @@ export function computeNightSequence(room) {
     cupid: isActive(ROLE.CUPID),
     wolf_hound: isActive(ROLE.WOLF_HOUND),
     saviour: isActive(ROLE.SAVIOUR),
+    fox: isActive(ROLE.FOX) && !room.foxPowerLost,
     werewolf: isActive(ROLE.WEREWOLF) || isActive(ROLE.WHITE_WOLF),
     white_wolf: phase % 2 === 0 && isActive(ROLE.WHITE_WOLF) && packWolfAlive,
     witch: witchHasPotions,
@@ -53,8 +54,8 @@ export function computeNightSequence(room) {
 }
 
 const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'werewolf'];
-const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'saviour', 'werewolf', 'witch', 'seer'];
-const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'white_wolf', 'witch', 'seer'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer'];
+const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'white_wolf', 'witch', 'seer'];
 
 export const ROLE_REVEAL_STEP = 'reveal';
 
@@ -193,6 +194,7 @@ export function isSubPhaseDone(subPhase, room) {
     case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
     case 'seer':     return !!nightActions.seer;
     case 'saviour':  return !!nightActions.saviour;
+    case 'fox':      return !!nightActions.fox || nightActions.foxSkip === true;
     default:         return false;
   }
 }
@@ -290,6 +292,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     disconnectedPlayers: [],
     saviourLastProtected: null,
     bearTamerGrowl: null,
+    foxPowerLost: false,
   });
   await clearingChats;
 }
@@ -327,6 +330,8 @@ export async function resolveNight(roomId, roomData) {
   }
 
   const quiet = isQuietFirstNight(roomData);
+  const foxPowerLost = !!roomData.foxPowerLost
+    || (!!nightActions.fox && !foxSmellsWolf(players, updatedRoles, nightActions.fox));
   const saviourProtected = nightActions.saviour || null;
   let eliminatedId = quiet ? null : (nightActions.werewolf || null);
   const witchSaved = nightActions.witchSave === eliminatedId;
@@ -421,6 +426,7 @@ export async function resolveNight(roomId, roomData) {
     disconnectedPlayers: [],
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
+    foxPowerLost,
     revoteTargets: null,
     events: arrayUnion(...events),
   });

@@ -222,6 +222,15 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'host' }));
   });
 
+  it('the Fox sniffs or stays hidden, and cannot take away its own power', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'fox' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.fox': 'alice' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.foxSkip': true }));
+    await assertFails(updateDoc(as('bob').room, { foxPowerLost: false }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.fox': 'wendy' }));
+    await assertSucceeds(updateDoc(as('host').room, { foxPowerLost: true }));
+  });
+
   it('nobody but the host advances the night', async () => {
     await assertFails(updateDoc(as('alice').room, { nightSubPhase: 'seer' }));
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));

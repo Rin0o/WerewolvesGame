@@ -151,6 +151,11 @@ describe('nightTimeoutPlan', () => {
     expect(['sal', 'wendy', 'sam', 'vic', 'val']).toContain(update['nightActions.werewolf']);
   });
 
+  it('lets the Fox stay hidden rather than risk its power', () => {
+    expect(nightTimeoutPlan(night('fox'))).toEqual({ update: { 'nightActions.foxSkip': true } });
+    expect(subPhaseSeconds('fox', { phase: 2 })).toBe(25);
+  });
+
   it('defaults the Wolf Hound to the village and lets the White Wolf and the Witch pass', () => {
     expect(nightTimeoutPlan(night('wolf_hound'))).toEqual({ update: { 'nightActions.wolfHound': 'villager' } });
     expect(nightTimeoutPlan(night('white_wolf'))).toEqual({ update: { 'nightActions.whiteWolfSkip': true } });

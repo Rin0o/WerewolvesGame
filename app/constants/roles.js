@@ -11,6 +11,7 @@ export const ROLE = {
   SISTER: 'sister',
   WHITE_WOLF: 'white_wolf',
   WOLF_HOUND: 'wolf_hound',
+  FOX: 'fox',
 };
 
 export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF];
@@ -116,6 +117,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Win with the side you choose.',
     ability: 'On the first night, secretly choose to be a Villager or a Werewolf. If you choose the wolves, you join the pack that same night.',
   },
+  [ROLE.FOX]: {
+    name: 'Fox',
+    emoji: '🦊',
+    team: 'villagers',
+    description: 'A cunning creature who can sniff out the pack among a group of neighbours.',
+    goal: 'Help the village find and eliminate all Werewolves.',
+    ability: 'Each night you may point at a player. You learn whether that player or either of their living neighbours is a Werewolf. If none of the three is, you lose your power for the rest of the game. With a Quiet first night, you start on night 2.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -148,7 +157,7 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (white_wolf) comp.push(ROLE.WHITE_WOLF);
@@ -160,6 +169,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (thief) comp.push(ROLE.THIEF);
   if (saviour) comp.push(ROLE.SAVIOUR);
   if (bear_tamer) comp.push(ROLE.BEAR_TAMER);
+  if (fox) comp.push(ROLE.FOX);
   if (sister) { comp.push(ROLE.SISTER); comp.push(ROLE.SISTER); }
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);

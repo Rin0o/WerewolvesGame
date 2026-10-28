@@ -60,6 +60,33 @@ describe('computeNightSequence', () => {
   });
 });
 
+describe('the Fox in the night order', () => {
+  const WITH_FOX = { ...VILLAGE, fred: 'fox' };
+
+  it('wakes after the Saviour and before the wolves on later nights', () => {
+    const game = makeGame(WITH_FOX, { phase: 2, witchPotions: BOTH_POTIONS });
+    expect(computeNightSequence(game)).toEqual(['saviour', 'fox', 'werewolf', 'witch', 'seer']);
+  });
+
+  it('stays asleep on a quiet night 1 and wakes on a classic one', () => {
+    expect(computeNightSequence(makeGame(WITH_FOX, { phase: 1 }))).not.toContain('fox');
+    const classic = makeGame(WITH_FOX, { phase: 1, classicFirstNight: true, witchPotions: BOTH_POTIONS });
+    expect(computeNightSequence(classic)).toEqual(['thief', 'cupid', 'saviour', 'fox', 'werewolf', 'witch', 'seer']);
+  });
+
+  it('never wakes again once the power is lost', () => {
+    const game = makeGame(WITH_FOX, { phase: 3, foxPowerLost: true, witchPotions: BOTH_POTIONS });
+    expect(computeNightSequence(game)).not.toContain('fox');
+    expect(nextNightSubPhase(game, 'saviour')).toBe('werewolf');
+  });
+
+  it('the step ends when the Fox sniffs or stays hidden', () => {
+    expect(isSubPhaseDone('fox', { nightActions: {} })).toBe(false);
+    expect(isSubPhaseDone('fox', { nightActions: { fox: 'vic' } })).toBe(true);
+    expect(isSubPhaseDone('fox', { nightActions: { foxSkip: true } })).toBe(true);
+  });
+});
+
 describe('Classic first night', () => {
   it('wakes the saviour, the hunting wolves, the witch and the seer on night 1', () => {
     const game = makeGame(VILLAGE, { phase: 1, classicFirstNight: true, witchPotions: BOTH_POTIONS });
