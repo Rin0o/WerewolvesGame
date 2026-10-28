@@ -22,6 +22,7 @@ import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDay
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from '../game-logic/voteManager';
+import { rolesInPlay } from '../game-logic/roles';
 import {
   discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
 } from '../game-logic/hostDecisions';
@@ -648,6 +649,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         players={players}
         events={events}
         playerHooks={playerHooks}
+        roleOptions={rolesInPlay(room.roleComposition)}
       />
 
       <SeatingTable

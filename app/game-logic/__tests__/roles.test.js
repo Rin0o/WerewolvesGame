@@ -10,8 +10,9 @@ import {
   getSeating,
   getSisters,
   getWerewolves,
+  rolesInPlay,
 } from '../roles';
-import { ROLE, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
 import { makeGame, countRoles } from './helpers';
 
 function players(count) {
@@ -240,6 +241,23 @@ describe('seating', () => {
 
   it('has no neighbours when alone', () => {
     expect(getLivingNeighbours(table(['bo', 'cy', 'dan', 'eve']), 'ana')).toEqual([]);
+  });
+});
+
+describe('rolesInPlay (the Notes role picker)', () => {
+  it('lists only the dealt roles, plus Werewolf and Villager, in the usual order', () => {
+    expect(rolesInPlay({ werewolf: 2, seer: 1, villager: 3 })).toEqual(['villager', 'werewolf', 'seer']);
+    expect(rolesInPlay({ big_bad_wolf: 1, wild_child: 1, hunter: 1, werewolf: 1 }))
+      .toEqual(['villager', 'werewolf', 'hunter', 'wild_child', 'big_bad_wolf']);
+  });
+
+  it('adds every role a Thief could steal', () => {
+    expect(rolesInPlay({ werewolf: 1, thief: 1, seer: 1, villager: 2 }))
+      .toEqual(['villager', 'werewolf', 'seer', 'witch', 'hunter', 'cupid', 'thief']);
+  });
+
+  it('falls back to every role without a recorded composition', () => {
+    expect(rolesInPlay(undefined)).toHaveLength(Object.keys(ROLE_DEFINITIONS).length);
   });
 });
 

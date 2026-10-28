@@ -105,7 +105,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                getWerewolves(), getSisters(), getPlayerWithRole(),
                                getLoversPartner(), getAvailableRolesForThief(),
                                getSeating() (players minus narrator), getLivingNeighbours(),
-                               getFoxGroup(), foxSmellsWolf()
+                               getFoxGroup(), foxSmellsWolf(), rolesInPlay(roleComposition)
     gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
                                advanceNightUpdate(), livingWolves(), wolfPrey(), wolfVoteOutcome(),
                                wolfOutcomeUpdate(), leadingWolfTarget(), packHuntResult(), isMyNightTurn(),
@@ -427,7 +427,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Dead player row pattern**: In DayPhaseScreen, dead player rows use `backgroundColor: 'rgba(60,30,60,0.72)'` and a purple border. A purple-toned theme override is passed inline to PlayerCard (`text: '#F0ECFF'`, etc.). `noDeadOpacity` is set to prevent the 0.45 opacity from washing out the already-light text.
 - **Player row pattern**: Player lists (day screen, night action components, HunterSection) use a plain `<View>` with a themed `backgroundColor` and a `borderColor` that changes on selection. Day alive: `rgba(255,245,230,0.92)`, `borderWidth: 2`; night: `NIGHT_ROW` (`rgba(255,255,255,0.05)`, `borderWidth: 1.5`).
 - **PlayerCard avatar slots**: `avatarIcon` prop takes full precedence over the letter-circle and dead-role-icon fallbacks. Day screen passes `unknown.webp` for alive players and `dead.webp` for dead players (56×56); role is already shown below the name for dead players so the role icon is not used in the avatar slot. NotesPanel follows the same logic. `avatarIconSize` defaults to 40; both screens set it to 56.
-- **NotesPanel player board**: Each player gets a card (`boardCard`) with avatar + name on top and a horizontal suspicion strip below (4 level icons: innocent/neutral/suspicious/very_suspicious). Tapping an icon sets that level directly via `setSuspicion`. Dead player cards hide the suspicion strip and show an "Eliminated" label. The role picker button (top-right of each card) opens a modal with all role options; shows the role icon + name label when set.
+- **NotesPanel player board**: Each player gets a card (`boardCard`) with avatar + name on top and a horizontal suspicion strip below (4 level icons: innocent/neutral/suspicious/very_suspicious). Tapping an icon sets that level directly via `setSuspicion`. Dead player cards hide the suspicion strip and show an "Eliminated" label. The role picker button (top-right of each card) opens a modal with the roles in this game (`roleOptions` = `rolesInPlay(room.roleComposition)`: the dealt roles, always Werewolf and Villager, and the Thief's stealable roles when a Thief was dealt) as a scrolling two-column grid (max 80% of the screen), with Clear pinned below it; the button shows the role icon + name label when set.
 - **Visual style**: Stained-glass medieval fantasy aesthetic consistent across all assets. Dark stone frames, jewel-toned panels, castle motifs. UI chrome (cards, overlays) should blend with this palette.
 
 ## Firebase Setup (Required Before Running)

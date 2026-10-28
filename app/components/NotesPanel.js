@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Modal,
+  Pressable,
 } from 'react-native';
 
 import ClueLog from './ClueLog';
@@ -17,7 +18,7 @@ import { ROLE_ICONS, SUSPICION_ICONS } from '../constants/icons';
 
 const SUSPECT_ICON = require('../../assets/suspicion_level_icons/suspect.webp');
 
-const ROLE_OPTIONS = Object.keys(ROLE_DEFINITIONS);
+const ALL_ROLES = Object.keys(ROLE_DEFINITIONS);
 
 const SUSPICION_LEVELS = ['innocent', 'neutral', 'suspicious', 'very_suspicious'];
 
@@ -134,7 +135,7 @@ function PlayerBoardCard({ player, theme, suspicion, suspectedRole, onSelectSusp
   );
 }
 
-export default function NotesPanel({ visible, onClose, theme, players, events, playerHooks }) {
+export default function NotesPanel({ visible, onClose, theme, players, events, playerHooks, roleOptions = ALL_ROLES }) {
   const { notes, updateNotes, suspicions, setSuspicion, suspectedRoles, setSuspectedRole } = playerHooks;
   const [rolePickerFor, setRolePickerFor] = useState(null);
 
@@ -183,32 +184,36 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
       </View>
 
       <Modal visible={!!rolePickerFor} transparent animationType="fade" onRequestClose={() => setRolePickerFor(null)}>
-        <TouchableOpacity style={styles.roleOverlay} onPress={() => setRolePickerFor(null)}>
+        <View style={styles.roleOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRolePickerFor(null)} />
           <View style={[styles.rolePick, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.rolePickTitle, { color: theme.text }]}>Suspected Role</Text>
-            {ROLE_OPTIONS.map((r) => (
-              <TouchableOpacity
-                key={r}
-                onPress={() => { setSuspectedRole(rolePickerFor, r); setRolePickerFor(null); }}
-                style={[styles.roleOption, { borderColor: theme.border }]}
-              >
-                <View style={styles.roleOptionRow}>
+            <ScrollView style={styles.roleGridScroll} contentContainerStyle={styles.roleGrid}>
+              {roleOptions.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  onPress={() => { setSuspectedRole(rolePickerFor, r); setRolePickerFor(null); }}
+                  style={[styles.roleOption, { borderColor: theme.border }]}
+                >
                   {ROLE_ICONS[r] ? (
                     <Image source={ROLE_ICONS[r]} style={styles.roleOptionIcon} resizeMode="contain" />
                   ) : (
                     <Text style={styles.roleOptionEmoji}>{ROLE_DEFINITIONS[r].emoji}</Text>
                   )}
-                  <Text style={[styles.roleOptionText, { color: theme.text }]}>
+                  <Text style={[styles.roleOptionText, { color: theme.text }]} numberOfLines={2}>
                     {ROLE_DEFINITIONS[r].name}
                   </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={() => { setSuspectedRole(rolePickerFor, null); setRolePickerFor(null); }}>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.clearRoleBtn, { borderTopColor: theme.border }]}
+              onPress={() => { setSuspectedRole(rolePickerFor, null); setRolePickerFor(null); }}
+            >
               <Text style={[styles.clearRole, { color: theme.textMuted }]}>Clear</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </Modal>
   );
@@ -362,30 +367,43 @@ const styles = StyleSheet.create({
   },
   rolePick: {
     borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    width: 300,
+    padding: SPACING.md,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
     borderWidth: 1,
   },
   rolePickTitle: {
     ...FONTS.subheading,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
+  },
+  roleGridScroll: { flexGrow: 0 },
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: SPACING.xs,
   },
   roleOption: {
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  roleOptionRow: {
+    width: '49%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.xs,
+    padding: SPACING.xs,
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
   },
-  roleOptionIcon: { width: 34, height: 34 },
-  roleOptionEmoji: { fontSize: 30, width: 34, textAlign: 'center' },
-  roleOptionText: { ...FONTS.body, fontWeight: '600' },
+  roleOptionIcon: { width: 32, height: 32 },
+  roleOptionEmoji: { fontSize: 26, width: 32, textAlign: 'center' },
+  roleOptionText: { ...FONTS.caption, fontWeight: '700', flexShrink: 1 },
+  clearRoleBtn: {
+    borderTopWidth: 1,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+  },
   clearRole: {
-    ...FONTS.caption,
+    ...FONTS.body,
     textAlign: 'center',
-    marginTop: SPACING.md,
   },
 });

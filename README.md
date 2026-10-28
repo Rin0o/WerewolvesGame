@@ -41,7 +41,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
-- **Personal notes:** each player can mark suspicion levels, guess roles and keep a notepad. These stay on their phone only.
+- **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
 - **Resilience:**
   - If the host's phone disappears, another player automatically becomes host.
@@ -366,7 +366,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 
 | File | Covers |
 |---|---|
-| `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions (the Big Bad Wolf counts in the pack), seating, Thief/lover/sister helpers, the Fox's sniffed group |
+| `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions (the Big Bad Wolf counts in the pack), seating, Thief/lover/sister helpers, the Fox's sniffed group, which roles the Notes picker offers |
 | `voteManager.test.js` | Vote counting, ties and who is tied, unconfirmed votes, when all votes are in, the Raven's +2 |
 | `nightOrder.test.js` | Who wakes on night 1 and later nights (Fox, Wild Child, Raven, Big Bad Wolf, Wolf-Father and an infected player included), skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote and the result card the wolves see |
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer, the Fox losing its power, the Wild Child turning, the Raven's mark, the Big Bad Wolf's second victim, the Wolf-Father's infection (Saviour, Witch potions, once per game, the win, Fox and Bear Tamer) |

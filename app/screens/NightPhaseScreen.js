@@ -58,7 +58,7 @@ import PackResult from '../components/night-actions/PackResult';
 import WolfFatherAction from '../components/night-actions/WolfFatherAction';
 import TurnedWolfNotice from '../components/TurnedWolfNotice';
 import useTurnedWolfNotice from '../hooks/useTurnedWolfNotice';
-import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
+import { getFoxGroup, foxSmellsWolf, rolesInPlay } from '../game-logic/roles';
 import WolfHoundAction from '../components/night-actions/WolfHoundAction';
 import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
@@ -857,6 +857,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         players={players.filter((p) => !p.isNarrator)}
         events={events}
         playerHooks={playerHooks}
+        roleOptions={rolesInPlay(room.roleComposition)}
       />
 
       <TurnedWolfNotice notice={turnedWolfNotice.notice} onDismiss={turnedWolfNotice.dismiss} />

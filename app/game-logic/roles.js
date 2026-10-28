@@ -95,6 +95,20 @@ export function getAvailableRolesForThief(roleMap) {
 }
 
 /**
+ * Returns the roles a player could hold in this game, in ROLE_DEFINITIONS order: everything dealt
+ * (roleComposition), Werewolf and Villager (a Wild Child or Wolf Hound can become them), and, when a
+ * Thief was dealt, every role the Thief could steal. Without a recorded composition, every role.
+ */
+export function rolesInPlay(roleComposition) {
+  const allRoles = Object.keys(ROLE_DEFINITIONS);
+  if (!roleComposition || Object.keys(roleComposition).length === 0) return allRoles;
+  const dealt = Object.keys(roleComposition);
+  const stealable = dealt.includes(ROLE.THIEF) ? ALL_SELECTABLE_ROLES.filter((r) => !dealt.includes(r)) : [];
+  const inPlay = new Set([...dealt, ROLE.WEREWOLF, ROLE.VILLAGER, ...stealable]);
+  return allRoles.filter((r) => inPlay.has(r));
+}
+
+/**
  * Returns the partner ID for a given lover, or null if not a lover.
  */
 export function getLoversPartner(playerId, lovers) {
