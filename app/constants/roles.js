@@ -16,9 +16,10 @@ export const ROLE = {
   VILLAGE_IDIOT: 'village_idiot',
   RAVEN: 'raven',
   BIG_BAD_WOLF: 'big_bad_wolf',
+  WOLF_FATHER: 'wolf_father',
 };
 
-export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF, ROLE.BIG_BAD_WOLF];
+export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF, ROLE.BIG_BAD_WOLF, ROLE.WOLF_FATHER];
 
 export function isWolfRole(role) {
   return WOLF_ROLES.includes(role);
@@ -26,6 +27,10 @@ export function isWolfRole(role) {
 
 export function isPackWolf(role) {
   return isWolfRole(role) && role !== ROLE.WHITE_WOLF;
+}
+
+export function teamRoles(roles = {}, infectedId = null) {
+  return infectedId && roles[infectedId] ? { ...roles, [infectedId]: ROLE.WEREWOLF } : roles;
 }
 
 export const ROLE_DEFINITIONS = {
@@ -165,6 +170,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Eliminate enough villagers so werewolves equal or outnumber them.',
     ability: 'You hunt with the pack each night. Then, as long as no wolf has died, you wake again alone and may devour a second victim. The Saviour can protect against you, but the Witch cannot save your victim.',
   },
+  [ROLE.WOLF_FATHER]: {
+    name: 'Accursed Wolf-Father',
+    emoji: '🐺',
+    team: 'werewolves',
+    description: 'The ancient sire of the pack, whose bite spreads the curse.',
+    goal: 'Eliminate enough villagers so werewolves equal or outnumber them.',
+    ability: 'You hunt with the pack. Once per game, after the pack has chosen its victim, you may infect them instead of killing them: they secretly join the pack, keep their own role and power, and win with the werewolves. If the Saviour protected them, the bite fails and you keep your infection.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -197,10 +210,11 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (big_bad_wolf) comp.push(ROLE.BIG_BAD_WOLF);
+  if (wolf_father) comp.push(ROLE.WOLF_FATHER);
   if (white_wolf) comp.push(ROLE.WHITE_WOLF);
   if (wolf_hound) comp.push(ROLE.WOLF_HOUND);
   if (seer) comp.push(ROLE.SEER);

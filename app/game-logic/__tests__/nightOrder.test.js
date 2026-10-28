@@ -2,7 +2,7 @@ jest.mock('../../firebase/roomService', () => ({}));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import {
-  computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves,
+  computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves, wolfPrey, wolfHasDied,
   wolfVoteOutcome, wolfOutcomeUpdate, leadingWolfTarget, WOLF_OUTCOME, packHuntResult, isMyNightTurn,
 } from '../gameManager';
 import { makeGame } from './helpers';
@@ -136,6 +136,42 @@ describe('packHuntResult (what the wolves see when the hunt ends)', () => {
     const result = packHuntResult(hunt({ wolfNoKill: true, wolfVotes: { will: 'vic', wanda: 'vera' } }));
     expect(result.victimId).toBeNull();
     expect(result.votes).toHaveLength(2);
+  });
+});
+
+describe('the Wolf-Father and an infected player in the night order', () => {
+  const WITH_WFA = { ...VILLAGE, wfa: 'wolf_father' };
+
+  it('wakes right after the pack, only once the pack has a victim and while the bite is unused', () => {
+    const night2 = (nightActions, overrides) => makeGame(WITH_WFA, { phase: 2, witchPotions: BOTH_POTIONS, nightActions, ...overrides });
+    expect(computeNightSequence(night2({}))).not.toContain('wolf_father');
+    expect(nextNightSubPhase(night2({ werewolf: 'vic' }), 'werewolf')).toBe('wolf_father');
+    expect(nextNightSubPhase(night2({ wolfNoKill: true }), 'werewolf')).toBe('witch');
+    expect(nextNightSubPhase(night2({ werewolf: 'vic' }, { infectedId: 'sam' }), 'werewolf')).toBe('witch');
+  });
+
+  it('the step ends on either choice', () => {
+    expect(isSubPhaseDone('wolf_father', { nightActions: {} })).toBe(false);
+    expect(isSubPhaseDone('wolf_father', { nightActions: { wolfFather: true } })).toBe(true);
+    expect(isSubPhaseDone('wolf_father', { nightActions: { wolfFatherSkip: true } })).toBe(true);
+  });
+
+  it('an infected Seer hunts with the pack and still has her own step', () => {
+    const room = makeGame(VILLAGE, { phase: 2, infectedId: 'sam', nightSubPhase: 'werewolf' });
+    expect(livingWolves(room).map((w) => w.id).sort()).toEqual(['sam', 'will']);
+    expect(isMyNightTurn(room, 'sam')).toBe(true);
+    expect(isMyNightTurn({ ...room, nightSubPhase: 'seer' }, 'sam')).toBe(true);
+    expect(computeNightSequence(room)).toContain('seer');
+  });
+
+  it('the pack cannot pick an infected player as its victim', () => {
+    const room = makeGame(VILLAGE, { phase: 2, infectedId: 'sam' });
+    expect(wolfPrey(room).map((p) => p.id)).not.toContain('sam');
+  });
+
+  it('an infected player\'s death counts as a wolf\'s death for the Big Bad Wolf', () => {
+    const room = makeGame({ ...VILLAGE, bob: 'big_bad_wolf' }, { phase: 3, infectedId: 'sam', dead: ['sam'] });
+    expect(wolfHasDied(room)).toBe(true);
   });
 });
 

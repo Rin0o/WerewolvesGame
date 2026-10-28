@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE, ROLE_DEFINITIONS, isWolfRole } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, isWolfRole, teamRoles } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 import { getFoxGroup, foxSmellsWolf } from '../../game-logic/roles';
 
@@ -18,25 +18,28 @@ const SUBPHASE_LABELS = {
   fox:      'Fox Sniffs',
   wild_child: 'Wild Child Picks a Role Model',
   raven:    'Raven Marks a Suspect',
+  wolf_father: 'Wolf-Father Decides: Infect or Kill',
   big_bad_wolf: 'Big Bad Wolf Hunts Alone',
   done:     'Night Resolves',
 };
 
 const SUBPHASE_ICON_KEY = {
   thief: 'thief', cupid: 'cupid', wolf_hound: 'wolf_hound', werewolf: 'werewolf',
-  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox', wild_child: 'wild_child', raven: 'raven', big_bad_wolf: 'big_bad_wolf',
+  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox', wild_child: 'wild_child', raven: 'raven', big_bad_wolf: 'big_bad_wolf', wolf_father: 'wolf_father',
 };
 
 export default function NarratorNightDashboard({
   theme: t,
   players,
   roles,
+  infectedId = null,
   nightActions = {},
   phase,
   nightSubPhase,
   actionDone,
   onAdvance,
 }) {
+  const team = teamRoles(roles, infectedId);
   const wolfTargetPlayer  = nightActions.werewolf  ? players.find((p) => p.id === nightActions.werewolf)  : null;
   const saviourProtected  = nightActions.saviour   ? players.find((p) => p.id === nightActions.saviour)   : null;
   const witchSavedPlayer  = nightActions.witchSave ? players.find((p) => p.id === nightActions.witchSave) : null;
@@ -45,7 +48,7 @@ export default function NarratorNightDashboard({
   const thiefRole         = nightActions.thief;
   const seerTarget        = nightActions.seer ? players.find((p) => p.id === nightActions.seer) : null;
   const seerRevealedRole  = seerTarget ? roles[seerTarget.id] : null;
-  const seerIsWolf        = isWolfRole(seerRevealedRole);
+  const seerIsWolf        = seerTarget ? isWolfRole(team[seerTarget.id]) : false;
   const wolfObserved      = nightActions.werewolfObserved === true;
   const wolfRevoteNames   = nightActions.wolfRevoteTargets
     ? nightActions.wolfRevoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' / ')
@@ -55,7 +58,8 @@ export default function NarratorNightDashboard({
   const foxGroupNames     = nightActions.fox
     ? getFoxGroup(players, nightActions.fox).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ')
     : null;
-  const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, roles, nightActions.fox) : false;
+  const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, team, nightActions.fox) : false;
+  const packVictim        = nightActions.werewolf ? players.find((p) => p.id === nightActions.werewolf) : null;
   const wildChildModel    = nightActions.wildChild ? players.find((p) => p.id === nightActions.wildChild) : null;
   const ravenMarked       = nightActions.raven ? players.find((p) => p.id === nightActions.raven) : null;
   const bigBadWolfPrey    = nightActions.bigBadWolf ? players.find((p) => p.id === nightActions.bigBadWolf) : null;
@@ -67,7 +71,7 @@ export default function NarratorNightDashboard({
     wolfTargetPlayer || wolfObserved || wolfRevoteNames || nightActions.wolfNoKill || saviourProtected || witchSavedPlayer ||
     witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
     houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip || wildChildModel || ravenMarked || nightActions.ravenSkip
-    || bigBadWolfPrey || nightActions.bigBadWolfSkip;
+    || bigBadWolfPrey || nightActions.bigBadWolfSkip || nightActions.wolfFather || nightActions.wolfFatherSkip;
 
   return (
     <View style={[styles.dashboard, { backgroundColor: t.glassCard, borderColor: t.primary }]}>
@@ -120,6 +124,18 @@ export default function NarratorNightDashboard({
               valueColor={houndSide === ROLE.WEREWOLF ? t.danger : t.success}
               theme={t}
             />
+          )}
+          {nightActions.wolfFather === true && (
+            <ActionRow
+              icon={ROLE_ICONS.wolf_father}
+              label="Wolf-Father infects"
+              value={`${packVictim?.nickname || '?'} (unless the Saviour protected them)`}
+              valueColor={t.danger}
+              theme={t}
+            />
+          )}
+          {nightActions.wolfFatherSkip && (
+            <ActionRow icon={ROLE_ICONS.wolf_father} label="Wolf-Father" value="Let the victim die" valueColor={t.textMuted} theme={t} />
           )}
           {bigBadWolfPrey && (
             <ActionRow icon={ROLE_ICONS.big_bad_wolf} label="Big Bad Wolf devoured" value={bigBadWolfPrey.nickname} valueColor={t.danger} theme={t} />
@@ -203,6 +219,7 @@ export default function NarratorNightDashboard({
               <Text style={[styles.rosterRole, { color: p.isAlive ? t.accent : t.textMuted }]}>
                 {roleDef?.name || '—'}
               </Text>
+              {p.id === infectedId && <Text style={[styles.rosterDead, { color: t.danger }]}> (infected)</Text>}
               {!p.isAlive && <Text style={[styles.rosterDead, { color: t.textMuted }]}> (dead)</Text>}
             </View>
           );

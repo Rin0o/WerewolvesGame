@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, Modal, StyleSheet } from 'react-na
 import { ROLE_ICONS } from '../constants/icons';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
-export default function WildChildNotice({ notice, onDismiss }) {
+export default function TurnedWolfNotice({ notice, onDismiss }) {
   return (
     <Modal
       visible={!!notice}
@@ -16,18 +16,16 @@ export default function WildChildNotice({ notice, onDismiss }) {
       {notice && (
         <View style={styles.overlay}>
           <View style={styles.iconRow}>
-            <Image source={ROLE_ICONS.wild_child} style={styles.icon} resizeMode="contain" />
+            <Image source={ROLE_ICONS[notice.fromRole] || ROLE_ICONS.villager} style={styles.icon} resizeMode="contain" />
             <Text style={styles.arrow}>→</Text>
             <Image source={ROLE_ICONS.werewolf} style={styles.icon} resizeMode="contain" />
           </View>
-          <Text style={styles.title}>You are now a Werewolf</Text>
-          <Text style={styles.cause}>
-            Your role model, {notice.modelName}, is dead. Grief has turned you: you have left the village and joined the pack.
-          </Text>
+          <Text style={styles.title}>{notice.title}</Text>
+          <Text style={styles.cause}>{notice.cause}</Text>
           <View style={styles.changes}>
-            <Text style={styles.change}>• You now win with the werewolves, not the village.</Text>
-            <Text style={styles.change}>• Each night you wake with the pack and vote for its victim.</Text>
-            <Text style={styles.change}>• You can talk with the pack in the wolf chat.</Text>
+            {notice.changes.map((change) => (
+              <Text key={change} style={styles.change}>• {change}</Text>
+            ))}
           </View>
           <View style={styles.packBox}>
             <Text style={styles.packLabel}>Your pack</Text>

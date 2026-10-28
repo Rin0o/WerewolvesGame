@@ -1,6 +1,6 @@
 import { deriveGameState } from '../useGameState';
 import { relatedGroups } from '../../utils/relatedGroups';
-import { wildChildNotice } from '../useWildChildNotice';
+import { wildChildNotice, infectedNotice } from '../useTurnedWolfNotice';
 import { makeGame } from '../../game-logic/__tests__/helpers';
 
 const TABLE = {
@@ -57,6 +57,34 @@ describe('what a player learns about others (eye pop-up)', () => {
   });
 });
 
+describe('an infected player', () => {
+  const ROLES = { will: 'werewolf', wfa: 'wolf_father', wendy: 'witch', vic: 'villager', sam: 'seer' };
+  const infected = (overrides = {}) => makeGame(ROLES, {
+    code: 'ABCDE', infectedId: 'wendy', infectedAt: '2026-10-28T21:00:00.000Z',
+    witchPotions: { wendy: { save: false, poison: true } }, ...overrides,
+  });
+
+  it('keeps their real role but joins the pack, and the pack sees them', () => {
+    const room = infected();
+    expect(deriveGameState(room, 'wendy')).toMatchObject({ myRole: 'witch', isWolf: true, isInfected: true });
+    expect(deriveGameState(room, 'wendy').fellowWolves.sort()).toEqual(['wfa', 'will']);
+    expect(deriveGameState(room, 'will').fellowWolves.sort()).toEqual(['wendy', 'wfa']);
+    expect(deriveGameState(room, 'vic')).toMatchObject({ isWolf: false, fellowWolves: [] });
+  });
+
+  it('is told privately, and an infected Witch learns exactly which potions she still has', () => {
+    const notice = infectedNotice(infected(), 'wendy');
+    expect(notice).toMatchObject({ fromRole: 'witch', title: 'You have been infected', pack: ['Will', 'Wfa'] });
+    expect(notice.changes[0]).toBe('You are still the Witch, with your potions exactly as they were. You still have the poison potion.');
+    expect(infectedNotice(infected(), 'vic')).toBeNull();
+  });
+
+  it('keeps any other role\'s power', () => {
+    const notice = infectedNotice(infected({ infectedId: 'sam' }), 'sam');
+    expect(notice.changes[0]).toBe('You are still the Seer, and keep its power.');
+  });
+});
+
 describe('the Wild Child\'s notice', () => {
   const turned = (overrides = {}) => makeGame(
     { will: 'werewolf', walt: 'white_wolf', kid: 'werewolf', vic: 'villager' },
@@ -64,11 +92,9 @@ describe('the Wild Child\'s notice', () => {
   );
 
   it('tells the turned Wild Child who died and who its pack is', () => {
-    expect(wildChildNotice(turned(), 'kid')).toEqual({
-      key: 'ABCDE:kid:2026-10-28T20:00:00.000Z',
-      modelName: 'Vic',
-      pack: ['Will', 'Walt'],
-    });
+    const notice = wildChildNotice(turned(), 'kid');
+    expect(notice).toMatchObject({ key: 'ABCDE:kid:2026-10-28T20:00:00.000Z', fromRole: 'wild_child', pack: ['Will', 'Walt'] });
+    expect(notice.cause).toMatch(/Vic, is dead/);
   });
 
   it('leaves dead wolves out of the pack', () => {

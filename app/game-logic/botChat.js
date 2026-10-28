@@ -1,12 +1,13 @@
 import { BOT_LINES } from '../constants/botLines';
-import { isWolfRole } from '../constants/roles';
+import { isWolfRole, teamRoles } from '../constants/roles';
 
 const pickFrom = (items, random) => items[Math.floor(random() * items.length)];
 const fill = (template, name) => template.replace('{name}', name);
 const nicknameOf = (room, id) => (room.players || []).find((p) => p.id === id)?.nickname || '?';
 
 export function botVoteTarget(room, botId, random = Math.random) {
-  const { players = [], roles = {}, revoteTargets = null } = room;
+  const { players = [], revoteTargets = null } = room;
+  const roles = teamRoles(room.roles, room.infectedId);
   const botIsWolf = isWolfRole(roles[botId]);
   const eligible = players.filter((p) =>
     p.isAlive

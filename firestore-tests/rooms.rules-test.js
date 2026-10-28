@@ -246,6 +246,22 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('bob').room, { 'nightActions.wolfVotes.alice': 'host' }));
   });
 
+  it('the Wolf-Father votes with the pack and decides alone whether to infect', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'wolf_father' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfVotes.bob': 'sam' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfFather': true }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.wolfFatherSkip': true }));
+    await assertFails(updateDoc(as('bob').room, { infectedId: 'sam' }));
+  });
+
+  it('an infected player votes with the pack and keeps their own action; nobody else gains it', async () => {
+    await seed({ ...NIGHT, infectedId: 'sam' });
+    await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'wendy' }));
+    await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.seer': 'wendy' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.alice': 'wendy' }));
+    await assertFails(updateDoc(as('wendy').room, { 'nightActions.wolfVotes.wendy': 'host' }));
+  });
+
   it('the Raven marks or passes, and only the host publishes the mark', async () => {
     await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'raven' } });
     await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.raven': 'alice' }));
@@ -389,6 +405,13 @@ describe('chats', () => {
     await assertFails(addDoc(dayChat(as('alice').db), message('bot-0')));
     await assertFails(addDoc(dayChat(as('host').db), message('bot-9')));
     await assertFails(addDoc(dayChat(as('host').db), message('bot-0', 'x'.repeat(501))));
+  });
+
+  it('the Wolf-Father and an infected player post in the wolf chat, other villagers don\'t', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'wolf_father' }, infectedId: 'sam' });
+    await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
+    await assertSucceeds(addDoc(wolfChat(as('sam').db), message('sam')));
+    await assertFails(addDoc(wolfChat(as('wendy').db), message('wendy')));
   });
 
   it('only wolf bots post in the wolf chat, through the host', async () => {

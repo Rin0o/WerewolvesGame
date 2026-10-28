@@ -30,8 +30,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     LobbyScreen.js           — Room code with Share and Show QR buttons (QR in a pop-up), game mode
                                selector, role config, player list; saves session
     RoleRevealScreen.js      — Private role card shown to each player (narrator skips it)
-    NightPhaseScreen.js      — Night sub-phases (thief, cupid, wild_child, werewolf, big_bad_wolf, witch, seer, saviour,
-                               fox, raven),
+    NightPhaseScreen.js      — Night sub-phases (thief, cupid, wild_child, werewolf, wolf_father, big_bad_wolf, witch,
+                               seer, saviour, fox, raven),
                                narrator dashboard, notes, wolf chat, sisters chat, "You were eliminated" overlay
     DayPhaseScreen.js        — Dawn announcement, discussion, voting, lynch result, Hunter shot,
                                day chat, wolf chat (for wolves), notes
@@ -73,8 +73,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     BarButton.js             — Bottom-bar image button (flex 1, 64px image) with an optional unread badge
     ConfirmChoiceButton.js   — Large primary button shown above the bottom bar while a choice is pending
                                (icon + label + target name): the day vote and the wolves' night vote
-    WildChildNotice.js       — Full-screen private notice for a Wild Child who just turned werewolf (dead role
-                               model, what changes, living pack); shown on Night and Day via useWildChildNotice
+    TurnedWolfNotice.js      — Full-screen private notice for a player who just joined the pack — a Wild Child whose
+                               model died, or a player the Wolf-Father infected (title, cause, what changes, living
+                               pack); shown on Night and Day via useTurnedWolfNotice
     GameOptionsModal.js      — Options pop-up (options.webp button, last in the Night/Day bottom bar): sound
                                on/off (profile), this game's rules (room code, mode, first night, tied vote,
                                bot chat when bots play) and the leave.webp Leave game button
@@ -83,7 +84,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                WolfHoundAction (pick a side), WhiteWolfAction (devour a werewolf or spare),
                                FoxAction (sniff a group of three, shown live as the target is picked, or skip),
                                WildChildAction (pick a role model on night 1), RavenAction (mark a player or no one),
-                               BigBadWolfAction (a second victim, or stay with the pack), PackResult (the
+                               BigBadWolfAction (a second victim, or stay with the pack), WolfFatherAction (infect
+                               the pack's victim, or let them die), PackResult (the
                                pack's outcome card for every living wolf, dismissed with "Back to the shadows");
                                nightStyles.js holds the shared NIGHT_PANEL / NIGHT_ROW styles
   /components/day/
@@ -131,7 +133,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     useRoom.js               — Real-time room listener → { room, loading, error }; keeps the last
                                snapshot per room so the next screen renders instantly;
                                forgetRoomSnapshot(roomId) drops it
-    useGameState.js          — Derived values for the current player: myRole, isAlive, isHost,
+    useGameState.js          — Derived values for the current player: myRole (real role), isWolf and isInfected
+                               (from teamRoles), isAlive, isHost,
                                isNarrator, fellowWolves, fellowSisters, myLover, isLover,
                                availableThiefRoles (add fields here only when a screen reads them)
     usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles;
@@ -141,8 +144,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     useUnreadMessages.js     — useUnreadMessages(roomId, 'day'|'werewolf'|'sister', playerId, { isOpen, enabled }) →
                                count of other players' messages not yet seen; seen ids live in a module-level
                                Map for the app session, so they survive Night↔Day navigation
-    useWildChildNotice.js    — useWildChildNotice(room, playerId) → { notice, dismiss }; wildChildNotice() is the
-                               pure part (only the turned Wild Child, keyed on wildChildTurnedAt); dismissed keys
+    useTurnedWolfNotice.js   — useTurnedWolfNotice(room, playerId) → { notice, dismiss }; the pure parts are
+                               wildChildNotice() (keyed on wildChildTurnedAt) and infectedNotice() (keyed on
+                               infectedAt; an infected Witch is told which potions she still has); dismissed keys
                                live in a module-level Set for the app session
     useSoundEffect.js        — Plays a sound from utils/soundAssets.js (expo-audio), unless the
                                profile's soundEnabled is false
@@ -202,7 +206,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     death_potion.webp        — Witch poison action button
     witch_do_nothing.webp    — Witch skip action button
   /role_icons/               — WebP role icons (werewolf, seer, witch, hunter, cupid, thief,
-                               villager, saviour, bear_tamer, sisters, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf); unknown.webp shown as avatar for alive
+                               villager, saviour, bear_tamer, sisters, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father); unknown.webp shown as avatar for alive
                                players whose role is not revealed (day screen + NotesPanel);
                                sisters.webp background was made transparent by hand — do not
                                re-export it from assets-src (the original still has a black background)
@@ -211,7 +215,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                players in day screen and NotesPanel; suspect.webp is the
                                default role-picker icon in NotesPanel when no role is set
   /roles/                    — WebP role card images (villager, werewolf, seer, witch, hunter,
-                               thief, cupid, saviour, bear_tamer, sisters, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf); shown in RoleCard
+                               thief, cupid, saviour, bear_tamer, sisters, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father); shown in RoleCard
   /sounds/                   — night.mp3, day.mp3, wolves-win.mp3, villagers-win.mp3
 ```
 
@@ -233,7 +237,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     { id, nickname, isAlive, isHost, isReady, isBot?, isNarrator? }
   ]
   roles: { [playerId]: role }     // NEVER render other players' roles (except GameOver / narrator / see "Roles are private")
-  nightSubPhase: "reveal"|"thief"|"cupid"|"wild_child"|"wolf_hound"|"saviour"|"fox"|"werewolf"|"big_bad_wolf"|"white_wolf"|"witch"|"seer"|"raven"|"done"
+  nightSubPhase: "reveal"|"thief"|"cupid"|"wild_child"|"wolf_hound"|"saviour"|"fox"|"werewolf"|"wolf_father"|"big_bad_wolf"|"white_wolf"|"witch"|"seer"|"raven"|"done"
   roleAcknowledged: playerId[]    // Night 1 "reveal" step: players who tapped "I understand my role"
   roleComposition: { [role]: count }  // Roles as dealt by startGame (before the Thief/Wolf Hound change anything)
   tieRule: "no_lynch"|"revote"    // Host's lobby choice (TIE_RULE); absent = no_lynch
@@ -259,6 +263,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     wildChild: playerId           // The Wild Child's role model (night 1 only)
     bigBadWolf: playerId          // The Big Bad Wolf's second victim
     bigBadWolfSkip: true          // The Big Bad Wolf stayed with the pack (also the timeout default)
+    wolfFather: true              // The Wolf-Father chose to infect tonight's pack victim
+    wolfFatherSkip: true          // He let the victim die (also the timeout default; the bite stays unused)
     raven: playerId               // Who the Raven marked tonight
     ravenSkip: true               // The Raven marked no one (also the timeout default)
   }
@@ -269,6 +275,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   wildChildModel: playerId|null   // Their role model, recorded with wildChildId
   wildChildTurnedAt: ISO string|null  // Set in the same write that kills the model and makes roles[wildChildId] 'werewolf'
   idiotRevealed: playerId|null    // The Village Idiot the village voted out once: alive, public, can no longer vote
+  infectedId: playerId|null       // The player the Wolf-Father infected (once per game); keeps roles[id], counts as a wolf
+                                  // through teamRoles(); also lets them write wolfVotes and post in werewolfChat (rules)
+  infectedAt: ISO string|null     // When they were infected; keys their private notice
   witchPotions: { [playerId]: { save: bool, poison: bool } }
   saviourLastProtected: playerId|null  // Can't be protected again the next night
   eliminatedThisNight: playerId[]|null  // Everyone who died last night (incl. lovers' heartbreak)
@@ -292,7 +301,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     werewolf: number              // Count (min 1)
     seer, witch, hunter, cupid, thief, saviour, bear_tamer: boolean
     sister: boolean               // When true, adds 2 Sister slots (counted as 2 in usedSlots)
-    fox, wild_child, village_idiot, raven, big_bad_wolf, white_wolf, wolf_hound: boolean  // One slot each; these roles exist only in Custom and Narrator modes
+    fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father, white_wolf, wolf_hound: boolean  // One slot each; these roles exist only in Custom and Narrator modes
     // villagers = playerCount − werewolf − sum(enabled specials); auto-filled
   }
 }
@@ -327,17 +336,18 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Lovers win**: the two lovers are the last two players alive (checked first; overrides team allegiance)
 - **White Wolf wins**: they are the only player alive
 - **Villagers win**: no living werewolves and no living White Wolf
-- **Werewolves win**: living pack wolves (`isPackWolf`: `werewolf` and `big_bad_wolf`) ≥ all other living players (a living White Wolf counts as "other")
+- **Werewolves win**: living pack wolves (`isPackWolf` on `teamRoles`: `werewolf`, `big_bad_wolf`, `wolf_father` and an infected player) ≥ all other living players (a living White Wolf counts as "other")
 - While `hunterTriggered` is set, `resolveNight`/`resolveLynch` skip the win check; `hunterShoot()` checks after the shot
 
 ### Night Order (`computeNightSequence`)
 - **Role reveal gate**: `startGame` opens night 1 on `nightSubPhase: 'reveal'` (`ROLE_REVEAL_STEP`) with `roleAcknowledged: []`. RoleRevealScreen's button calls `acknowledgeRole()` and moves on once Firestore shows it. The step is done when `playersStillReading(room)` is empty (living, non-bot, non-narrator, not disconnected); the host then advances with `nextNightSubPhase(room, 'reveal')` (also in narrator games). No timer runs; after 60s (`FORCE_START_AFTER_MS`) the host gets a "Start anyway" button. A player who reaches NightPhase during `reveal` without having acknowledged is sent back to RoleReveal.
 - **Night 1, Quiet** (default, `classicFirstNight` false): Thief (if alive and roles are available) → Cupid → Wild Child → Wolf Hound → Werewolves (observe only: `werewolfObserved`, no kill). Seer, Witch and Saviour don't wake.
-- **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (kill) → Big Bad Wolf → Witch → Seer → Raven — the official rules.
+- **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (kill) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven — the official rules.
 - Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, { composition, classicFirstNight, botCount })` needs the flag to pick the first step.
-- **Night 2+**: Saviour → Fox (until `foxPowerLost`) → Werewolves (pick victim) → Big Bad Wolf (until `wolfHasDied`) → White Wolf (even nights, only while a pack wolf is alive) → Witch (only if she has a potion left) → Seer → Raven
+- **Night 2+**: Saviour → Fox (until `foxPowerLost`) → Werewolves (pick victim) → Wolf-Father (only with a pack victim, until `infectedId`) → Big Bad Wolf (until `wolfHasDied`) → White Wolf (even nights, only while a pack wolf is alive) → Witch (only if she has a potion left) → Seer → Raven
 - A night action panel shows only when `isMyNightTurn(room, playerId)` (gameManager): status is `night`, the player is alive and not the narrator, the current step belongs to their role (`STEP_ROLE`; any wolf role for `werewolf`) and that step isn't done. The status check matters: `resolveNight` clears `nightActions` but leaves `nightSubPhase` as it was, so a player held on the night screen by a result card (`pendingDay`) would otherwise see their panel come back and "act" after dawn.
-- The `werewolf` step wakes every wolf role (`isWolfRole`: werewolf, white_wolf, big_bad_wolf). `isPackWolf(role)` is the pack without the lone White Wolf (big_bad_wolf + werewolf): use it for the werewolves' win count, the White Wolf's prey and the Game Over winners — never `role === 'werewolf'`. Night action panels are chosen by `nightSubPhase`, not by role, because the White Wolf and Big Bad Wolf act in two steps.
+- **Who is a wolf**: never read it from `roles` alone. `teamRoles(roles, infectedId)` (constants/roles.js) is the roles map as the teams see it — the infected player counted as a `werewolf`. Every wolf check runs on it: the pack (`livingWolves`, `wolfPrey`, `getWerewolves`, `fellowWolves`, `gs.isWolf`), the win check, the Seer, the Fox, the Bear Tamer, `wolfHasDied`, bot votes, the Game Over winners. Anything about a player's *own* power (their night step via `STEP_ROLE`, the Witch's potions, the role card) keeps the real `roles`, which infection never changes. Inside gameManager `roomTeams(room)` is the shortcut.
+- The `werewolf` step wakes every wolf (`isWolfRole` on `teamRoles`: werewolf, white_wolf, big_bad_wolf, wolf_father, an infected player). `isPackWolf(role)` is the pack without the lone White Wolf: use it for the werewolves' win count, the White Wolf's prey and the Game Over winners — never `role === 'werewolf'`. Night action panels are chosen by `nightSubPhase`, not by role, because the White Wolf, Big Bad Wolf, Wolf-Father and an infected player act in two steps.
 - Always advance with `updateRoom(roomId, advanceNightUpdate(room, next))`, never a bare `{ nightSubPhase }`: when leaving the `thief` or `wolf_hound` step it also writes the new role (plus both Witch potions for a stolen Witch) and recomputes the next step, so a Thief who stole Cupid or Werewolf, or a Hound who picked the pack, acts that same night.
 - **Pack vote**: each living wolf (`livingWolves`) writes `nightActions.wolfVotes.<uid>` and can change it until the pack is done. When every living wolf has voted, the host applies `wolfOutcomeUpdate(wolfVoteOutcome(room))` (this runs in narrator games too): a single most-voted player becomes `nightActions.werewolf`; a tie starts **one** revote — `wolfVotes` reset, `wolfRevoteTargets` = the tied players, a fresh 30s timer (`WOLF_REVOTE_SECONDS`, Timer keyed on the round), only those players listed; a second tie writes `wolfNoKill: true` and nobody dies. On timer expiry the host forces the outcome with the votes cast so far (`{ force: true }`); with no votes at all it draws the victim at random (among the tied players during a revote). The narrator's Next forces it too and stays on the step if that starts a revote. Votes for players outside a revote don't count. Bot wolves vote 4–10s into each round and follow `leadingWolfTarget` (within the revote); on a Quiet night 1 bots acknowledge only when every living wolf is a bot. `myActionDone` resets whenever `nightSubPhase` changes.
 - Roles that are absent, dead or disconnected are skipped (`FIRST_NIGHT_ORDER` / `LATER_NIGHT_ORDER` filtered by who can act). The host advances `nightSubPhase` with `nextNightSubPhase(room, current)` — the next step in the full order that still has someone to act — when `isSubPhaseDone()` is true **or** the current step's player has left (`disconnectedPlayers`), and calls `resolveNight()` after the last step. Never compute "next" from the index in `computeNightSequence()`: a step whose player left is no longer in that list.
@@ -365,13 +375,15 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 **Fox** — role key `fox`, Custom and Narrator modes only. Wakes after the Saviour each night (night 1 only when Classic) while `room.foxPowerLost` is false. `FoxAction` lists living players other than the Fox; as soon as one is tapped it shows the whole group from `getFoxGroup(players, target)` — the target's living neighbour on each side plus the target, in seating order, deduplicated, "(you)" marking the Fox — so the player sees exactly who is sniffed. Sniffing writes `nightActions.fox`; the result (`foxSmellsWolf`, `isWolfRole` so the White Wolf counts) is computed locally and must be dismissed before the day, like the Seer's (`pendingDay`). "Stay hidden tonight" writes `foxSkip` (also the 25s timeout default, so a timeout never costs the power). If no wolf is in the group, the result card shows a red "You have lost your power" box, `resolveNight` sets `foxPowerLost: true` (host-only field), the step stops waking, and the waiting moon scene reminds the Fox every later night. No public event is logged. The narrator dashboard shows the group and outcome. Bots never get the Fox (not in `BOT_PLAYABLE_SPECIALS`).
 
-**Wild Child** — role key `wild_child`, Custom and Narrator modes only, villager team until it turns. Night-1 step `wild_child` (after Cupid, quiet or classic; `WildChildAction`, 30s, random model on timeout — never itself) writes `nightActions.wildChild`; `resolveNight` stores `wildChildId` + `wildChildModel`. `wildChildTurn(room, roles, playersAfter, eliminatedIds)` runs in `resolveNight`, `resolveLynch` and `hunterShoot` after the deaths and **before** the win check: if the model died in that write and the Wild Child is still alive and still `wild_child`, `roles[wildChildId]` becomes `werewolf` and `wildChildTurnedAt` is set, in the same `updateRoom` (so the next night's pack, wolf chat and win check see it at once; dying with the model, e.g. as lovers, means no turn). No public event. The turned player gets `WildChildNotice` (full-screen: model's name, the three changes — wins with the wolves, wakes with the pack, wolf chat — and the living pack) on whichever screen comes next, until dismissed. Before turning, the eye pop-up shows "Your role model". `hunterShoot` runs on the Hunter's phone, so the rules let that write change `roles` only as `roles[wildChildId]: wild_child → werewolf` (`wildChildTurning()`). Bots never get the Wild Child.
+**Wild Child** — role key `wild_child`, Custom and Narrator modes only, villager team until it turns. Night-1 step `wild_child` (after Cupid, quiet or classic; `WildChildAction`, 30s, random model on timeout — never itself) writes `nightActions.wildChild`; `resolveNight` stores `wildChildId` + `wildChildModel`. `wildChildTurn(room, roles, playersAfter, eliminatedIds)` runs in `resolveNight`, `resolveLynch` and `hunterShoot` after the deaths and **before** the win check: if the model died in that write and the Wild Child is still alive and still `wild_child`, `roles[wildChildId]` becomes `werewolf` and `wildChildTurnedAt` is set, in the same `updateRoom` (so the next night's pack, wolf chat and win check see it at once; dying with the model, e.g. as lovers, means no turn). No public event. The turned player gets `TurnedWolfNotice` (full-screen: model's name, the three changes — wins with the wolves, wakes with the pack, wolf chat — and the living pack) on whichever screen comes next, until dismissed. Before turning, the eye pop-up shows "Your role model". `hunterShoot` runs on the Hunter's phone, so the rules let that write change `roles` only as `roles[wildChildId]: wild_child → werewolf` (`wildChildTurning()`). Bots never get the Wild Child.
 
 **Village Idiot** — role key `village_idiot`, Custom and Narrator modes only, no night action (in `BOT_PLAYABLE_SPECIALS`, so bots can hold it). `resolveLynch`: if the voted-out player is the Idiot and `isIdiotSpared(room, id)` (not yet `idiotRevealed`), nobody dies — no lover chain, no Wild Child turn — the public event says so, `idiotRevealed` is set, and night falls as usual. A second lynch kills them; night deaths and the Hunter's shot kill them normally. Voting goes through `canVote(room, id)` / `dayVoters(room)` (hostDecisions): alive, not narrator, not `idiotRevealed`. `allDayVotesCast`, `humansAllVoted`, `botsYetToVote`, the vote counter and `NarratorDayDashboard` (`voters` prop) use them, and the rules refuse the Idiot's vote. DayPhaseScreen shows the revealed Idiot's row with the `village_idiot` icon, role and "Revealed · cannot vote"; the Idiot sees a "You can no longer vote" banner instead of the vote panel. `LynchResultModal` shows "Spared — the Village Idiot" from `lastLynchResult.sparedIdiot`. `botVoteTarget` skips the revealed Idiot unless nobody else can be chosen.
 
 **Raven** — role key `raven`, Custom and Narrator modes only. Wakes last each night (after the Seer; night 1 only when Classic). `RavenAction` lists the other living players; "Mark This Player" writes `nightActions.raven`, "Mark no one tonight" writes `ravenSkip` (also the 25s timeout default). `resolveNight` sets `ravenMark` only if the marked player is still alive after the night's deaths (a dead Raven's mark still counts) and logs a public event that never names the Raven. By day the mark is public: `NightAnnouncement` line, a raven icon + "+2 votes from the raven" on the row ("+2 (first vote only)" during a revote), and a "Raven +2" chip in `LynchResultModal` (`lastLynchResult.ravenVotes`). Every tally that decides the day passes `ravenVotes(room)` to `tallyVotes`: `resolveLynch`, `tiedForRevote`, the DayPhaseScreen snapshot and `NarratorDayDashboard` (`extraVotes`). It adds `RAVEN_VOTES` (2) for a living marked player and nothing during a revote, so the +2 alone can lynch someone or create a tie, but never counts twice. `resolveLynch` clears `ravenMark`.
 
 **Big Bad Wolf** — role key `big_bad_wolf`, team `werewolves`, Custom and Narrator modes only. A wolf everywhere (`isWolfRole` and `isPackWolf`): pack vote, wolf chat, Seer, Fox, Bear Tamer, win count, White Wolf prey. After the pack's step it gets its own `big_bad_wolf` step (`BigBadWolfAction`, 25s, "stay with the pack" `bigBadWolfSkip` on timeout) while `wolfHasDied(room)` is false. That is derived, not stored: any dead player whose current role `isWolfRole` (a turned Wild Child or a Hound that chose the pack is a `werewolf` by then; a villager-side Hound or unturned Wild Child doesn't count — the user's choice over the card's wording). Its victim (`nightActions.bigBadWolf`) can't be a wolf or the pack's victim, dies in `resolveNight` after the pack's (cause `big_bad_wolf`), is blocked by the Saviour, and is never saved by the Witch. Once a wolf has died, its waiting screen shows a reminder (`powerLostNote`, shared with the Fox).
+
+**Accursed Wolf-Father** — role key `wolf_father`, team `werewolves`, Custom and Narrator modes only, a wolf everywhere (`isWolfRole`, `isPackWolf`). Once per game (while `infectedId` is null), right after the pack's step and only if the pack has a victim, the `wolf_father` step (`WolfFatherAction`, 20s, "let them die" `wolfFatherSkip` on timeout) offers "Infect X" (`nightActions.wolfFather: true`). `resolveNight`: if the victim wasn't protected by the Saviour, they don't die and become `infectedId` (+ `infectedAt`); dawn shows the ordinary "peaceful" line; the Witch's healing potion isn't consumed (`witchSaved` is false) and her panel shows no victim to save (`victimId` is null when `wolfFather` is set). If the Saviour protected them, the bite fails and stays available. The infected player keeps `roles[id]` and their power — an infected Witch's `witchPotions` are untouched, so she keeps exactly what she had left — and through `teamRoles` also wakes with the pack, votes, uses the wolf chat (rules: `infectedId` adds `wolfVotes`/`werewolfObserved` to their allowed night keys and lets them post in `werewolfChat`), is seen as a wolf by the Seer/Fox/Bear Tamer, counts for the werewolves' win, and their death counts for `wolfHasDied`. They get `TurnedWolfNotice` (`infectedNotice`) privately; the pack sees them in its list and the narrator roster marks "(infected)". Game Over lists them as "Role · infected by the Wolf-Father" and as a winner with the wolves. Lynch events still show their real role.
 
 **White Wolf** — role key `white_wolf`, team `werewolves` but wins alone. Counts as a wolf everywhere through `isWolfRole()` (constants/roles.js): pack membership (`getWerewolves`, `fellowWolves` — the pack sees just a fellow werewolf), the `werewolf` step, the wolf chat, the Seer and the Bear Tamer. On even nights it also gets its own `white_wolf` step (`WhiteWolfAction`, 30s, skip on timeout) to devour one living pack wolf (`isPackWolf`, the Big Bad Wolf included) (`nightActions.whiteWolf`, death cause `white_wolf`) or spare them (`whiteWolfSkip`). Game Over shows the werewolves banner plus a "stands alone" line for `winner === 'white_wolf'` (no banner art yet).
 
@@ -397,7 +409,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Lobby role info**: every role pill and Custom-mode role label in the Lobby opens `RoleInfoModal` for that role.
 - **Elimination screen**: A player killed during the night sees a full-screen `Modal` (translucent status/navigation bars) on NightPhaseScreen: large `dead.webp`, "You were eliminated", the cause from `nightDeathCauses[playerId]` (`DEATH_MESSAGES`) in italics, and a "Continue as a ghost" button to the day.
 - **Unread chat badges**: the Day Chat, Wolf Chat and Sisters Chat bar buttons show a red count from `useUnreadMessages`; opening the chat marks everything as seen.
-- **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire. Night steps get 45s (`SUBPHASE_SECONDS` in hostDecisions.js, used by wolves on later nights and the Witch); Seer, Saviour, Fox, Raven, Big Bad Wolf and White Wolf 25s, Thief, Cupid and Wild Child 30s, Wolf Hound 15s (`SUBPHASE_SECONDS_OVERRIDES`), and wolves on night 1 (observe only, no kill) 15s — see `subPhaseSeconds()`. Day: discussion 30s per living player, clamped to 90–240s (`discussionSecondsFor`, fixed once per day in `discussionSecondsRef` because `Timer` restarts when `totalSeconds` changes), Hunter's shot 20s (`HUNTER_SHOT_SECONDS`), lynch result screen 8s (`LynchResultModal` `DISPLAY_SECONDS`). Timers are maximums: a step ends as soon as its player acts.
+- **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire. Night steps get 45s (`SUBPHASE_SECONDS` in hostDecisions.js, used by wolves on later nights and the Witch); Seer, Saviour, Fox, Raven, Big Bad Wolf and White Wolf 25s, Wolf-Father 20s, Thief, Cupid and Wild Child 30s, Wolf Hound 15s (`SUBPHASE_SECONDS_OVERRIDES`), and wolves on night 1 (observe only, no kill) 15s — see `subPhaseSeconds()`. Day: discussion 30s per living player, clamped to 90–240s (`discussionSecondsFor`, fixed once per day in `discussionSecondsRef` because `Timer` restarts when `totalSeconds` changes), Hunter's shot 20s (`HUNTER_SHOT_SECONDS`), lynch result screen 8s (`LynchResultModal` `DISPLAY_SECONDS`). Timers are maximums: a step ends as soon as its player acts.
 - **Image assets**: Originals live in `assets-src/` as full-resolution PNGs; the app only references WebP files in `assets/`. To add or update an image, put the PNG in `assets-src/`, then export a WebP to the same path under `assets/` (quality ~85, keep alpha), sized to ~3× its on-screen size: icons 384px, small buttons 512–600px, banners 900–1320px, role cards 1200px tall, backgrounds at original size. Never `require()` from `assets-src/` — Metro would bundle the full-size file.
 - **Role card images**: `RoleCard` component maps role keys to static `require()` calls for WebPs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
 - **Launch screen**: `LaunchScreen` is the stack's `initialRouteName`. The whole screen is a `Pressable` (no button; a "Tap anywhere to begin" hint sits at the bottom, and a ref ignores double taps). On press it loads the profile and calls `navigation.replace('Welcome')` (no saved name) or `navigation.replace('Home')`, so the back button can never return to it.
@@ -435,7 +447,7 @@ Writes are limited to what the app does; anything else is denied:
 - **Members**: leave the lobby / toggle own `isReady` (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'` (wolves: only `wolfVotes.<own uid>` and `werewolfObserved` — the victim `werewolf` is host-only); add only themselves to `roleAcknowledged` at night; write only `votes.<uid>` while `status == 'day'` (never the revealed Village Idiot, `idiotRevealed`); add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
 - **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's), plus `roles`/`wildChildTurnedAt` only to turn `wildChildId` from `wild_child` into `werewolf`.
 - **Host**: anything except `code`, `createdAt`, `hostId`, `memberIds`.
-- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf` and `big_bad_wolf` roles post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`.
+- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf`, `big_bad_wolf` and `wolf_father` roles, and the player in `infectedId`, post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`.
 - **When a new write path is added to the app, add a rule and a test in `firestore-tests/rooms.rules-test.js`** — otherwise it will be denied in production.
 - Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 
@@ -478,4 +490,4 @@ cd android
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
 - **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - **Bot cap lifted until 2.0**: bots may fill the whole table (for solo testing). For 2.0, decide whether to bring back the half-table cap (`botSeats` returned `{ bots, missing }` with `bots = min(empty, humans)`)
-- Fox, Wild Child, Village Idiot, Raven, Big Bad Wolf, White Wolf and Wolf Hound are Custom/Narrator-mode only (not in `ROLE_COMPOSITIONS`); no White Wolf victory banner yet
+- Fox, Wild Child, Village Idiot, Raven, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are Custom/Narrator-mode only (not in `ROLE_COMPOSITIONS`); no White Wolf victory banner yet

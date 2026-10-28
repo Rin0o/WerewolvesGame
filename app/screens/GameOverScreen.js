@@ -111,9 +111,11 @@ export default function GameOverScreen({ route, navigation }) {
           renderItem={({ item }) => {
             const role = roles[item.id];
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
+            const infected = item.id === room.infectedId;
+            const teamRole = infected ? ROLE.WEREWOLF : role;
             const isWinner =
-              (winner === 'villagers' && roleDef.team === 'villagers') ||
-              (winner === 'werewolves' && isPackWolf(role)) ||
+              (winner === 'villagers' && (ROLE_DEFINITIONS[teamRole] || roleDef).team === 'villagers') ||
+              (winner === 'werewolves' && isPackWolf(teamRole)) ||
               (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
               (winner === 'lovers' && room.lovers?.includes(item.id));
             return (
@@ -130,7 +132,9 @@ export default function GameOverScreen({ route, navigation }) {
                   <Text style={[styles.revealName, { color: t.text }]}>
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
                   </Text>
-                  <Text style={[styles.revealRole, { color: t.textMuted }]}>{roleDef.name}</Text>
+                  <Text style={[styles.revealRole, { color: t.textMuted }]}>
+                    {roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
+                  </Text>
                   {!item.isAlive && (
                     <View style={styles.revealDeadRow}>
                       <Image source={DEAD_ICON} style={styles.revealDeadIcon} resizeMode="contain" />

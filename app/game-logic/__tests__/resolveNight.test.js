@@ -270,6 +270,61 @@ describe('resolveNight — Fox', () => {
   });
 });
 
+describe('resolveNight — Accursed Wolf-Father', () => {
+  const ROLES = { ...VILLAGE, wfa: 'wolf_father' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('infects the pack\'s victim instead of killing them, silently', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true }));
+    expect(update.eliminatedThisNight).toEqual([]);
+    expect(update.infectedId).toBe('vic');
+    expect(update.infectedAt).toEqual(expect.any(String));
+    expect(update.roles.vic).toBe('villager');
+    expect(eventsOf(update)).toEqual(['Night 2: The village was peaceful — no one was eliminated.']);
+  });
+
+  it('fails if the Saviour protected the victim, and stays available', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true, saviour: 'vic' }));
+    expect(update.infectedId).toBeUndefined();
+    expect(update.eliminatedThisNight).toEqual([]);
+  });
+
+  it('does not use up the Witch\'s healing potion', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true, witchSave: 'vic' }));
+    expect(update.witchPotions.wendy).toEqual({ save: true, poison: true });
+  });
+
+  it('an infected Witch keeps exactly the potions she had', async () => {
+    const update = await resolve(night(
+      { werewolf: 'wendy', wolfFather: true },
+      { witchPotions: { wendy: { save: false, poison: true } } },
+    ));
+    expect(update.infectedId).toBe('wendy');
+    expect(update.roles.wendy).toBe('witch');
+    expect(update.witchPotions.wendy).toEqual({ save: false, poison: true });
+  });
+
+  it('works only once per game', async () => {
+    const update = await resolve(night({ werewolf: 'vera', wolfFather: true }, { infectedId: 'vic' }));
+    expect(update.eliminatedThisNight).toEqual(['vera']);
+    expect(update.infectedId).toBeUndefined();
+  });
+
+  it('counts the infected player as a wolf for the win', async () => {
+    const small = { will: 'werewolf', vic: 'villager', vera: 'villager', sam: 'seer' };
+    const game = makeGame(small, { phase: 2, infectedId: 'vic', nightActions: { werewolf: 'vera' } });
+    expect((await resolve(game)).winner).toBe('werewolves');
+  });
+
+  it('lets the Bear Tamer and the Fox sense an infected neighbour', async () => {
+    const roles = { bea: 'bear_tamer', vic: 'villager', fox: 'fox', will: 'werewolf', vera: 'villager', sam: 'villager' };
+    const game = makeGame(roles, { phase: 2, infectedId: 'vic', nightActions: { fox: 'bea' } });
+    const update = await resolve(game);
+    expect(update.bearTamerGrowl).toBe(true);
+    expect(update.foxPowerLost).toBe(false);
+  });
+});
+
 describe('resolveNight — Big Bad Wolf', () => {
   const ROLES = { ...VILLAGE, bob: 'big_bad_wolf' };
   const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
