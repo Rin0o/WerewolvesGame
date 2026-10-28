@@ -3,7 +3,7 @@ jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion
 
 import {
   computeNightSequence, nextNightSubPhase, isSubPhaseDone, advanceNightUpdate, livingWolves,
-  wolfVoteOutcome, wolfOutcomeUpdate, leadingWolfTarget, WOLF_OUTCOME,
+  wolfVoteOutcome, wolfOutcomeUpdate, leadingWolfTarget, WOLF_OUTCOME, packHuntResult, isMyNightTurn,
 } from '../gameManager';
 import { makeGame } from './helpers';
 
@@ -84,6 +84,58 @@ describe('the Fox in the night order', () => {
     expect(isSubPhaseDone('fox', { nightActions: {} })).toBe(false);
     expect(isSubPhaseDone('fox', { nightActions: { fox: 'vic' } })).toBe(true);
     expect(isSubPhaseDone('fox', { nightActions: { foxSkip: true } })).toBe(true);
+  });
+});
+
+describe('isMyNightTurn (when a player\'s action panel shows)', () => {
+  const PACK = { me: 'big_bad_wolf', will: 'werewolf', vic: 'villager', vera: 'villager', sam: 'seer' };
+
+  it('is the wolves\' turn while the pack is choosing', () => {
+    const room = makeGame(PACK, { phase: 3, nightSubPhase: 'werewolf', dead: ['will'] });
+    expect(isMyNightTurn(room, 'me')).toBe(true);
+    expect(isMyNightTurn(room, 'sam')).toBe(false);
+  });
+
+  it('ends once the pack has chosen', () => {
+    const room = makeGame(PACK, { phase: 3, nightSubPhase: 'werewolf', nightActions: { werewolf: 'vic' } });
+    expect(isMyNightTurn(room, 'me')).toBe(false);
+  });
+
+  it('never comes back once the night is resolved, even with the step left on werewolf', () => {
+    const resolved = makeGame(PACK, { status: 'day', phase: 3, nightSubPhase: 'werewolf', nightActions: {}, dead: ['will', 'vic'] });
+    expect(isMyNightTurn(resolved, 'me')).toBe(false);
+  });
+
+  it('matches each step to its role, and never for the dead or the narrator', () => {
+    const room = makeGame(PACK, { phase: 2, nightSubPhase: 'seer' });
+    expect(isMyNightTurn(room, 'sam')).toBe(true);
+    expect(isMyNightTurn(room, 'me')).toBe(false);
+    expect(isMyNightTurn({ ...room, players: room.players.map((p) => ({ ...p, isAlive: p.id !== 'sam' })) }, 'sam')).toBe(false);
+  });
+});
+
+describe('packHuntResult (what the wolves see when the hunt ends)', () => {
+  const PACK = { will: 'werewolf', wanda: 'werewolf', vic: 'villager', vera: 'villager', sam: 'seer' };
+  const hunt = (nightActions) => makeGame(PACK, { phase: 2, nightActions });
+
+  it('is nothing while the pack is still choosing', () => {
+    expect(packHuntResult(hunt({ wolfVotes: { will: 'vic' } }))).toBeNull();
+  });
+
+  it('names the victim and who voted for whom', () => {
+    const result = packHuntResult(hunt({ werewolf: 'vic', wolfVotes: { will: 'vic', wanda: 'vic' } }));
+    expect(result).toMatchObject({ victimId: 'vic', drawnByFate: false, votes: [{ targetId: 'vic', wolfIds: ['will', 'wanda'] }] });
+    expect(result.names.vic).toBe('Vic');
+  });
+
+  it('says when fate drew the victim because nobody voted in time', () => {
+    expect(packHuntResult(hunt({ werewolf: 'vera', wolfVotes: {} }))).toMatchObject({ victimId: 'vera', drawnByFate: true, votes: [] });
+  });
+
+  it('reports a night with no kill after a second split', () => {
+    const result = packHuntResult(hunt({ wolfNoKill: true, wolfVotes: { will: 'vic', wanda: 'vera' } }));
+    expect(result.victimId).toBeNull();
+    expect(result.votes).toHaveLength(2);
   });
 });
 

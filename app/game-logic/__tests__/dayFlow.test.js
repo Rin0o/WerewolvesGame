@@ -6,7 +6,7 @@ jest.mock('../../firebase/roomService', () => ({
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { resolveLynch, hunterShoot, startNextNight, tiedForRevote, startRevote, TIE_RULE } from '../gameManager';
+import { resolveLynch, hunterShoot, startNextNight, tiedForRevote, startRevote, nextNightSubPhase, TIE_RULE } from '../gameManager';
 import { getRoom, updateRoom, eliminatePlayer, clearNightActions } from '../../firebase/roomService';
 import { makeGame, votesFor, lastUpdate, eventsOf, ROOM_ID } from './helpers';
 
@@ -183,6 +183,22 @@ describe('startNextNight', () => {
     getRoom.mockResolvedValue(overrides && freshRoom(overrides));
     await startNextNight(ROOM_ID);
     expect(updateRoom).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Big Bad Wolf after a wolf is lynched', () => {
+  it('no longer gets its own step the next night', async () => {
+    const roles = { ...VILLAGE, bob: 'big_bad_wolf' };
+    const game = day(roles, { votes: votesFor({ sam: 'will', vic: 'will', vera: 'will', sal: 'will' }) });
+    const update = await lynch(game);
+    const nextNight = {
+      ...game,
+      ...update,
+      players: game.players.map((p) => (p.id === 'will' ? { ...p, isAlive: false } : p)),
+    };
+    expect(update.nightSubPhase).toBe('saviour');
+    expect(nextNightSubPhase(nextNight, 'saviour')).toBe('werewolf');
+    expect(nextNightSubPhase(nextNight, 'werewolf')).not.toBe('big_bad_wolf');
   });
 });
 

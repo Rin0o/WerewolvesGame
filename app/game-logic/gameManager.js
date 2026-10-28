@@ -179,6 +179,21 @@ export function wolfVoteOutcome(room, { force = false } = {}) {
   return revoteTargets ? { type: WOLF_OUTCOME.NO_KILL } : { type: WOLF_OUTCOME.REVOTE, targets: tied };
 }
 
+export function packHuntResult(room) {
+  const { nightActions = {}, players = [] } = room;
+  const { werewolf: victimId, wolfNoKill, wolfVotes = {} } = nightActions;
+  if (!victimId && !wolfNoKill) return null;
+  const votersByTarget = Object.entries(wolfVotes).reduce((acc, [wolfId, targetId]) => (
+    { ...acc, [targetId]: [...(acc[targetId] || []), wolfId] }
+  ), {});
+  return {
+    victimId: victimId || null,
+    drawnByFate: !!victimId && !votersByTarget[victimId],
+    votes: Object.entries(votersByTarget).map(([targetId, wolfIds]) => ({ targetId, wolfIds })),
+    names: Object.fromEntries(players.map((p) => [p.id, p.nickname])),
+  };
+}
+
 export function wolfOutcomeUpdate(outcome) {
   switch (outcome.type) {
     case WOLF_OUTCOME.KILL: return { 'nightActions.werewolf': outcome.target };
@@ -186,6 +201,30 @@ export function wolfOutcomeUpdate(outcome) {
     case WOLF_OUTCOME.NO_KILL: return { 'nightActions.wolfNoKill': true };
     default: return null;
   }
+}
+
+const STEP_ROLE = {
+  thief: ROLE.THIEF,
+  cupid: ROLE.CUPID,
+  wild_child: ROLE.WILD_CHILD,
+  wolf_hound: ROLE.WOLF_HOUND,
+  saviour: ROLE.SAVIOUR,
+  fox: ROLE.FOX,
+  big_bad_wolf: ROLE.BIG_BAD_WOLF,
+  white_wolf: ROLE.WHITE_WOLF,
+  witch: ROLE.WITCH,
+  seer: ROLE.SEER,
+  raven: ROLE.RAVEN,
+};
+
+export function isMyNightTurn(room, playerId) {
+  if (!room || room.status !== 'night') return false;
+  const me = (room.players || []).find((p) => p.id === playerId);
+  if (!me || !me.isAlive || me.isNarrator) return false;
+  const myRole = room.roles?.[playerId];
+  const step = room.nightSubPhase;
+  const myStep = step === 'werewolf' ? isWolfRole(myRole) : STEP_ROLE[step] === myRole;
+  return myStep && !isSubPhaseDone(step, room);
 }
 
 export function isSubPhaseDone(subPhase, room) {

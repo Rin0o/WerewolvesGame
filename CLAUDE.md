@@ -83,7 +83,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                WolfHoundAction (pick a side), WhiteWolfAction (devour a werewolf or spare),
                                FoxAction (sniff a group of three, shown live as the target is picked, or skip),
                                WildChildAction (pick a role model on night 1), RavenAction (mark a player or no one),
-                               BigBadWolfAction (a second victim, or stay with the pack);
+                               BigBadWolfAction (a second victim, or stay with the pack), PackResult (the
+                               pack's outcome card for every living wolf, dismissed with "Back to the shadows");
                                nightStyles.js holds the shared NIGHT_PANEL / NIGHT_ROW styles
   /components/day/
     NightAnnouncement.js     — Dawn summary: who died, Bear Tamer growl, the Raven's mark (ravenMarked)
@@ -105,7 +106,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                getFoxGroup(), foxSmellsWolf()
     gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
                                advanceNightUpdate(), livingWolves(), wolfPrey(), wolfVoteOutcome(),
-                               wolfOutcomeUpdate(), leadingWolfTarget(), playersStillReading(),
+                               wolfOutcomeUpdate(), leadingWolfTarget(), packHuntResult(), isMyNightTurn(),
+                               playersStillReading(),
                                resolveNight(), startNextNight(), resolveLynch(), hunterShoot(), wildChildTurn(),
                                isIdiotSpared(), wolfHasDied()
     hostDecisions.js         — Pure host decisions the phase screens execute: hostNightPlan() (next step / pack
@@ -331,6 +333,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (kill) → Big Bad Wolf → Witch → Seer → Raven — the official rules.
 - Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, { composition, classicFirstNight, botCount })` needs the flag to pick the first step.
 - **Night 2+**: Saviour → Fox (until `foxPowerLost`) → Werewolves (pick victim) → Big Bad Wolf (until `wolfHasDied`) → White Wolf (even nights, only while a pack wolf is alive) → Witch (only if she has a potion left) → Seer → Raven
+- A night action panel shows only when `isMyNightTurn(room, playerId)` (gameManager): status is `night`, the player is alive and not the narrator, the current step belongs to their role (`STEP_ROLE`; any wolf role for `werewolf`) and that step isn't done. The status check matters: `resolveNight` clears `nightActions` but leaves `nightSubPhase` as it was, so a player held on the night screen by a result card (`pendingDay`) would otherwise see their panel come back and "act" after dawn.
 - The `werewolf` step wakes every wolf role (`isWolfRole`: werewolf, white_wolf, big_bad_wolf). `isPackWolf(role)` is the pack without the lone White Wolf (big_bad_wolf + werewolf): use it for the werewolves' win count, the White Wolf's prey and the Game Over winners — never `role === 'werewolf'`. Night action panels are chosen by `nightSubPhase`, not by role, because the White Wolf and Big Bad Wolf act in two steps.
 - Always advance with `updateRoom(roomId, advanceNightUpdate(room, next))`, never a bare `{ nightSubPhase }`: when leaving the `thief` or `wolf_hound` step it also writes the new role (plus both Witch potions for a stolen Witch) and recomputes the next step, so a Thief who stole Cupid or Werewolf, or a Hound who picked the pack, acts that same night.
 - **Pack vote**: each living wolf (`livingWolves`) writes `nightActions.wolfVotes.<uid>` and can change it until the pack is done. When every living wolf has voted, the host applies `wolfOutcomeUpdate(wolfVoteOutcome(room))` (this runs in narrator games too): a single most-voted player becomes `nightActions.werewolf`; a tie starts **one** revote — `wolfVotes` reset, `wolfRevoteTargets` = the tied players, a fresh 30s timer (`WOLF_REVOTE_SECONDS`, Timer keyed on the round), only those players listed; a second tie writes `wolfNoKill: true` and nobody dies. On timer expiry the host forces the outcome with the votes cast so far (`{ force: true }`); with no votes at all it draws the victim at random (among the tied players during a revote). The narrator's Next forces it too and stays on the step if that starts a revote. Votes for players outside a revote don't count. Bot wolves vote 4–10s into each round and follow `leadingWolfTarget` (within the revote); on a Quiet night 1 bots acknowledge only when every living wolf is a bot. `myActionDone` resets whenever `nightSubPhase` changes.
@@ -339,7 +342,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 ### Role Details
 
-**Werewolf** — each night the wolves vote for a victim together (see Pack vote; the White Wolf votes too). `WerewolfAction` shows who in the pack voted for whom and the vote count; the vote is confirmed with the same `ConfirmChoiceButton` as the day vote. They coordinate in the wolf chat, available at night and during the day. On a Quiet night 1 they only see each other (`werewolfObserved`).
+**Werewolf** — each night the wolves vote for a victim together (see Pack vote; the White Wolf votes too). `WerewolfAction` shows who in the pack voted for whom and the vote count; the vote is confirmed with the same `ConfirmChoiceButton` as the day vote. The panel closes the moment the host settles the outcome, so every living wolf then gets a `PackResult` card (`packHuntResult(room)`: the victim, "fate chose" when no wolf voted for them, or the second-split no-kill, plus the final votes). It is shown once per night (`packResultShownForRef`), sits above whatever comes next (the moon screen, or the Big Bad Wolf's / White Wolf's own panel, so it never blocks their turn), and holds the day like the Seer's result (`pendingDay`) until dismissed. Not shown on a Quiet night 1. They coordinate in the wolf chat, available at night and during the day. On a Quiet night 1 they only see each other (`werewolfObserved`).
 
 **Seer** — each night (from night 2 with a Quiet first night) selects a player and sees whether they are a Werewolf. The result is shown locally and the seer must dismiss it before the day phase begins (navigation deferred via `pendingDay` ref).
 

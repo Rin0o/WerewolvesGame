@@ -26,6 +26,8 @@ import {
   isQuietFirstNight,
   livingWolves,
   wolfHasDied,
+  packHuntResult,
+  isMyNightTurn,
   playersStillReading,
   ROLE_REVEAL_STEP,
 } from '../game-logic/gameManager';
@@ -52,6 +54,7 @@ import FoxAction from '../components/night-actions/FoxAction';
 import WildChildAction from '../components/night-actions/WildChildAction';
 import RavenAction from '../components/night-actions/RavenAction';
 import BigBadWolfAction from '../components/night-actions/BigBadWolfAction';
+import PackResult from '../components/night-actions/PackResult';
 import WildChildNotice from '../components/WildChildNotice';
 import useWildChildNotice from '../hooks/useWildChildNotice';
 import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
@@ -78,21 +81,6 @@ const BOT_WOLF_MAX_DELAY_MS = 10000;
 function botDelay() {
   return BOT_WOLF_MIN_DELAY_MS + Math.random() * (BOT_WOLF_MAX_DELAY_MS - BOT_WOLF_MIN_DELAY_MS);
 }
-
-const SUBPHASE_TO_ROLE = {
-  werewolf: ROLE.WEREWOLF,
-  witch: ROLE.WITCH,
-  seer: ROLE.SEER,
-  cupid: ROLE.CUPID,
-  thief: ROLE.THIEF,
-  saviour: ROLE.SAVIOUR,
-  wolf_hound: ROLE.WOLF_HOUND,
-  white_wolf: ROLE.WHITE_WOLF,
-  fox: ROLE.FOX,
-  wild_child: ROLE.WILD_CHILD,
-  raven: ROLE.RAVEN,
-  big_bad_wolf: ROLE.BIG_BAD_WOLF,
-};
 
 const SUBPHASE_FLAVOR = {
   reveal:   { title: 'The Village Gathers...', sub: 'The night begins once everyone has read their role.' },
@@ -149,6 +137,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [wildChildModel, setWildChildModel] = useState(null);
   const [ravenTarget, setRavenTarget] = useState(null);
   const [bigBadWolfTarget, setBigBadWolfTarget] = useState(null);
+  const [packResult, setPackResult] = useState(null);
+  const packResultShownForRef = useRef(null);
   const wildChildNotice = useWildChildNotice(room, playerId);
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
@@ -218,7 +208,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         setEliminatedOverlay(true);
         return;
       }
-      if (seerResult || foxResult) {
+      if (seerResult || foxResult || packResult) {
         pendingDay.current = true;
       } else {
         navigation.replace('DayPhase', { roomId, playerId, nickname });
@@ -233,6 +223,15 @@ export default function NightPhaseScreen({ route, navigation }) {
     if (!gs.isHost || resolvingRef.current) return;
     runPlan(hostNightPlan(room));
   }, [room?.nightActions, room?.nightSubPhase, room?.status, room?.disconnectedPlayers, room?.roleAcknowledged, gs.isHost]);
+
+  useEffect(() => {
+    if (!room || room.status !== 'night' || gs.isNarrator || !gs.isAlive || !isWolfRole(gs.myRole)) return;
+    if (isQuietFirstNight(room) || packResultShownForRef.current === room.phase) return;
+    const result = packHuntResult(room);
+    if (!result) return;
+    packResultShownForRef.current = room.phase;
+    setPackResult(result);
+  }, [room?.nightActions?.werewolf, room?.nightActions?.wolfNoKill, room?.phase, gs.myRole]);
 
   useEffect(() => {
     setCanForceStart(false);
@@ -330,6 +329,13 @@ export default function NightPhaseScreen({ route, navigation }) {
   function dismissSeerResult() {
     setSeerResult(null);
     setMyActionDone(true);
+    if (pendingDay.current) {
+      navigation.replace('DayPhase', { roomId, playerId, nickname });
+    }
+  }
+
+  function dismissPackResult() {
+    setPackResult(null);
     if (pendingDay.current) {
       navigation.replace('DayPhase', { roomId, playerId, nickname });
     }
@@ -473,15 +479,12 @@ export default function NightPhaseScreen({ route, navigation }) {
   }
 
   const nightSubPhase = room?.nightSubPhase;
-  const activeRole = SUBPHASE_TO_ROLE[nightSubPhase];
   const actionAlreadyInFirestore = nightSubPhase ? isSubPhaseDone(nightSubPhase, room) : false;
-  const isMyTurn = gs.isAlive && !gs.isNarrator
-    && (gs.myRole === activeRole || (nightSubPhase === 'werewolf' && isWolfRole(gs.myRole)));
   const showSeerResult = !!seerResult;
   const showFoxResult = !!foxResult;
   const showThiefReveal = !!thiefStolenRole;
   const showingResult = showSeerResult || showFoxResult || showThiefReveal;
-  const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showingResult;
+  const showAction = isMyNightTurn(room, playerId) && !myActionDone && !showingResult;
   const showWaiting = !gs.isNarrator && !showAction && !showingResult;
   const powerLostNote = !gs.isAlive ? null
     : gs.myRole === ROLE.FOX && room.foxPowerLost
@@ -524,6 +527,10 @@ export default function NightPhaseScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {packResult && (
+          <PackResult theme={t} result={packResult} playerId={playerId} onDismiss={dismissPackResult} />
+        )}
+
         {gs.isNarrator && (
           <NarratorNightDashboard
             theme={t}

@@ -100,7 +100,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Role | Team | Ability |
 |---|---|---|
 | **Villager** | Village | No ability. Finds the wolves through discussion and votes. |
-| **Werewolf** | Wolves | Each night every wolf (the White Wolf and Big Bad Wolf included) votes for a victim, coordinating in the wolf chat; the most-voted player is taken. If the pack is split, it votes once more (30 s) only between the tied players; if it's split again, nobody dies that night. With a Quiet first night they only meet on night 1. |
+| **Werewolf** | Wolves | Each night every wolf (the White Wolf and Big Bad Wolf included) votes for a victim, coordinating in the wolf chat; the most-voted player is taken. If the pack is split, it votes once more (30 s) only between the tied players; if it's split again, nobody dies that night. When the hunt ends, every wolf sees a card with the pack's choice and the final votes, until they tap "Back to the shadows" (the rest of the night carries on meanwhile). With a Quiet first night they only meet on night 1. |
 | **Seer** | Village | Each night chooses a player and learns whether they are a werewolf. With a Quiet first night, starts on night 2. |
 | **Witch** | Village | Has one healing potion (saves that night's victim) and one poison potion (kills any player). Each potion can be used once per game. |
 | **Hunter** | Village | When eliminated, by night or by vote, immediately shoots one player of their choice. If the Hunter died at night, the day continues normally after the shot; if they were voted out, night falls. |
@@ -367,7 +367,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 |---|---|
 | `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions (the Big Bad Wolf counts in the pack), seating, Thief/lover/sister helpers, the Fox's sniffed group |
 | `voteManager.test.js` | Vote counting, ties and who is tied, unconfirmed votes, when all votes are in, the Raven's +2 |
-| `nightOrder.test.js` | Who wakes on night 1 and later nights (Fox, Wild Child, Raven, Big Bad Wolf included), skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote |
+| `nightOrder.test.js` | Who wakes on night 1 and later nights (Fox, Wild Child, Raven, Big Bad Wolf included), skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote and the result card the wolves see |
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer, the Fox losing its power, the Wild Child turning, the Raven's mark, the Big Bad Wolf's second victim |
 | `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night, the Raven's +2 (and not in a revote), the Village Idiot spared once, the Wild Child turning by day |
 | `hostDecisions.test.js` | The host's decisions: next night step, pack vote outcome, timeout defaults (never the Saviour or Seer on themselves), the narrator's Next, bot wolves, when voting is done and who can vote, timer lengths |
