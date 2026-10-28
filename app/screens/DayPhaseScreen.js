@@ -55,6 +55,7 @@ const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
 const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
 const OPTIONS_ICON         = require('../../assets/options.webp');
+const SCALE_ICON           = require('../../assets/scale.webp');
 
 const HUNTER_SHOT_SECONDS = 20;
 const REVOTE_SECONDS = 60;
@@ -443,7 +444,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           <>
             {revoteTargets && (
               <View style={[styles.revoteBanner, { backgroundColor: t.glassCard, borderColor: t.accent }]}>
-                <Text style={styles.revoteIcon}>⚖️</Text>
+                <Image source={SCALE_ICON} style={styles.revoteIcon} resizeMode="contain" />
                 <View style={styles.revoteTextCol}>
                   <Text style={[styles.bannerStateLabel, { color: t.accent }]}>Tie — vote again</Text>
                   <Text style={[styles.revoteText, { color: t.text }]}>
@@ -817,7 +818,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 2,
   },
-  revoteIcon: { fontSize: 32 },
+  revoteIcon: { width: 48, height: 48 },
   revoteTextCol: { flex: 1, gap: 2 },
   revoteText: { ...FONTS.body },
 });

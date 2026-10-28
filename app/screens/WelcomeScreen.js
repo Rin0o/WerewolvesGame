@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -12,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { updateProfile, nicknameError, NICKNAME_MAX } from '../utils/profile';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+
+const MOON_IMAGE = require('../../assets/moon_borderless.webp');
 
 export default function WelcomeScreen({ navigation }) {
   const [nickname, setNickname] = useState('');
@@ -36,7 +39,7 @@ export default function WelcomeScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.moon}>🌕</Text>
+            <Image source={MOON_IMAGE} style={styles.moon} resizeMode="contain" />
             <Text style={[styles.title, { color: t.primary }]}>Welcome, traveller</Text>
             <Text style={[styles.subtitle, { color: t.textSecondary }]}>
               What should the village call you?
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   header: { alignItems: 'center', marginBottom: SPACING.xxl },
-  moon: { fontSize: 56, marginBottom: SPACING.sm },
+  moon: { width: 88, height: 88, marginBottom: SPACING.sm },
   title: { ...FONTS.title, textAlign: 'center' },
   subtitle: { ...FONTS.subheading, marginTop: SPACING.xs, textAlign: 'center' },
   card: {

@@ -5,6 +5,7 @@ import { ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const DISPLAY_SECONDS = 8;
+const SCALE_ICON = require('../../../assets/scale.webp');
 
 export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles, willRevote = false }) {
   const [countdown, setCountdown] = useState(DISPLAY_SECONDS);
@@ -90,7 +91,11 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
               </>
             ) : (
               <>
-                <Text style={styles.noVictimEmoji}>{isTie ? '⚖️' : '🌫️'}</Text>
+                {isTie ? (
+                  <Image source={SCALE_ICON} style={styles.tieIcon} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.noVictimEmoji}>🌫️</Text>
+                )}
                 <Text style={[styles.noVictimText, { color: t.textMuted }]}>
                   {isTie && willRevote
                     ? 'The vote is tied. The village will vote again between the tied players.'
@@ -220,6 +225,7 @@ const styles = StyleSheet.create({
   roleRevealName: { ...FONTS.body, textAlign: 'center' },
   roleDescription: { ...FONTS.caption, textAlign: 'center', fontStyle: 'italic', lineHeight: 18 },
   noVictimEmoji: { fontSize: 64 },
+  tieIcon: { width: 96, height: 96 },
   noVictimText: { ...FONTS.body, textAlign: 'center' },
   tallyBox: {
     width: '100%',

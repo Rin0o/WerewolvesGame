@@ -27,6 +27,7 @@ import RoleInfoModal from '../components/RoleInfoModal';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
+const SCALE_ICON = require('../../assets/scale.webp');
 const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.RAVEN, ROLE.BIG_BAD_WOLF, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
 
 export default function LobbyScreen({ route, navigation }) {
@@ -324,11 +325,19 @@ export default function LobbyScreen({ route, navigation }) {
               style={[styles.modeTab, revoteOnTie && { backgroundColor: t.primary }]}
               onPress={() => setTieRule(TIE_RULE.REVOTE)}
             >
-              <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>⚖️ Vote again</Text>
+              <View style={styles.tabWithIcon}>
+                <Image source={SCALE_ICON} style={styles.tabIcon} resizeMode="contain" />
+                <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>Vote again</Text>
+              </View>
             </TouchableOpacity>
           </View>
+        ) : revoteOnTie ? (
+          <View style={styles.tabWithIcon}>
+            <Image source={SCALE_ICON} style={styles.tabIcon} resizeMode="contain" />
+            <Text style={[styles.modeBadgeText, { color: t.text }]}>Vote again</Text>
+          </View>
         ) : (
-          <Text style={[styles.modeBadgeText, { color: t.text }]}>{revoteOnTie ? '⚖️ Vote again' : '🕊️ No lynch'}</Text>
+          <Text style={[styles.modeBadgeText, { color: t.text }]}>🕊️ No lynch</Text>
         )}
         <Text style={[styles.firstNightHint, { color: t.textMuted }]}>
           {revoteOnTie
@@ -637,6 +646,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   modeTabText: { ...FONTS.button },
+  tabWithIcon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs },
+  tabIcon: { width: 24, height: 24 },
   modeBadge: {
     borderRadius: RADIUS.md,
     borderWidth: 1,

@@ -21,6 +21,8 @@ import {
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
+const SEND_ICON = require('../../assets/send_night.webp');
+
 const CHATS = {
   werewolf: {
     title: 'Wolf Pack Chat',
@@ -127,12 +129,8 @@ export default function PrivateChat({ chat, visible, onClose, roomId, playerId, 
                 returnKeyType="send"
                 blurOnSubmit={false}
               />
-              <TouchableOpacity
-                style={[styles.sendBtn, { backgroundColor: t.primary }]}
-                onPress={send}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.sendText}>↑</Text>
+              <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.8} accessibilityLabel="Send">
+                <Image source={SEND_ICON} style={styles.sendIcon} resizeMode="contain" />
               </TouchableOpacity>
             </View>
           ) : isNarrator ? (
@@ -228,13 +226,12 @@ const styles = StyleSheet.create({
     ...FONTS.body,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  sendIcon: { width: 52, height: 52 },
   spectatingRow: {
     padding: SPACING.md,
     borderTopWidth: 1,

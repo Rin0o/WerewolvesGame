@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -21,6 +22,8 @@ import { loadProfile, sameNickname } from '../utils/profile';
 import SettingsPanel from '../components/SettingsPanel';
 import QrScannerModal from '../components/QrScannerModal';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+
+const MOON_IMAGE = require('../../assets/moon_borderless.webp');
 
 const STATUS_LABELS = {
   lobby: 'waiting in the lobby',
@@ -178,7 +181,7 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} hitSlop={12}>
               <Text style={styles.settingsIcon}>⚙️</Text>
             </TouchableOpacity>
-            <Text style={styles.moon}>🌕</Text>
+            <Image source={MOON_IMAGE} style={styles.moon} resizeMode="contain" />
             <Text style={[styles.title, { color: t.primary }]}>Werewolves</Text>
             <Text style={[styles.subtitle, { color: t.textSecondary }]}>of Miller's Hollow</Text>
             <Text style={[styles.playingAs, { color: t.textSecondary }]}>
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
   playingAsName: { fontWeight: '700' },
   content: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   header: { alignItems: 'center', marginBottom: SPACING.xxl },
-  moon: { fontSize: 56, marginBottom: SPACING.sm },
+  moon: { width: 88, height: 88, marginBottom: SPACING.sm },
   title: { ...FONTS.title, fontSize: 36 },
   subtitle: { ...FONTS.subheading, marginTop: SPACING.xs },
   card: {

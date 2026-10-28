@@ -178,7 +178,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   leave.webp                 — Leave game button inside GameOptionsModal
   options.webp               — Options button (Day + Night bottom bars, last)
   moon_borderless.webp       — Borderless stained-glass moon in the NightPhaseScreen waiting scene (124px, in the
-                               moonGlow halo)
+                               moonGlow halo) and the HomeScreen / WelcomeScreen headers (88px)
   exit_game.webp             — Leave button image (GameOverScreen)
   notes.webp                 — Notes button image (Day + Night bottom bars)
   table_view.webp            — Seating table button (Day + Night bottom bars)
@@ -186,6 +186,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   bear_growl.webp            — Bear growl icon (NightAnnouncement, Bear Tamer's growl card; the silent
                                card uses role_icons/bear_tamer.webp)
   sisters_chat.webp          — Sisters Chat button (NightPhaseScreen bottom bar, Sisters + narrator)
+  send_day.webp / send_night.webp — Send buttons (52px): DayChat uses send_day; PrivateChat (wolf + sisters) send_night
+  scale.webp                 — Tie / revote icon (replaces the ⚖️ emoji): DayPhaseScreen revote banner,
+                               LynchResultModal tie verdict, Lobby "Vote again" tied-vote option
   day_chat.webp / night_chat.webp, day_confirm.webp / night_confirm.webp,
   day_check.webp / night_check.webp — chat, confirm-vote/action and confirmed-badge images
   /unused/                   — Git-ignored local folder for retired images (e.g. accept.webp,
