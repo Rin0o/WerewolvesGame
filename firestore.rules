@@ -115,7 +115,8 @@ service cloud.firestore {
           'thief': ['thief'],
           'saviour': ['saviour'],
           'fox': ['fox', 'foxSkip'],
-          'wild_child': ['wildChild']
+          'wild_child': ['wildChild'],
+          'raven': ['raven', 'ravenSkip']
         };
         let changed = after().nightActions.diff(before().get('nightActions', {})).affectedKeys();
         return before().status == 'night'

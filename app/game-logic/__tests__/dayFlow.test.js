@@ -186,6 +186,36 @@ describe('startNextNight', () => {
   });
 });
 
+describe('the Raven\'s mark at the vote', () => {
+  const ROLES = { ...VILLAGE, rae: 'raven' };
+
+  it('the 2 extra votes lynch the marked player', async () => {
+    const game = day(ROLES, { ravenMark: 'vera', votes: votesFor({ will: 'sam', wanda: 'sam', vic: 'vera' }) });
+    await lynch(game);
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+  });
+
+  it('lynches the marked player even when nobody votes', async () => {
+    await lynch(day(ROLES, { ravenMark: 'vera', votes: {} }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+  });
+
+  it('can create a tie, which then goes to a revote without the 2 votes', () => {
+    const game = day(ROLES, { tieRule: TIE_RULE.REVOTE, ravenMark: 'vera', votes: votesFor({ will: 'sam', wanda: 'sam' }) });
+    expect(tiedForRevote(game).sort()).toEqual(['sam', 'vera']);
+  });
+
+  it('does not count in the revote', async () => {
+    const game = day(ROLES, { ravenMark: 'vera', revoteTargets: ['sam', 'vera'], votes: votesFor({ will: 'sam' }) });
+    await lynch(game);
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'sam');
+  });
+
+  it('is cleared once the day is resolved', async () => {
+    expect((await lynch(day(ROLES, { ravenMark: 'vera', votes: votesFor({ will: 'vera' }) }))).ravenMark).toBeNull();
+  });
+});
+
 describe('the Village Idiot', () => {
   const ROLES = { ...VILLAGE, ida: 'village_idiot' };
   const voteOutIda = votesFor({ will: 'ida', wanda: 'ida', sam: 'ida', vic: 'ida' });

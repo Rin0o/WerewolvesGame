@@ -21,7 +21,7 @@ import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
-import { tallyVotes } from '../game-logic/voteManager';
+import { tallyVotes, ravenVotes, RAVEN_VOTES } from '../game-logic/voteManager';
 import {
   discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
 } from '../game-logic/hostDecisions';
@@ -196,8 +196,11 @@ export default function DayPhaseScreen({ route, navigation }) {
     if (!votesClosed && !allIn) return;
     shownResultRef.current = true;
     const votesCopy = { ...votes };
-    const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy);
-    setLastLynchResult({ tallyMap, eliminatedId, tie, votes: votesCopy, sparedIdiot: isIdiotSpared(room, eliminatedId) });
+    const extraVotes = ravenVotes(room);
+    const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy, extraVotes);
+    setLastLynchResult({
+      tallyMap, eliminatedId, tie, votes: votesCopy, ravenVotes: extraVotes, sparedIdiot: isIdiotSpared(room, eliminatedId),
+    });
     setResultModalVisible(true);
   }, [room?.votesClosed, allIn]);
 
@@ -328,6 +331,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const iCanVote = canVote(room, playerId);
   const iAmRevealedIdiot = gs.isAlive && room.idiotRevealed === playerId;
   const isRevealedIdiot = (p) => p.isAlive && p.id === room.idiotRevealed;
+  const ravenMarked = players.find((p) => p.id === room.ravenMark && p.isAlive) || null;
   const canConfirmVote = iCanVote && !lastLynchResult && !hunterTriggered
     && !!myVoteTarget && !myVoteConfirmed;
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
@@ -380,7 +384,7 @@ export default function DayPhaseScreen({ route, navigation }) {
           </View>
         )}
 
-        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} />
+        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} ravenMarked={ravenMarked} />
 
         {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
           <View style={[
@@ -412,6 +416,7 @@ export default function DayPhaseScreen({ route, navigation }) {
             players={players}
             roles={roles}
             votes={votes}
+            extraVotes={ravenVotes(room)}
             voters={dayVoters(room)}
             phase={phase}
             onCloseVotes={() => closeVoting(roomId)}
@@ -559,6 +564,14 @@ export default function DayPhaseScreen({ route, navigation }) {
                         />
                         {isRevealedIdiot(item) && (
                           <Text style={[styles.idiotTag, { color: t.accent }]}>Revealed · cannot vote</Text>
+                        )}
+                        {item.id === ravenMarked?.id && (
+                          <View style={styles.ravenTag}>
+                            <Image source={ROLE_ICONS.raven} style={styles.ravenTagIcon} resizeMode="contain" />
+                            <Text style={[styles.idiotTag, styles.ravenTagText, { color: t.danger }]}>
+                              {revoteTargets ? `+${RAVEN_VOTES} (first vote only)` : `+${RAVEN_VOTES} votes from the raven`}
+                            </Text>
+                          </View>
                         )}
                       </View>
                       {item.isAlive && theyConfirmed && (
@@ -791,6 +804,9 @@ const styles = StyleSheet.create({
   idiotBannerIcon: { width: 56, height: 56 },
   idiotBannerText: { flex: 1, gap: 2 },
   idiotTag: { ...FONTS.caption, fontWeight: '700', marginLeft: SPACING.md, marginBottom: SPACING.xs },
+  ravenTag: { flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.md, marginBottom: SPACING.xs, gap: SPACING.xs },
+  ravenTagIcon: { width: 22, height: 22 },
+  ravenTagText: { marginLeft: 0, marginBottom: 0 },
   revoteBanner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -9,6 +9,7 @@ export default function NarratorDayDashboard({
   players,
   roles,
   votes,
+  extraVotes = {},
   voters,
   phase,
   onCloseVotes,
@@ -16,7 +17,7 @@ export default function NarratorDayDashboard({
   hunterTriggered,
 }) {
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
-  const { tallyMap } = tallyVotes(votes);
+  const { tallyMap } = tallyVotes(votes, extraVotes);
   const sortedTally = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
   const maxVotes = sortedTally.length > 0 ? sortedTally[0][1] : 0;
 

@@ -27,7 +27,7 @@ import RoleInfoModal from '../components/RoleInfoModal';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
-const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
+const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.RAVEN, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
 
 export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -65,7 +65,7 @@ export default function LobbyScreen({ route, navigation }) {
     const humanCount = room.players.filter((p) => !p.isBot).length - (mode === 'narrator' ? 1 : 0);
     const total = Math.max(MIN_PLAYERS, humanCount);
     updateRoom(roomId, {
-      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, white_wolf: false, wolf_hound: false },
+      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, raven: false, white_wolf: false, wolf_hound: false },
     });
   }, [room?.gameMode, room?.customRoles]);
 
@@ -89,7 +89,7 @@ export default function LobbyScreen({ route, navigation }) {
   const narratorOffset = gameMode === 'narrator' ? 1 : 0;
   const playingHumans = humanPlayers.length - narratorOffset;
 
-  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, white_wolf: false, wolf_hound: false };
+  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, raven: false, white_wolf: false, wolf_hound: false };
 
   const botsAvailable = gameMode !== 'narrator';
   const botTarget = choosesRoles ? cfg.playerCount : MIN_PLAYERS;

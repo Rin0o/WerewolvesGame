@@ -270,6 +270,32 @@ describe('resolveNight — Fox', () => {
   });
 });
 
+describe('resolveNight — Raven', () => {
+  const ROLES = { ...VILLAGE, rae: 'raven' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('publishes the mark at dawn, without naming the Raven', async () => {
+    const update = await resolve(night({ raven: 'vera' }));
+    expect(update.ravenMark).toBe('vera');
+    expect(eventsOf(update)).toContain('Night 2: The raven marked Vera, who starts today\'s vote with 2 votes against them.');
+    expect(eventsOf(update).join(' ')).not.toMatch(/Rae/);
+  });
+
+  it('loses the mark when the marked player dies that night', async () => {
+    const update = await resolve(night({ raven: 'vera', werewolf: 'vera' }));
+    expect(update.ravenMark).toBeNull();
+    expect(eventsOf(update).join(' ')).not.toMatch(/raven/);
+  });
+
+  it('keeps the mark when the Raven itself dies that night', async () => {
+    expect((await resolve(night({ raven: 'vera', werewolf: 'rae' }))).ravenMark).toBe('vera');
+  });
+
+  it('clears any old mark when the Raven passes', async () => {
+    expect((await resolve(night({ ravenSkip: true }, { ravenMark: 'vic' }))).ravenMark).toBeNull();
+  });
+});
+
 describe('resolveNight — Wild Child', () => {
   const ROLES = { ...VILLAGE, kid: 'wild_child' };
   const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, ...overrides });

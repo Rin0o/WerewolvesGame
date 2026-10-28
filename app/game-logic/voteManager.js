@@ -1,3 +1,5 @@
+export const RAVEN_VOTES = 2;
+
 export function allVotesIn(votes, players, disconnectedPlayers = []) {
   const aliveIds = players
     .filter((p) => p.isAlive && !p.isNarrator && !disconnectedPlayers.includes(p.id))
@@ -5,9 +7,16 @@ export function allVotesIn(votes, players, disconnectedPlayers = []) {
   return aliveIds.length > 0 && aliveIds.every((id) => votes[id]?.confirmed === true);
 }
 
-export function tallyVotes(votes) {
+export function ravenVotes(room) {
+  const marked = room.ravenMark;
+  if (!marked || room.revoteTargets?.length) return {};
+  if (!(room.players || []).some((p) => p.id === marked && p.isAlive)) return {};
+  return { [marked]: RAVEN_VOTES };
+}
+
+export function tallyVotes(votes, extraVotes = {}) {
   const confirmed = Object.entries(votes).filter(([, v]) => v?.confirmed);
-  const tallyMap = {};
+  const tallyMap = { ...extraVotes };
   for (const [, v] of confirmed) {
     tallyMap[v.target] = (tallyMap[v.target] || 0) + 1;
   }

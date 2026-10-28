@@ -1,5 +1,28 @@
-import { allVotesIn, tallyVotes } from '../voteManager';
+import { allVotesIn, tallyVotes, ravenVotes } from '../voteManager';
 import { makeGame, votesFor } from './helpers';
+
+describe('the Raven\'s votes', () => {
+  const table = (overrides) => makeGame({ rae: 'raven', x: 'villager', y: 'werewolf', z: 'villager' }, { status: 'day', ...overrides });
+
+  it('adds 2 votes against the marked player', () => {
+    expect(ravenVotes(table({ ravenMark: 'x' }))).toEqual({ x: 2 });
+    expect(tallyVotes(votesFor({ rae: 'y', z: 'y', y: 'z' }), { x: 2 })).toMatchObject({ tallyMap: { x: 2, y: 2, z: 1 }, tie: true });
+  });
+
+  it('lynches the marked player on the 2 votes alone when nobody votes', () => {
+    expect(tallyVotes({}, { x: 2 })).toMatchObject({ eliminatedId: 'x', tallyMap: { x: 2 } });
+  });
+
+  it('can break what would have been a tie', () => {
+    expect(tallyVotes(votesFor({ rae: 'x', z: 'y' }), { x: 2 }).eliminatedId).toBe('x');
+  });
+
+  it('adds nothing without a mark, in a tie revote, or once the marked player is dead', () => {
+    expect(ravenVotes(table({}))).toEqual({});
+    expect(ravenVotes(table({ ravenMark: 'x', revoteTargets: ['x', 'y'] }))).toEqual({});
+    expect(ravenVotes(table({ ravenMark: 'x', dead: ['x'] }))).toEqual({});
+  });
+});
 
 describe('tallyVotes', () => {
   it('lynches the single player with the most votes', () => {

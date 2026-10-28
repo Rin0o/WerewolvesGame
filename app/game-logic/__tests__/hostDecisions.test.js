@@ -157,6 +157,11 @@ describe('nightTimeoutPlan', () => {
     expect(nightTimeoutPlan(room, () => 0.99)).toEqual({ update: { 'nightActions.wildChild': 'vic' } });
   });
 
+  it('lets the Raven mark no one when its time runs out', () => {
+    expect(nightTimeoutPlan(night('raven'))).toEqual({ update: { 'nightActions.ravenSkip': true } });
+    expect(subPhaseSeconds('raven', { phase: 2 })).toBe(25);
+  });
+
   it('lets the Fox stay hidden rather than risk its power', () => {
     expect(nightTimeoutPlan(night('fox'))).toEqual({ update: { 'nightActions.foxSkip': true } });
     expect(subPhaseSeconds('fox', { phase: 2 })).toBe(25);

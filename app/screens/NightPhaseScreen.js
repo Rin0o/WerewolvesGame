@@ -49,6 +49,7 @@ import ThiefAction from '../components/night-actions/ThiefAction';
 import SaviourAction from '../components/night-actions/SaviourAction';
 import FoxAction from '../components/night-actions/FoxAction';
 import WildChildAction from '../components/night-actions/WildChildAction';
+import RavenAction from '../components/night-actions/RavenAction';
 import WildChildNotice from '../components/WildChildNotice';
 import useWildChildNotice from '../hooks/useWildChildNotice';
 import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
@@ -87,6 +88,7 @@ const SUBPHASE_TO_ROLE = {
   white_wolf: ROLE.WHITE_WOLF,
   fox: ROLE.FOX,
   wild_child: ROLE.WILD_CHILD,
+  raven: ROLE.RAVEN,
 };
 
 const SUBPHASE_FLAVOR = {
@@ -101,6 +103,7 @@ const SUBPHASE_FLAVOR = {
   saviour:  { title: 'A Guardian Watches...', sub: 'Someone is being chosen for protection tonight.' },
   fox:      { title: 'A Fox Sniffs the Air...', sub: 'Something cunning creeps between the houses.' },
   wild_child: { title: 'A Child Looks Up...', sub: 'A lonely orphan chooses someone to admire.' },
+  raven:    { title: 'A Raven Circles...', sub: 'Dark wings settle above a sleeping house.' },
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
@@ -139,6 +142,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [foxTarget, setFoxTarget] = useState(null);
   const [foxResult, setFoxResult] = useState(null);
   const [wildChildModel, setWildChildModel] = useState(null);
+  const [ravenTarget, setRavenTarget] = useState(null);
   const wildChildNotice = useWildChildNotice(room, playerId);
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
@@ -345,6 +349,17 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function submitWildChildModel() {
     if (!wildChildModel) return;
     await submitNightAction(roomId, 'wildChild', wildChildModel);
+    setMyActionDone(true);
+  }
+
+  async function submitRavenMark() {
+    if (!ravenTarget) return;
+    await submitNightAction(roomId, 'raven', ravenTarget);
+    setMyActionDone(true);
+  }
+
+  async function submitRavenSkip() {
+    await submitNightAction(roomId, 'ravenSkip', true);
     setMyActionDone(true);
   }
 
@@ -676,6 +691,17 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSkip={submitFoxSkip}
             result={foxResult}
             onDismissResult={dismissFoxResult}
+          />
+        )}
+
+        {showAction && nightSubPhase === 'raven' && (
+          <RavenAction
+            theme={t}
+            players={alivePlayers}
+            target={ravenTarget}
+            onSelectTarget={setRavenTarget}
+            onSubmit={submitRavenMark}
+            onSkip={submitRavenSkip}
           />
         )}
 

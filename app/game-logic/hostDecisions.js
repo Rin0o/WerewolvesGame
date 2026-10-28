@@ -17,7 +17,7 @@ import {
 } from './gameManager';
 
 const SUBPHASE_SECONDS = 45;
-const SUBPHASE_SECONDS_OVERRIDES = { thief: 30, cupid: 30, wild_child: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25, fox: 25 };
+const SUBPHASE_SECONDS_OVERRIDES = { thief: 30, cupid: 30, wild_child: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25, fox: 25, raven: 25 };
 const OBSERVE_ONLY_WEREWOLF_SECONDS = 15;
 export const WOLF_REVOTE_SECONDS = 30;
 
@@ -83,6 +83,8 @@ export function nightTimeoutPlan(room, random = Math.random) {
       return nightActionUpdate('witchSkip', true);
     case 'fox':
       return nightActionUpdate('foxSkip', true);
+    case 'raven':
+      return nightActionUpdate('ravenSkip', true);
     case 'seer': {
       const inspectable = othersThan(ROLE.SEER);
       return inspectable.length > 0 ? nightActionUpdate('seer', inspectable[0].id) : null;

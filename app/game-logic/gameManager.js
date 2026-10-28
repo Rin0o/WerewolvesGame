@@ -1,7 +1,7 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount, isWolfRole } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf } from './roles';
-import { tallyVotes } from './voteManager';
+import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
   getRoom,
   updateRoom,
@@ -50,13 +50,14 @@ export function computeNightSequence(room) {
     white_wolf: phase % 2 === 0 && isActive(ROLE.WHITE_WOLF) && packWolfAlive,
     witch: witchHasPotions,
     seer: isActive(ROLE.SEER),
+    raven: isActive(ROLE.RAVEN),
   };
   return nightOrder(room).filter((step) => wakes[step]);
 }
 
 const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'werewolf'];
-const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer'];
-const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'white_wolf', 'witch', 'seer'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer', 'raven'];
+const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'white_wolf', 'witch', 'seer', 'raven'];
 
 export const ROLE_REVEAL_STEP = 'reveal';
 
@@ -197,6 +198,7 @@ export function isSubPhaseDone(subPhase, room) {
     case 'seer':     return !!nightActions.seer;
     case 'saviour':  return !!nightActions.saviour;
     case 'fox':      return !!nightActions.fox || nightActions.foxSkip === true;
+    case 'raven':    return !!nightActions.raven || nightActions.ravenSkip === true;
     default:         return false;
   }
 }
@@ -299,6 +301,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     wildChildModel: null,
     wildChildTurnedAt: null,
     idiotRevealed: null,
+    ravenMark: null,
   });
   await clearingChats;
 }
@@ -428,6 +431,11 @@ export async function resolveNight(roomId, roomData) {
   const turn = wildChildTurn(wildChild, updatedRoles, updatedPlayers, [...allEliminated]);
   if (turn) updatedRoles = turn.roles;
 
+  const markedPlayer = updatedPlayers.find((p) => p.id === nightActions.raven && p.isAlive);
+  if (markedPlayer) {
+    events.push(`Night ${phase}: The raven marked ${markedPlayer.nickname}, who starts today's vote with ${RAVEN_VOTES} votes against them.`);
+  }
+
   const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
   const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers, updatedRoles);
@@ -448,6 +456,7 @@ export async function resolveNight(roomId, roomData) {
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
     foxPowerLost,
+    ravenMark: markedPlayer ? markedPlayer.id : null,
     ...wildChild,
     ...(turn && { wildChildTurnedAt: turn.wildChildTurnedAt }),
     revoteTargets: null,
@@ -465,7 +474,7 @@ export const TIE_RULE = { NO_LYNCH: 'no_lynch', REVOTE: 'revote' };
 
 export function tiedForRevote(room) {
   if (room.tieRule !== TIE_RULE.REVOTE || room.revoteTargets?.length) return null;
-  const { tied } = tallyVotes(room.votes || {});
+  const { tied } = tallyVotes(room.votes || {}, ravenVotes(room));
   return tied.length > 1 ? tied : null;
 }
 
@@ -507,7 +516,7 @@ export async function resolveLynch(roomId, roomData) {
   const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
   const events = [];
 
-  const { tallyMap, eliminatedId: votedOutId, tie, tied } = tallyVotes(votes);
+  const { tallyMap, eliminatedId: votedOutId, tie, tied } = tallyVotes(votes, ravenVotes(roomData));
   const sparedIdiot = isIdiotSpared(roomData, votedOutId) ? votedOutId : null;
   const eliminatedId = sparedIdiot ? null : votedOutId;
 
@@ -564,6 +573,7 @@ export async function resolveLynch(roomId, roomData) {
     votes: {},
     votesClosed: false,
     revoteTargets: null,
+    ravenMark: null,
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),

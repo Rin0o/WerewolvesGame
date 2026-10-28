@@ -32,7 +32,7 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
   }, [visible]);
 
   if (!result) return null;
-  const { tallyMap, eliminatedId, tie, votes, sparedIdiot = false } = result;
+  const { tallyMap, eliminatedId, tie, votes, sparedIdiot = false, ravenVotes = {} } = result;
 
   const sortedEntries = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
   const totalVotes = sortedEntries.reduce((sum, [, c]) => sum + c, 0);
@@ -126,8 +126,13 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                       <View style={[styles.voteBarBg, { backgroundColor: t.border }]}>
                         <View style={[styles.voteBarFill, { width: `${barPct}%`, backgroundColor: barColor }]} />
                       </View>
-                      {voters.length > 0 && (
+                      {(voters.length > 0 || ravenVotes[targetId]) && (
                         <View style={styles.voterChipRow}>
+                          {ravenVotes[targetId] > 0 && (
+                            <View style={[styles.voterChip, { borderColor: t.danger, backgroundColor: `${t.danger}12` }]}>
+                              <Text style={[styles.voterChipText, { color: t.danger }]}>🐦‍⬛ Raven +{ravenVotes[targetId]}</Text>
+                            </View>
+                          )}
                           {voters.map(({ id, nickname }) => (
                             <View key={id} style={[styles.voterChip, { borderColor: isEliminated ? `${t.danger}60` : t.border, backgroundColor: isEliminated ? `${t.danger}12` : t.glassBg }]}>
                               <Text style={[styles.voterChipText, { color: isEliminated ? t.danger : t.textMuted }]}>

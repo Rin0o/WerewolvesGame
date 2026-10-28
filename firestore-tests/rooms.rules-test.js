@@ -238,6 +238,15 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('bob').room, { wildChildModel: 'wendy' }));
   });
 
+  it('the Raven marks or passes, and only the host publishes the mark', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'raven' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.raven': 'alice' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.ravenSkip': true }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.raven': 'wendy' }));
+    await assertFails(updateDoc(as('bob').room, { ravenMark: 'wendy' }));
+    await assertSucceeds(updateDoc(as('host').room, { ravenMark: 'alice' }));
+  });
+
   it('nobody but the host advances the night', async () => {
     await assertFails(updateDoc(as('alice').room, { nightSubPhase: 'seer' }));
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));
