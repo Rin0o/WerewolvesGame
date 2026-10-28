@@ -25,6 +25,7 @@ import {
   isSubPhaseDone,
   isQuietFirstNight,
   livingWolves,
+  wolfHasDied,
   playersStillReading,
   ROLE_REVEAL_STEP,
 } from '../game-logic/gameManager';
@@ -50,6 +51,7 @@ import SaviourAction from '../components/night-actions/SaviourAction';
 import FoxAction from '../components/night-actions/FoxAction';
 import WildChildAction from '../components/night-actions/WildChildAction';
 import RavenAction from '../components/night-actions/RavenAction';
+import BigBadWolfAction from '../components/night-actions/BigBadWolfAction';
 import WildChildNotice from '../components/WildChildNotice';
 import useWildChildNotice from '../hooks/useWildChildNotice';
 import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
@@ -64,7 +66,7 @@ import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import { ROLE_ICONS } from '../constants/icons';
 import useUnreadMessages from '../hooks/useUnreadMessages';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE, isWolfRole } from '../constants/roles';
+import { ROLE, isWolfRole, isPackWolf } from '../constants/roles';
 
 const FORCE_START_AFTER_MS = 60000;
 const WAIT_TITLE_COLOR = '#FFF1CC';
@@ -89,6 +91,7 @@ const SUBPHASE_TO_ROLE = {
   fox: ROLE.FOX,
   wild_child: ROLE.WILD_CHILD,
   raven: ROLE.RAVEN,
+  big_bad_wolf: ROLE.BIG_BAD_WOLF,
 };
 
 const SUBPHASE_FLAVOR = {
@@ -104,6 +107,7 @@ const SUBPHASE_FLAVOR = {
   fox:      { title: 'A Fox Sniffs the Air...', sub: 'Something cunning creeps between the houses.' },
   wild_child: { title: 'A Child Looks Up...', sub: 'A lonely orphan chooses someone to admire.' },
   raven:    { title: 'A Raven Circles...', sub: 'Dark wings settle above a sleeping house.' },
+  big_bad_wolf: { title: 'Something Hungrier Prowls...', sub: 'One beast is not yet satisfied.' },
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
@@ -113,6 +117,7 @@ const DEATH_MESSAGES = {
   heartbreak: 'Your lover was killed tonight, and you died of a broken heart.',
   abandoned:  'You left the village and were lost in the night.',
   white_wolf: 'The White Wolf turned on the pack and devoured you.',
+  big_bad_wolf: 'The Big Bad Wolf came back for more, and dragged you away.',
 };
 
 const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
@@ -143,6 +148,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [foxResult, setFoxResult] = useState(null);
   const [wildChildModel, setWildChildModel] = useState(null);
   const [ravenTarget, setRavenTarget] = useState(null);
+  const [bigBadWolfTarget, setBigBadWolfTarget] = useState(null);
   const wildChildNotice = useWildChildNotice(room, playerId);
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
@@ -352,6 +358,17 @@ export default function NightPhaseScreen({ route, navigation }) {
     setMyActionDone(true);
   }
 
+  async function submitBigBadWolfKill() {
+    if (!bigBadWolfTarget) return;
+    await submitNightAction(roomId, 'bigBadWolf', bigBadWolfTarget);
+    setMyActionDone(true);
+  }
+
+  async function submitBigBadWolfSkip() {
+    await submitNightAction(roomId, 'bigBadWolfSkip', true);
+    setMyActionDone(true);
+  }
+
   async function submitRavenMark() {
     if (!ravenTarget) return;
     await submitNightAction(roomId, 'raven', ravenTarget);
@@ -466,7 +483,12 @@ export default function NightPhaseScreen({ route, navigation }) {
   const showingResult = showSeerResult || showFoxResult || showThiefReveal;
   const showAction = isMyTurn && !myActionDone && !actionAlreadyInFirestore && !showingResult;
   const showWaiting = !gs.isNarrator && !showAction && !showingResult;
-  const foxPowerLostNote = gs.myRole === ROLE.FOX && gs.isAlive && !!room.foxPowerLost;
+  const powerLostNote = !gs.isAlive ? null
+    : gs.myRole === ROLE.FOX && room.foxPowerLost
+      ? { icon: ROLE_ICONS.fox, text: 'You have lost your power. As the Fox, you no longer wake up at night.' }
+      : gs.myRole === ROLE.BIG_BAD_WOLF && wolfHasDied(room)
+        ? { icon: ROLE_ICONS.big_bad_wolf, text: 'A wolf has died. You still hunt with the pack, but you no longer take a second victim.' }
+        : null;
   const myWolfVote = nightActions.wolfVotes?.[playerId];
   const canConfirmWolfVote = showAction && nightSubPhase === 'werewolf' && !isQuietFirstNight(room)
     && !!wolfTarget && wolfTarget !== myWolfVote;
@@ -564,12 +586,10 @@ export default function NightPhaseScreen({ route, navigation }) {
                 <Text style={styles.waitSub}>Wait for dawn.</Text>
               </>
             )}
-            {foxPowerLostNote && nightSubPhase !== ROLE_REVEAL_STEP && (
-              <View style={[styles.foxLostNote, { borderColor: t.danger }]}>
-                <Image source={ROLE_ICONS.fox} style={styles.foxLostIcon} resizeMode="contain" />
-                <Text style={[styles.foxLostText, { color: WAIT_TITLE_COLOR }]}>
-                  You have lost your power. As the Fox, you no longer wake up at night.
-                </Text>
+            {powerLostNote && nightSubPhase !== ROLE_REVEAL_STEP && (
+              <View style={[styles.powerLostNote, { borderColor: t.danger }]}>
+                <Image source={powerLostNote.icon} style={styles.powerLostIcon} resizeMode="contain" />
+                <Text style={[styles.powerLostText, { color: WAIT_TITLE_COLOR }]}>{powerLostNote.text}</Text>
               </View>
             )}
             </View>
@@ -606,7 +626,7 @@ export default function NightPhaseScreen({ route, navigation }) {
         {showAction && nightSubPhase === 'white_wolf' && (
           <WhiteWolfAction
             theme={t}
-            players={alivePlayers.filter((p) => roles[p.id] === ROLE.WEREWOLF)}
+            players={alivePlayers.filter((p) => isPackWolf(roles[p.id]))}
             target={whiteWolfTarget}
             onSelectTarget={setWhiteWolfTarget}
             onSubmit={submitWhiteWolfKill}
@@ -691,6 +711,18 @@ export default function NightPhaseScreen({ route, navigation }) {
             onSkip={submitFoxSkip}
             result={foxResult}
             onDismissResult={dismissFoxResult}
+          />
+        )}
+
+        {showAction && nightSubPhase === 'big_bad_wolf' && (
+          <BigBadWolfAction
+            theme={t}
+            players={alivePlayers.filter((p) => !isWolfRole(roles[p.id]) && p.id !== victimId)}
+            packVictimName={victimPlayer?.nickname || null}
+            target={bigBadWolfTarget}
+            onSelectTarget={setBigBadWolfTarget}
+            onSubmit={submitBigBadWolfKill}
+            onSkip={submitBigBadWolfSkip}
           />
         )}
 
@@ -892,7 +924,7 @@ const styles = StyleSheet.create({
   },
   moonBig: { width: 124, height: 124 },
   revealCount: { ...FONTS.subheading, marginTop: SPACING.md },
-  foxLostNote: {
+  powerLostNote: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
@@ -902,8 +934,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     backgroundColor: 'rgba(192,57,43,0.25)',
   },
-  foxLostIcon: { width: 36, height: 36 },
-  foxLostText: { ...FONTS.body, flex: 1 },
+  powerLostIcon: { width: 36, height: 36 },
+  powerLostText: { ...FONTS.body, flex: 1 },
   forceStartBtn: {
     marginTop: SPACING.lg,
     borderWidth: 1.5,

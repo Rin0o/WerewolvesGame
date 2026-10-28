@@ -118,6 +118,13 @@ describe('checkWinCondition', () => {
     expect(checkWinCondition(game.players, game.roles)).toBe('villagers');
   });
 
+  it('the Big Bad Wolf counts as part of the pack', () => {
+    const alone = makeGame({ bbw: 'big_bad_wolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
+    expect(checkWinCondition(alone.players, alone.roles)).toBe('werewolves');
+    const villagersLeft = makeGame({ bbw: 'big_bad_wolf', a: 'villager', b: 'seer', c: 'villager' });
+    expect(checkWinCondition(villagersLeft.players, villagersLeft.roles)).toBeNull();
+  });
+
   it('werewolves win when they are at least as many as everyone else', () => {
     const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
     expect(checkWinCondition(game.players, game.roles)).toBe('werewolves');

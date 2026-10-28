@@ -87,6 +87,41 @@ describe('the Fox in the night order', () => {
   });
 });
 
+describe('the Big Bad Wolf in the night order', () => {
+  const WITH_BBW = { ...VILLAGE, bob: 'big_bad_wolf' };
+
+  it('wakes alone right after the pack on later nights and a classic night 1', () => {
+    expect(computeNightSequence(makeGame(WITH_BBW, { phase: 2, witchPotions: BOTH_POTIONS })))
+      .toEqual(['saviour', 'werewolf', 'big_bad_wolf', 'witch', 'seer']);
+    const classic = makeGame(WITH_BBW, { phase: 1, classicFirstNight: true, witchPotions: BOTH_POTIONS });
+    expect(computeNightSequence(classic)).toContain('big_bad_wolf');
+    expect(computeNightSequence(makeGame(WITH_BBW, { phase: 1 }))).not.toContain('big_bad_wolf');
+  });
+
+  it('stops hunting alone once any wolf has died, the White Wolf included', () => {
+    expect(computeNightSequence(makeGame(WITH_BBW, { phase: 3, dead: ['will'] }))).not.toContain('big_bad_wolf');
+    const withWhite = { ...WITH_BBW, walt: 'white_wolf' };
+    expect(computeNightSequence(makeGame(withWhite, { phase: 3, dead: ['walt'] }))).not.toContain('big_bad_wolf');
+  });
+
+  it('keeps hunting when only villagers have died, a Wolf Hound that chose the village included', () => {
+    const withHound = { ...WITH_BBW, hal: 'villager' };
+    expect(computeNightSequence(makeGame(withHound, { phase: 3, dead: ['vic', 'hal'] }))).toContain('big_bad_wolf');
+  });
+
+  it('wakes with the pack for the shared vote, and the White Wolf can devour it', () => {
+    const game = makeGame({ bob: 'big_bad_wolf', walt: 'white_wolf', vic: 'villager', vera: 'villager' }, { phase: 2 });
+    expect(livingWolves(game).map((w) => w.id).sort()).toEqual(['bob', 'walt']);
+    expect(computeNightSequence(game)).toContain('white_wolf');
+  });
+
+  it('the step ends when it devours someone or stays with the pack', () => {
+    expect(isSubPhaseDone('big_bad_wolf', { nightActions: {} })).toBe(false);
+    expect(isSubPhaseDone('big_bad_wolf', { nightActions: { bigBadWolf: 'vic' } })).toBe(true);
+    expect(isSubPhaseDone('big_bad_wolf', { nightActions: { bigBadWolfSkip: true } })).toBe(true);
+  });
+});
+
 describe('the Raven in the night order', () => {
   const WITH_RAVEN = { ...VILLAGE, rae: 'raven' };
 

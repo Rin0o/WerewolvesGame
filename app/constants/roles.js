@@ -15,12 +15,17 @@ export const ROLE = {
   WILD_CHILD: 'wild_child',
   VILLAGE_IDIOT: 'village_idiot',
   RAVEN: 'raven',
+  BIG_BAD_WOLF: 'big_bad_wolf',
 };
 
-export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF];
+export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF, ROLE.BIG_BAD_WOLF];
 
 export function isWolfRole(role) {
   return WOLF_ROLES.includes(role);
+}
+
+export function isPackWolf(role) {
+  return isWolfRole(role) && role !== ROLE.WHITE_WOLF;
 }
 
 export const ROLE_DEFINITIONS = {
@@ -152,6 +157,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Help the village find and eliminate all Werewolves.',
     ability: 'Each night you may mark another player. At dawn the whole village learns who was marked (never by whom), and that player starts the vote with 2 votes against them. The 2 votes do not count in a tie revote. With a Quiet first night, you start on night 2.',
   },
+  [ROLE.BIG_BAD_WOLF]: {
+    name: 'Big Bad Wolf',
+    emoji: '🐺',
+    team: 'werewolves',
+    description: 'The largest and hungriest of the pack.',
+    goal: 'Eliminate enough villagers so werewolves equal or outnumber them.',
+    ability: 'You hunt with the pack each night. Then, as long as no wolf has died, you wake again alone and may devour a second victim. The Saviour can protect against you, but the Witch cannot save your victim.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -184,9 +197,10 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
+  if (big_bad_wolf) comp.push(ROLE.BIG_BAD_WOLF);
   if (white_wolf) comp.push(ROLE.WHITE_WOLF);
   if (wolf_hound) comp.push(ROLE.WOLF_HOUND);
   if (seer) comp.push(ROLE.SEER);

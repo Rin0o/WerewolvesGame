@@ -15,6 +15,7 @@ export const ROLE_ICONS = {
   wild_child: require('../../assets/role_icons/wild_child.webp'),
   village_idiot: require('../../assets/role_icons/village_idiot.webp'),
   raven:      require('../../assets/role_icons/raven.webp'),
+  big_bad_wolf: require('../../assets/role_icons/big_bad_wolf.webp'),
 };
 
 export const SUSPICION_ICONS = {

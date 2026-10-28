@@ -270,6 +270,39 @@ describe('resolveNight — Fox', () => {
   });
 });
 
+describe('resolveNight — Big Bad Wolf', () => {
+  const ROLES = { ...VILLAGE, bob: 'big_bad_wolf' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('kills a second victim after the pack\'s', async () => {
+    const update = await resolve(night({ werewolf: 'vic', bigBadWolf: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vic', 'vera']);
+    expect(update.nightDeathCauses).toEqual({ vic: 'werewolves', vera: 'big_bad_wolf' });
+    expect(eventsOf(update)).toContain('Night 2: Vera was dragged away by the Big Bad Wolf.');
+  });
+
+  it('is blocked by the Saviour', async () => {
+    const update = await resolve(night({ werewolf: 'vic', bigBadWolf: 'vera', saviour: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vic']);
+    expect(eventsOf(update)).toContain('Night 2: The saviour shielded someone from the Big Bad Wolf.');
+  });
+
+  it('cannot be undone by the Witch, whose potion saves only the pack\'s victim', async () => {
+    const update = await resolve(night({ werewolf: 'vic', witchSave: 'vic', bigBadWolf: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vera']);
+  });
+
+  it('takes the victim\'s lover too', async () => {
+    const update = await resolve(night({ bigBadWolf: 'vera' }, { lovers: ['vera', 'sam'] }));
+    expect(update.eliminatedThisNight).toEqual(['vera', 'sam']);
+  });
+
+  it('is no peaceful night when only the Big Bad Wolf strikes', async () => {
+    const update = await resolve(night({ wolfNoKill: true, bigBadWolf: 'vera' }));
+    expect(eventsOf(update).join(' ')).not.toMatch(/peaceful/);
+  });
+});
+
 describe('resolveNight — Raven', () => {
   const ROLES = { ...VILLAGE, rae: 'raven' };
   const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });

@@ -1,4 +1,4 @@
-import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, isWolfRole } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, isWolfRole, isPackWolf } from '../constants/roles';
 
 const ALL_SELECTABLE_ROLES = [
   ROLE.VILLAGER, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID,
@@ -76,7 +76,7 @@ export function checkWinCondition(players, roleMap, lovers = null) {
     if (alive.length === 2 && bothLoversAlive) return 'lovers';
   }
 
-  const pack = alive.filter((p) => roleMap[p.id] === ROLE.WEREWOLF).length;
+  const pack = alive.filter((p) => isPackWolf(roleMap[p.id])).length;
   const whiteWolfAlive = alive.some((p) => roleMap[p.id] === ROLE.WHITE_WOLF);
 
   if (whiteWolfAlive && alive.length === 1) return 'white_wolf';

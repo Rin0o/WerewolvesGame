@@ -18,12 +18,13 @@ const SUBPHASE_LABELS = {
   fox:      'Fox Sniffs',
   wild_child: 'Wild Child Picks a Role Model',
   raven:    'Raven Marks a Suspect',
+  big_bad_wolf: 'Big Bad Wolf Hunts Alone',
   done:     'Night Resolves',
 };
 
 const SUBPHASE_ICON_KEY = {
   thief: 'thief', cupid: 'cupid', wolf_hound: 'wolf_hound', werewolf: 'werewolf',
-  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox', wild_child: 'wild_child', raven: 'raven',
+  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox', wild_child: 'wild_child', raven: 'raven', big_bad_wolf: 'big_bad_wolf',
 };
 
 export default function NarratorNightDashboard({
@@ -57,6 +58,7 @@ export default function NarratorNightDashboard({
   const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, roles, nightActions.fox) : false;
   const wildChildModel    = nightActions.wildChild ? players.find((p) => p.id === nightActions.wildChild) : null;
   const ravenMarked       = nightActions.raven ? players.find((p) => p.id === nightActions.raven) : null;
+  const bigBadWolfPrey    = nightActions.bigBadWolf ? players.find((p) => p.id === nightActions.bigBadWolf) : null;
 
   const subPhaseIconKey = SUBPHASE_ICON_KEY[nightSubPhase];
   const subPhaseIcon = subPhaseIconKey ? ROLE_ICONS[subPhaseIconKey] : null;
@@ -64,7 +66,8 @@ export default function NarratorNightDashboard({
   const hasAnyAction =
     wolfTargetPlayer || wolfObserved || wolfRevoteNames || nightActions.wolfNoKill || saviourProtected || witchSavedPlayer ||
     witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
-    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip || wildChildModel || ravenMarked || nightActions.ravenSkip;
+    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip || wildChildModel || ravenMarked || nightActions.ravenSkip
+    || bigBadWolfPrey || nightActions.bigBadWolfSkip;
 
   return (
     <View style={[styles.dashboard, { backgroundColor: t.glassCard, borderColor: t.primary }]}>
@@ -117,6 +120,12 @@ export default function NarratorNightDashboard({
               valueColor={houndSide === ROLE.WEREWOLF ? t.danger : t.success}
               theme={t}
             />
+          )}
+          {bigBadWolfPrey && (
+            <ActionRow icon={ROLE_ICONS.big_bad_wolf} label="Big Bad Wolf devoured" value={bigBadWolfPrey.nickname} valueColor={t.danger} theme={t} />
+          )}
+          {nightActions.bigBadWolfSkip && (
+            <ActionRow icon={ROLE_ICONS.big_bad_wolf} label="Big Bad Wolf" value="Stayed with the pack" valueColor={t.textMuted} theme={t} />
           )}
           {whiteWolfPrey && (
             <ActionRow icon={ROLE_ICONS.white_wolf} label="White Wolf devoured" value={whiteWolfPrey.nickname} valueColor={t.danger} theme={t} />

@@ -16,7 +16,7 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat } from '../firebase/roomService';
-import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { gameOverSound } from '../utils/gameOverSound';
@@ -113,7 +113,7 @@ export default function GameOverScreen({ route, navigation }) {
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
             const isWinner =
               (winner === 'villagers' && roleDef.team === 'villagers') ||
-              (winner === 'werewolves' && role === ROLE.WEREWOLF) ||
+              (winner === 'werewolves' && isPackWolf(role)) ||
               (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
               (winner === 'lovers' && room.lovers?.includes(item.id));
             return (

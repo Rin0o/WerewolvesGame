@@ -238,6 +238,14 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('bob').room, { wildChildModel: 'wendy' }));
   });
 
+  it('the Big Bad Wolf votes with the pack and hunts alone; nobody else can', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'big_bad_wolf' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfVotes.bob': 'sam' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.bigBadWolf': 'wendy' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.bigBadWolf': 'sam' }));
+    await assertFails(updateDoc(as('bob').room, { 'nightActions.wolfVotes.alice': 'host' }));
+  });
+
   it('the Raven marks or passes, and only the host publishes the mark', async () => {
     await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'raven' } });
     await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.raven': 'alice' }));
@@ -369,9 +377,10 @@ describe('chats', () => {
     await assertFails(addDoc(wolfChat(as('sam').db), message('sam')));
   });
 
-  it('the White Wolf posts in the wolf chat too', async () => {
-    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf' } });
+  it('the White Wolf and the Big Bad Wolf post in the wolf chat too', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf', sam: 'big_bad_wolf' } });
     await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
+    await assertSucceeds(addDoc(wolfChat(as('sam').db), message('sam')));
   });
 
   it('the host posts for the bots in the day chat, nobody else does', async () => {

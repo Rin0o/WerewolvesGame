@@ -1,5 +1,5 @@
 import { arrayUnion } from 'firebase/firestore';
-import { ROLE, getCompositionForCount, isWolfRole } from '../constants/roles';
+import { ROLE, getCompositionForCount, isWolfRole, isPackWolf } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf } from './roles';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
@@ -37,7 +37,7 @@ export function computeNightSequence(room) {
   const potions = witchPlayer ? witchPotions[witchPlayer.id] : null;
   const witchHasPotions = potions ? (potions.save === true || potions.poison === true) : false;
 
-  const packWolfAlive = players.some((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF);
+  const packWolfAlive = players.some((p) => p.isAlive && isPackWolf(roles[p.id]));
 
   const wakes = {
     thief: isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0,
@@ -46,7 +46,8 @@ export function computeNightSequence(room) {
     wolf_hound: isActive(ROLE.WOLF_HOUND),
     saviour: isActive(ROLE.SAVIOUR),
     fox: isActive(ROLE.FOX) && !room.foxPowerLost,
-    werewolf: isActive(ROLE.WEREWOLF) || isActive(ROLE.WHITE_WOLF),
+    werewolf: isActive(ROLE.WEREWOLF) || isActive(ROLE.WHITE_WOLF) || isActive(ROLE.BIG_BAD_WOLF),
+    big_bad_wolf: isActive(ROLE.BIG_BAD_WOLF) && !wolfHasDied(room),
     white_wolf: phase % 2 === 0 && isActive(ROLE.WHITE_WOLF) && packWolfAlive,
     witch: witchHasPotions,
     seer: isActive(ROLE.SEER),
@@ -56,8 +57,13 @@ export function computeNightSequence(room) {
 }
 
 const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'werewolf'];
-const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer', 'raven'];
-const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'white_wolf', 'witch', 'seer', 'raven'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'big_bad_wolf', 'witch', 'seer', 'raven'];
+const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'big_bad_wolf', 'white_wolf', 'witch', 'seer', 'raven'];
+
+export function wolfHasDied(room) {
+  const { players = [], roles = {} } = room;
+  return players.some((p) => !p.isAlive && isWolfRole(roles[p.id]));
+}
 
 export const ROLE_REVEAL_STEP = 'reveal';
 
@@ -194,6 +200,7 @@ export function isSubPhaseDone(subPhase, room) {
       ? nightActions.werewolfObserved === true
       : !!nightActions.werewolf || nightActions.wolfNoKill === true;
     case 'white_wolf': return !!nightActions.whiteWolf || nightActions.whiteWolfSkip === true;
+    case 'big_bad_wolf': return !!nightActions.bigBadWolf || nightActions.bigBadWolfSkip === true;
     case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
     case 'seer':     return !!nightActions.seer;
     case 'saviour':  return !!nightActions.saviour;
@@ -383,8 +390,17 @@ export async function resolveNight(roomId, roomData) {
     recordDeaths(ids, 'werewolves');
   } else if (quiet) {
     events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
-  } else if (!witchSaved && !saviourBlocked && !witchKilled && !nightActions.whiteWolf) {
+  } else if (!witchSaved && !saviourBlocked && !witchKilled && !nightActions.whiteWolf && !nightActions.bigBadWolf) {
     events.push(`Night ${phase}: The village was peaceful — no one was eliminated.`);
+  }
+
+  const bigBadWolfPrey = quiet ? null : players.find((p) => p.id === nightActions.bigBadWolf && p.isAlive);
+  if (bigBadWolfPrey && bigBadWolfPrey.id === saviourProtected) {
+    events.push(`Night ${phase}: The saviour shielded someone from the Big Bad Wolf.`);
+  } else if (bigBadWolfPrey && !allEliminated.has(bigBadWolfPrey.id)) {
+    events.push(`Night ${phase}: ${bigBadWolfPrey.nickname} was dragged away by the Big Bad Wolf.`);
+    const ids = await eliminateWithLoverChain(roomId, bigBadWolfPrey.id, players, newLovers, events, `Night ${phase}`);
+    recordDeaths(ids, 'big_bad_wolf');
   }
 
   if (witchKilled && !allEliminated.has(witchKilled)) {

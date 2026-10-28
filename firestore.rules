@@ -108,6 +108,7 @@ service cloud.firestore {
         let allowed = {
           'werewolf': ['wolfVotes', 'werewolfObserved'],
           'white_wolf': ['wolfVotes', 'werewolfObserved', 'whiteWolf', 'whiteWolfSkip'],
+          'big_bad_wolf': ['wolfVotes', 'werewolfObserved', 'bigBadWolf', 'bigBadWolfSkip'],
           'wolf_hound': ['wolfHound'],
           'seer': ['seer'],
           'witch': ['witchSave', 'witchPoison', 'witchSkip'],
@@ -220,8 +221,8 @@ service cloud.firestore {
     match /rooms/{roomId}/werewolfChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
       allow create: if memberOf(roomAt(roomId)) && (
-        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf'] && validMessage())
-        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) in ['werewolf', 'white_wolf'])
+        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf', 'big_bad_wolf'] && validMessage())
+        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) in ['werewolf', 'white_wolf', 'big_bad_wolf'])
       );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
