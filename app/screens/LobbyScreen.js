@@ -55,13 +55,14 @@ export default function LobbyScreen({ route, navigation }) {
     }
   }, [room?.status]);
 
-  // When host switches to custom mode, write default customRoles once
+  // When host switches to custom or narrator mode, write default customRoles once
   React.useEffect(() => {
     if (!room || customInitDone.current || room.customRoles) return;
     if (playerId !== room.hostId) return;
-    if ((room.gameMode || 'normal') !== 'custom') return;
+    const mode = room.gameMode || 'normal';
+    if (mode === 'normal') return;
     customInitDone.current = true;
-    const humanCount = room.players.filter((p) => !p.isBot).length;
+    const humanCount = room.players.filter((p) => !p.isBot).length - (mode === 'narrator' ? 1 : 0);
     const total = Math.max(MIN_PLAYERS, humanCount);
     updateRoom(roomId, {
       customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, white_wolf: false, wolf_hound: false },
@@ -78,6 +79,7 @@ export default function LobbyScreen({ route, navigation }) {
 
   const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false, botChat = false } = room;
   const gameMode = rawMode || 'normal';
+  const choosesRoles = gameMode === 'custom' || gameMode === 'narrator';
   const revoteOnTie = room.tieRule === TIE_RULE.REVOTE;
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
@@ -90,7 +92,7 @@ export default function LobbyScreen({ route, navigation }) {
   const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, white_wolf: false, wolf_hound: false };
 
   const botsAvailable = gameMode !== 'narrator';
-  const botTarget = gameMode === 'custom' ? cfg.playerCount : MIN_PLAYERS;
+  const botTarget = choosesRoles ? cfg.playerCount : MIN_PLAYERS;
   const botCount = botsAvailable && fillWithBots ? botSeats(playingHumans, botTarget) : 0;
   const effectiveCount = playingHumans + botCount;
 
@@ -107,12 +109,12 @@ export default function LobbyScreen({ route, navigation }) {
   const customComposition = isValidConfig ? buildCustomComposition(cfg) : [];
   const customRoleCounts = customComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
 
-  const canStart = gameMode === 'normal' || gameMode === 'narrator' ? normalCanStart : customCanStart;
+  const canStart = choosesRoles ? customCanStart : normalCanStart;
 
   async function setMode(mode) {
     await updateRoom(roomId, { gameMode: mode });
-    // Reset customInitDone so defaults get written on first switch to custom
-    if (mode === 'custom') customInitDone.current = false;
+    // Reset customInitDone so defaults get written on first switch to custom or narrator
+    if (mode !== 'normal') customInitDone.current = false;
   }
 
   function setClassicFirstNight(classic) {
@@ -150,7 +152,7 @@ export default function LobbyScreen({ route, navigation }) {
       const gamePlayers = players.map(({ isNarrator, ...p }) =>
         (gameMode === 'narrator' && p.id === playerId ? { ...p, isNarrator: true } : p)
       );
-      const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
+      const composition = choosesRoles ? buildCustomComposition(cfg) : null;
       await startGame(roomId, gamePlayers, { composition, classicFirstNight, botCount });
     } catch (e) {
       setStarting(false);
@@ -190,22 +192,19 @@ export default function LobbyScreen({ route, navigation }) {
 
   function startBtnLabel() {
     if (starting) return 'Starting...';
-    if (gameMode === 'narrator') {
-      return normalCanStart ? '🐺 Start Game (Narrator)' : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
-    }
     if (gameMode === 'normal') {
       return normalCanStart ? startLabelWithBots() : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
     }
     if (!isValidConfig) return 'Invalid composition';
     if (effectiveCount < cfg.playerCount) return `Waiting for ${cfg.playerCount - effectiveCount} more player(s)`;
     if (effectiveCount > cfg.playerCount) return `${effectiveCount - cfg.playerCount} too many players`;
-    return startLabelWithBots();
+    return gameMode === 'narrator' ? '🐺 Start Game (Narrator)' : startLabelWithBots();
   }
 
   function botHint() {
     if (!fillWithBots) return 'Off — the game waits for real players.';
     if (botCount > 0) {
-      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager or Sister.`;
+      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager, Sister or Village Idiot.`;
     }
     return 'The table is full — no bots needed.';
   }
@@ -338,11 +337,11 @@ export default function LobbyScreen({ route, navigation }) {
         </Text>
       </View>
 
-      {/* Normal / Narrator mode — auto composition preview */}
-      {(gameMode === 'normal' || gameMode === 'narrator') && effectiveCount >= MIN_PLAYERS && (
+      {/* Normal mode — auto composition preview */}
+      {gameMode === 'normal' && effectiveCount >= MIN_PLAYERS && (
         <View style={[styles.compBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
-            Roles for {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}{gameMode === 'narrator' ? ' (host is narrator)' : ''}
+            Roles for {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}
           </Text>
           <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
@@ -351,13 +350,15 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Custom mode — host config panel */}
-      {gameMode === 'custom' && isHost && (
+      {/* Custom / Narrator mode — host config panel */}
+      {choosesRoles && isHost && (
         <View style={[styles.configBox, { backgroundColor: t.surface, borderColor: t.border }]}>
           <Text style={[styles.configTitle, { color: t.text }]}>Role Configuration</Text>
 
           <View style={styles.configRow}>
-            <Text style={[styles.configLabel, { color: t.text }]}>Players</Text>
+            <Text style={[styles.configLabel, { color: t.text }]}>
+              {gameMode === 'narrator' ? 'Players (not counting you)' : 'Players'}
+            </Text>
             <View style={styles.stepper}>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changePlayerCount(-1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>−</Text>
@@ -452,11 +453,11 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Custom mode — non-host read-only summary */}
-      {gameMode === 'custom' && !isHost && isValidConfig && (
+      {/* Custom / Narrator mode — non-host read-only summary */}
+      {choosesRoles && !isHost && isValidConfig && (
         <View style={[styles.compBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
-            Roles for {cfg.playerCount} players
+            Roles for {cfg.playerCount} players{gameMode === 'narrator' ? ' (the host narrates)' : ''}
           </Text>
           <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
@@ -514,7 +515,9 @@ export default function LobbyScreen({ route, navigation }) {
       )}
 
       <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-        Players ({humanPlayers.length}{gameMode === 'custom' ? `/${cfg.playerCount}` : ''})
+        {gameMode === 'narrator'
+          ? `Players (${playingHumans}/${cfg.playerCount}, plus the narrator)`
+          : `Players (${humanPlayers.length}${gameMode === 'custom' ? `/${cfg.playerCount}` : ''})`}
       </Text>
     </>
   );

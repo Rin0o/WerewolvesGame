@@ -36,7 +36,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
-  - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
+  - **Narrator:** the host doesn't play. They choose the roles as in Custom mode (the player count doesn't include them), then run the game from dashboards that show every role and every action.
 - **15 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, White Wolf and Wolf Hound.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
@@ -131,7 +131,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, White Wolf and Wolf Hound are only available in Custom mode for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom and Narrator modes. Roles are shuffled and dealt at random at the start of every game. In **Custom** and **Narrator** modes the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, White Wolf and Wolf Hound are only available in Custom and Narrator modes for now.
 
 ---
 
@@ -369,7 +369,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer, the Fox losing its power, the Wild Child turning |
 | `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night, the Village Idiot spared once, the Wild Child turning by day |
 | `hostDecisions.test.js` | The host's decisions: next night step, pack vote outcome, timeout defaults (never the Saviour or Seer on themselves), the narrator's Next, bot wolves, when voting is done and who can vote, timer lengths |
-| `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots (who may hold the Sisters or the Village Idiot) |
+| `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator (with the roles they chose), chat-cleanup failure, fair dealing with bots (who may hold the Sisters or the Village Idiot) |
 | `bots.test.js` | How many seats bots fill (every empty one, so one player can test alone), random themed bot names, the name list itself |
 | `botChat.test.js` | Who a bot votes for (never itself, the dead, its pack or a revealed Village Idiot; only the tied players in a revote), its chat lines matching that vote, wolf-chat lines |
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |

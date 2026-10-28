@@ -78,6 +78,14 @@ describe('startGame', () => {
     expect(update.players.map((p) => p.id)).toContain('nar');
   });
 
+  it('deals the narrator\'s chosen roles to the players, none to the narrator', async () => {
+    const players = [...humans(5), { id: 'nar', nickname: 'Nar', isAlive: true, isNarrator: true }];
+    const composition = [ROLE.WEREWOLF, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.VILLAGER];
+    const update = await start(players, { composition });
+    expect(update.roles.nar).toBeUndefined();
+    expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+  });
+
   it('still starts when clearing the old chats fails', async () => {
     clearWerewolfChat.mockRejectedValueOnce(new Error('offline'));
     clearSisterChat.mockRejectedValueOnce(new Error('offline'));
