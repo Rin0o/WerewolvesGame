@@ -151,6 +151,12 @@ describe('nightTimeoutPlan', () => {
     expect(['sal', 'wendy', 'sam', 'vic', 'val']).toContain(update['nightActions.werewolf']);
   });
 
+  it('picks a random role model for the Wild Child, never itself', () => {
+    const room = makeGame({ kid: 'wild_child', will: 'werewolf', vic: 'villager' }, { phase: 1, nightSubPhase: 'wild_child' });
+    expect(nightTimeoutPlan(room, () => 0)).toEqual({ update: { 'nightActions.wildChild': 'will' } });
+    expect(nightTimeoutPlan(room, () => 0.99)).toEqual({ update: { 'nightActions.wildChild': 'vic' } });
+  });
+
   it('lets the Fox stay hidden rather than risk its power', () => {
     expect(nightTimeoutPlan(night('fox'))).toEqual({ update: { 'nightActions.foxSkip': true } });
     expect(subPhaseSeconds('fox', { phase: 2 })).toBe(25);

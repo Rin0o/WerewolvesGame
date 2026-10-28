@@ -12,6 +12,7 @@ export const ROLE_ICONS = {
   white_wolf: require('../../assets/role_icons/white_wolf.webp'),
   wolf_hound: require('../../assets/role_icons/wolf_hound.webp'),
   fox:        require('../../assets/role_icons/fox.webp'),
+  wild_child: require('../../assets/role_icons/wild_child.webp'),
 };
 
 export const SUSPICION_ICONS = {

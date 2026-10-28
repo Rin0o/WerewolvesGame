@@ -38,6 +38,8 @@ import BarButton from '../components/BarButton';
 import GameOptionsModal from '../components/GameOptionsModal';
 import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import useUnreadMessages from '../hooks/useUnreadMessages';
+import useWildChildNotice from '../hooks/useWildChildNotice';
+import WildChildNotice from '../components/WildChildNotice';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
 import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
@@ -78,6 +80,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     isOpen: wolfChatOpen,
     enabled: !!gs.isNarrator,
   });
+  const wildChildNotice = useWildChildNotice(room, playerId);
   const [resolving, setResolving] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
@@ -589,6 +592,8 @@ export default function DayPhaseScreen({ route, navigation }) {
         room={room}
         onLeave={handleExit}
       />
+
+      <WildChildNotice notice={wildChildNotice.notice} onDismiss={wildChildNotice.dismiss} />
 
       <LynchResultModal
         visible={resultModalVisible}

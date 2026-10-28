@@ -231,6 +231,13 @@ describe('night actions', () => {
     await assertSucceeds(updateDoc(as('host').room, { foxPowerLost: true }));
   });
 
+  it('the Wild Child picks its role model, and nobody else can', async () => {
+    await seed({ ...NIGHT, phase: 1, roles: { ...NIGHT.roles, bob: 'wild_child' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wildChild': 'sam' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wildChild': 'wendy' }));
+    await assertFails(updateDoc(as('bob').room, { wildChildModel: 'wendy' }));
+  });
+
   it('nobody but the host advances the night', async () => {
     await assertFails(updateDoc(as('alice').room, { nightSubPhase: 'seer' }));
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));
@@ -272,6 +279,28 @@ describe('day', () => {
     };
     await assertFails(updateDoc(as('sam').room, shot));
     await assertSucceeds(updateDoc(as('bob').room, shot));
+  });
+
+  it('the Hunter\'s shot may turn the Wild Child into a werewolf, and change no other role', async () => {
+    const roles = { ...DAY.roles, wendy: 'wild_child' };
+    await seed({ ...DAY, roles, hunterTriggered: 'bob', wildChildId: 'wendy', wildChildModel: 'sam' });
+    const shot = (newRoles) => ({
+      players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+      winner: null,
+      hunterTriggered: null,
+      events: arrayUnion('The Hunter\'s last shot took down sam.'),
+      roles: newRoles,
+      wildChildTurnedAt: '2026-10-28T20:00:00.000Z',
+    });
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, bob: 'werewolf' })));
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, wendy: 'seer' })));
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, wendy: 'werewolf', host: 'werewolf' })));
+    await assertSucceeds(updateDoc(as('bob').room, shot({ ...roles, wendy: 'werewolf' })));
+  });
+
+  it('without a Wild Child, the Hunter cannot touch the roles', async () => {
+    await seed({ ...DAY, hunterTriggered: 'bob' });
+    await assertFails(updateDoc(as('bob').room, { hunterTriggered: null, roles: { ...DAY.roles, bob: 'werewolf' } }));
   });
 });
 

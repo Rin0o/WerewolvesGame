@@ -269,3 +269,43 @@ describe('resolveNight — Fox', () => {
     expect((await resolve(foxGame({}, { foxPowerLost: true }))).foxPowerLost).toBe(true);
   });
 });
+
+describe('resolveNight — Wild Child', () => {
+  const ROLES = { ...VILLAGE, kid: 'wild_child' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, ...overrides });
+  const withKid = makeGame(ROLES).players;
+
+  it('remembers who the Wild Child chose on night 1', async () => {
+    const update = await resolve(night({ wildChild: 'vic' }, { phase: 1, players: withKid }));
+    expect(update).toMatchObject({ wildChildId: 'kid', wildChildModel: 'vic' });
+    expect(update.roles.kid).toBe('wild_child');
+    expect(update.wildChildTurnedAt).toBeUndefined();
+  });
+
+  it('becomes a werewolf when the wolves kill its role model', async () => {
+    const update = await resolve(night({ werewolf: 'vic' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' }));
+    expect(update.roles.kid).toBe('werewolf');
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
+    expect(update.eliminatedThisNight).toEqual(['vic']);
+  });
+
+  it('turns on a classic night 1 when the model it just chose is killed', async () => {
+    const game = night({ wildChild: 'vic', werewolf: 'vic' }, { phase: 1, classicFirstNight: true, players: withKid });
+    expect((await resolve(game)).roles.kid).toBe('werewolf');
+  });
+
+  it('turns when its role model dies of heartbreak', async () => {
+    const game = night({ werewolf: 'vera' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic', lovers: ['vera', 'vic'] });
+    expect((await resolve(game)).roles.kid).toBe('werewolf');
+  });
+
+  it('stays a villager while its role model lives', async () => {
+    const update = await resolve(night({ werewolf: 'vera' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' }));
+    expect(update.roles.kid).toBe('wild_child');
+  });
+
+  it('does not turn when it dies the same night as its role model', async () => {
+    const game = night({ werewolf: 'vic', witchPoison: 'kid' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' });
+    expect((await resolve(game)).roles.kid).toBe('wild_child');
+  });
+});

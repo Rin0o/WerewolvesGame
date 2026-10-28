@@ -16,12 +16,13 @@ const SUBPHASE_LABELS = {
   seer:     'Seer Inspects',
   saviour:  'Saviour Protects',
   fox:      'Fox Sniffs',
+  wild_child: 'Wild Child Picks a Role Model',
   done:     'Night Resolves',
 };
 
 const SUBPHASE_ICON_KEY = {
   thief: 'thief', cupid: 'cupid', wolf_hound: 'wolf_hound', werewolf: 'werewolf',
-  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox',
+  white_wolf: 'white_wolf', witch: 'witch', seer: 'seer', saviour: 'saviour', fox: 'fox', wild_child: 'wild_child',
 };
 
 export default function NarratorNightDashboard({
@@ -53,6 +54,7 @@ export default function NarratorNightDashboard({
     ? getFoxGroup(players, nightActions.fox).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ')
     : null;
   const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, roles, nightActions.fox) : false;
+  const wildChildModel    = nightActions.wildChild ? players.find((p) => p.id === nightActions.wildChild) : null;
 
   const subPhaseIconKey = SUBPHASE_ICON_KEY[nightSubPhase];
   const subPhaseIcon = subPhaseIconKey ? ROLE_ICONS[subPhaseIconKey] : null;
@@ -60,7 +62,7 @@ export default function NarratorNightDashboard({
   const hasAnyAction =
     wolfTargetPlayer || wolfObserved || wolfRevoteNames || nightActions.wolfNoKill || saviourProtected || witchSavedPlayer ||
     witchPoisoned || nightActions.witchSkip || cupidLovers || thiefRole || seerTarget ||
-    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip;
+    houndSide || whiteWolfPrey || nightActions.whiteWolfSkip || foxGroupNames || nightActions.foxSkip || wildChildModel;
 
   return (
     <View style={[styles.dashboard, { backgroundColor: t.glassCard, borderColor: t.primary }]}>
@@ -152,6 +154,9 @@ export default function NarratorNightDashboard({
           )}
           {nightActions.foxSkip && (
             <ActionRow icon={ROLE_ICONS.fox} label="Fox" value="Stayed hidden" valueColor={t.textMuted} theme={t} />
+          )}
+          {wildChildModel && (
+            <ActionRow icon={ROLE_ICONS.wild_child} label="Wild Child's role model" value={wildChildModel.nickname} valueColor={t.accent} theme={t} />
           )}
           {cupidLovers && (
             <ActionRow icon={ROLE_ICONS.cupid} label="Lovers" value={cupidLovers.join(' ❤️ ')} valueColor={t.accent} theme={t} />

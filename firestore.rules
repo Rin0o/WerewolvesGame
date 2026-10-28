@@ -114,7 +114,8 @@ service cloud.firestore {
           'cupid': ['cupid'],
           'thief': ['thief'],
           'saviour': ['saviour'],
-          'fox': ['fox', 'foxSkip']
+          'fox': ['fox', 'foxSkip'],
+          'wild_child': ['wildChild']
         };
         let changed = after().nightActions.diff(before().get('nightActions', {})).affectedKeys();
         return before().status == 'night'
@@ -149,10 +150,19 @@ service cloud.firestore {
           && after().players.size() == before().players.size();
       }
 
+      function wildChildTurning() {
+        let childId = before().get('wildChildId', '');
+        return childId is string && childId != ''
+          && after().roles.diff(before().roles).affectedKeys().hasOnly([childId])
+          && before().roles[childId] == 'wild_child'
+          && after().roles[childId] == 'werewolf';
+      }
+
       function huntersShot() {
         return before().get('hunterTriggered', null) == uid()
-          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events'])
-          && after().players.size() == before().players.size();
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt'])
+          && after().players.size() == before().players.size()
+          && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning());
       }
 
       allow read: if signedIn();

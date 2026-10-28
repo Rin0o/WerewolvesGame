@@ -37,7 +37,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
-- **13 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, White Wolf and Wolf Hound.
+- **14 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, White Wolf and Wolf Hound.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
@@ -66,8 +66,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 | Night | Order |
 |---|---|
-| **Night 1 — Quiet** (default) | Thief → Cupid → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
-| **Night 1 — Classic** | Thief → Cupid → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Witch → Seer |
+| **Night 1 — Quiet** (default) | Thief → Cupid → Wild Child (picks a role model) → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
+| **Night 1 — Classic** | Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Witch → Seer |
 | **Later nights** | Saviour → Fox (until it loses its power) → Werewolves (choose a victim) → White Wolf (even nights only) → Witch (if she has potions left) → Seer |
 
 The host picks **Quiet** or **Classic** for the first night in the lobby; everyone sees the choice. Classic follows the official rules. Roles that aren't in the game, or whose player is dead, are skipped.
@@ -110,6 +110,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
 | **Fox** | Village | Each night (from night 2 with a Quiet first night) may point at another player and learns whether that player or either of their living neighbours is a werewolf. While choosing, the Fox sees exactly which players will be sniffed. If none of the three is a wolf, the Fox loses its power and never wakes again. If the timer runs out, the Fox stays hidden and keeps its power. |
+| **Wild Child** | Village, then maybe Wolves | On night 1, chooses a role model (a random one if the timer runs out). While the model lives, the Wild Child is a villager, and the Seer sees them as one. If the model dies, by any cause, the Wild Child becomes a werewolf: a full-screen notice tells them privately whose death turned them and who their pack is, and they wake with the pack and use the wolf chat from then on. Nobody else is told. |
 | **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
 | **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
 
@@ -129,7 +130,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, White Wolf and Wolf Hound are only available in Custom mode for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, White Wolf and Wolf Hound are only available in Custom mode for now.
 
 ---
 
@@ -183,7 +184,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 | Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
 | Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
 | A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote. Any time: mark themselves gone/back, take over as host (for themselves only) |
-| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them |
+| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
 | Chats | Members read and post as themselves (1–500 characters); only werewolves (White Wolf included) post in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
 

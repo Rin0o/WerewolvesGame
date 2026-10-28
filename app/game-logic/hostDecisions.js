@@ -17,7 +17,7 @@ import {
 } from './gameManager';
 
 const SUBPHASE_SECONDS = 45;
-const SUBPHASE_SECONDS_OVERRIDES = { thief: 30, cupid: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25, fox: 25 };
+const SUBPHASE_SECONDS_OVERRIDES = { thief: 30, cupid: 30, wild_child: 30, wolf_hound: 15, seer: 25, saviour: 25, white_wolf: 25, fox: 25 };
 const OBSERVE_ONLY_WEREWOLF_SECONDS = 15;
 export const WOLF_REVOTE_SECONDS = 30;
 
@@ -62,7 +62,7 @@ export function hostNightPlan(room) {
   return update ? { update } : null;
 }
 
-export function nightTimeoutPlan(room) {
+export function nightTimeoutPlan(room, random = Math.random) {
   if (!room || room.status !== 'night') return null;
   const step = room.nightSubPhase;
   if (!step || step === 'done' || isSubPhaseDone(step, room)) return null;
@@ -86,6 +86,10 @@ export function nightTimeoutPlan(room) {
     case 'seer': {
       const inspectable = othersThan(ROLE.SEER);
       return inspectable.length > 0 ? nightActionUpdate('seer', inspectable[0].id) : null;
+    }
+    case 'wild_child': {
+      const models = othersThan(ROLE.WILD_CHILD);
+      return models.length > 0 ? nightActionUpdate('wildChild', models[Math.floor(random() * models.length)].id) : null;
     }
     case 'cupid': {
       const lovers = living.slice(0, 2).map((p) => p.id);

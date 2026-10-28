@@ -48,6 +48,9 @@ import CupidAction from '../components/night-actions/CupidAction';
 import ThiefAction from '../components/night-actions/ThiefAction';
 import SaviourAction from '../components/night-actions/SaviourAction';
 import FoxAction from '../components/night-actions/FoxAction';
+import WildChildAction from '../components/night-actions/WildChildAction';
+import WildChildNotice from '../components/WildChildNotice';
+import useWildChildNotice from '../hooks/useWildChildNotice';
 import { getFoxGroup, foxSmellsWolf } from '../game-logic/roles';
 import WolfHoundAction from '../components/night-actions/WolfHoundAction';
 import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
@@ -83,6 +86,7 @@ const SUBPHASE_TO_ROLE = {
   wolf_hound: ROLE.WOLF_HOUND,
   white_wolf: ROLE.WHITE_WOLF,
   fox: ROLE.FOX,
+  wild_child: ROLE.WILD_CHILD,
 };
 
 const SUBPHASE_FLAVOR = {
@@ -96,6 +100,7 @@ const SUBPHASE_FLAVOR = {
   seer:     { title: 'The Seer Dreams...', sub: 'A mystic peers into the souls of the village.' },
   saviour:  { title: 'A Guardian Watches...', sub: 'Someone is being chosen for protection tonight.' },
   fox:      { title: 'A Fox Sniffs the Air...', sub: 'Something cunning creeps between the houses.' },
+  wild_child: { title: 'A Child Looks Up...', sub: 'A lonely orphan chooses someone to admire.' },
   done:     { title: 'The Night Passes...', sub: 'The actions of the night are being resolved.' },
 };
 
@@ -133,6 +138,8 @@ export default function NightPhaseScreen({ route, navigation }) {
   const [saviourTarget, setSaviourTarget] = useState(null);
   const [foxTarget, setFoxTarget] = useState(null);
   const [foxResult, setFoxResult] = useState(null);
+  const [wildChildModel, setWildChildModel] = useState(null);
+  const wildChildNotice = useWildChildNotice(room, playerId);
   const [houndChoice, setHoundChoice] = useState(null);
   const [whiteWolfTarget, setWhiteWolfTarget] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
@@ -333,6 +340,12 @@ export default function NightPhaseScreen({ route, navigation }) {
     if (pendingDay.current) {
       navigation.replace('DayPhase', { roomId, playerId, nickname });
     }
+  }
+
+  async function submitWildChildModel() {
+    if (!wildChildModel) return;
+    await submitNightAction(roomId, 'wildChild', wildChildModel);
+    setMyActionDone(true);
   }
 
   async function submitFoxSkip() {
@@ -641,6 +654,16 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
+        {showAction && nightSubPhase === 'wild_child' && (
+          <WildChildAction
+            theme={t}
+            players={alivePlayers}
+            model={wildChildModel}
+            onSelectModel={setWildChildModel}
+            onSubmit={submitWildChildModel}
+          />
+        )}
+
         {(showFoxResult || (showAction && nightSubPhase === 'fox')) && (
           <FoxAction
             theme={t}
@@ -750,6 +773,8 @@ export default function NightPhaseScreen({ route, navigation }) {
         events={events}
         playerHooks={playerHooks}
       />
+
+      <WildChildNotice notice={wildChildNotice.notice} onDismiss={wildChildNotice.dismiss} />
 
       <Modal
         visible={eliminatedOverlay}

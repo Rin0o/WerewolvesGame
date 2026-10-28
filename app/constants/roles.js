@@ -12,6 +12,7 @@ export const ROLE = {
   WHITE_WOLF: 'white_wolf',
   WOLF_HOUND: 'wolf_hound',
   FOX: 'fox',
+  WILD_CHILD: 'wild_child',
 };
 
 export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF];
@@ -125,6 +126,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Help the village find and eliminate all Werewolves.',
     ability: 'Each night you may point at a player. You learn whether that player or either of their living neighbours is a Werewolf. If none of the three is, you lose your power for the rest of the game. With a Quiet first night, you start on night 2.',
   },
+  [ROLE.WILD_CHILD]: {
+    name: 'Wild Child',
+    emoji: '🧒',
+    team: 'villagers',
+    description: 'An orphan raised in the woods who looks up to one villager above all others.',
+    goal: 'Win with the village while your role model lives. If they die, win with the werewolves.',
+    ability: 'On the first night, choose a role model. While they live, you are a villager. If your role model dies, by any means, you become a Werewolf and join the pack.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -157,7 +166,7 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (white_wolf) comp.push(ROLE.WHITE_WOLF);
@@ -170,6 +179,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (saviour) comp.push(ROLE.SAVIOUR);
   if (bear_tamer) comp.push(ROLE.BEAR_TAMER);
   if (fox) comp.push(ROLE.FOX);
+  if (wild_child) comp.push(ROLE.WILD_CHILD);
   if (sister) { comp.push(ROLE.SISTER); comp.push(ROLE.SISTER); }
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);

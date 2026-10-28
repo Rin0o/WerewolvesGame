@@ -87,6 +87,25 @@ describe('the Fox in the night order', () => {
   });
 });
 
+describe('the Wild Child in the night order', () => {
+  const WITH_KID = { ...VILLAGE, kid: 'wild_child' };
+
+  it('wakes after Cupid on night 1, quiet or classic', () => {
+    expect(computeNightSequence(makeGame(WITH_KID, { phase: 1 }))).toEqual(['thief', 'cupid', 'wild_child', 'werewolf']);
+    const classic = makeGame(WITH_KID, { phase: 1, classicFirstNight: true, witchPotions: BOTH_POTIONS });
+    expect(computeNightSequence(classic)).toEqual(['thief', 'cupid', 'wild_child', 'saviour', 'werewolf', 'witch', 'seer']);
+  });
+
+  it('never wakes after night 1', () => {
+    expect(computeNightSequence(makeGame(WITH_KID, { phase: 2 }))).not.toContain('wild_child');
+  });
+
+  it('the step ends once a role model is chosen', () => {
+    expect(isSubPhaseDone('wild_child', { nightActions: {} })).toBe(false);
+    expect(isSubPhaseDone('wild_child', { nightActions: { wildChild: 'vic' } })).toBe(true);
+  });
+});
+
 describe('Classic first night', () => {
   it('wakes the saviour, the hunting wolves, the witch and the seer on night 1', () => {
     const game = makeGame(VILLAGE, { phase: 1, classicFirstNight: true, witchPotions: BOTH_POTIONS });

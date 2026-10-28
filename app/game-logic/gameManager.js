@@ -42,6 +42,7 @@ export function computeNightSequence(room) {
   const wakes = {
     thief: isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0,
     cupid: isActive(ROLE.CUPID),
+    wild_child: isActive(ROLE.WILD_CHILD),
     wolf_hound: isActive(ROLE.WOLF_HOUND),
     saviour: isActive(ROLE.SAVIOUR),
     fox: isActive(ROLE.FOX) && !room.foxPowerLost,
@@ -53,8 +54,8 @@ export function computeNightSequence(room) {
   return nightOrder(room).filter((step) => wakes[step]);
 }
 
-const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'werewolf'];
-const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer'];
+const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'werewolf'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'witch', 'seer'];
 const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'white_wolf', 'witch', 'seer'];
 
 export const ROLE_REVEAL_STEP = 'reveal';
@@ -186,6 +187,7 @@ export function isSubPhaseDone(subPhase, room) {
     case ROLE_REVEAL_STEP: return playersStillReading(room).length === 0;
     case 'thief':    return !!nightActions.thief;
     case 'cupid':    return Array.isArray(nightActions.cupid) && nightActions.cupid.length === 2;
+    case 'wild_child': return !!nightActions.wildChild;
     case 'wolf_hound': return !!nightActions.wolfHound;
     case 'werewolf': return isQuietFirstNight(room)
       ? nightActions.werewolfObserved === true
@@ -293,8 +295,19 @@ export async function startGame(roomId, players, { composition: customCompositio
     saviourLastProtected: null,
     bearTamerGrowl: null,
     foxPowerLost: false,
+    wildChildId: null,
+    wildChildModel: null,
+    wildChildTurnedAt: null,
   });
   await clearingChats;
+}
+
+export function wildChildTurn(room, roles, playersAfter, eliminatedIds) {
+  const { wildChildId, wildChildModel } = room;
+  if (!wildChildId || !wildChildModel || roles[wildChildId] !== ROLE.WILD_CHILD) return null;
+  if (!eliminatedIds.includes(wildChildModel)) return null;
+  if (!playersAfter.some((p) => p.id === wildChildId && p.isAlive)) return null;
+  return { roles: { ...roles, [wildChildId]: ROLE.WEREWOLF }, wildChildTurnedAt: new Date().toISOString() };
 }
 
 // Eliminates a player and their lover if applicable. Returns list of all eliminated IDs.
@@ -407,6 +420,13 @@ export async function resolveNight(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
+  const wildChild = {
+    wildChildId: roomData.wildChildId || (nightActions.wildChild ? getPlayerWithRole(updatedRoles, ROLE.WILD_CHILD) : null),
+    wildChildModel: roomData.wildChildModel || nightActions.wildChild || null,
+  };
+  const turn = wildChildTurn(wildChild, updatedRoles, updatedPlayers, [...allEliminated]);
+  if (turn) updatedRoles = turn.roles;
+
   const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
   const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, updatedRoles, newLovers);
   const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers, updatedRoles);
@@ -427,6 +447,8 @@ export async function resolveNight(roomId, roomData) {
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
     foxPowerLost,
+    ...wildChild,
+    ...(turn && { wildChildTurnedAt: turn.wildChildTurnedAt }),
     revoteTargets: null,
     events: arrayUnion(...events),
   });
@@ -510,13 +532,16 @@ export async function resolveLynch(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
+  const turn = wildChildTurn(roomData, roles, updatedPlayers, [...allEliminated]);
+  const rolesAfter = turn ? turn.roles : roles;
+
   const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
-  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, roles, lovers);
+  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, rolesAfter, lovers);
   const advanceToNight = !winner && !hunterTriggered;
 
   let nightSubPhase;
   if (advanceToNight) {
-    const nextRoom = { ...roomData, players: updatedPlayers, phase: phase + 1, nightActions: {}, disconnectedPlayers: [] };
+    const nextRoom = { ...roomData, roles: rolesAfter, players: updatedPlayers, phase: phase + 1, nightActions: {}, disconnectedPlayers: [] };
     const seq = computeNightSequence(nextRoom);
     nightSubPhase = seq[0] || 'done';
   }
@@ -532,6 +557,7 @@ export async function resolveLynch(roomId, roomData) {
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
+    ...turn,
     ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase, bearTamerGrowl: null }),
   });
 
@@ -551,13 +577,15 @@ export async function hunterShoot(roomId, roomData, targetId) {
   const updatedPlayers = players.map((p) =>
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
-  const winner = checkWinCondition(updatedPlayers, roles, lovers);
+  const turn = wildChildTurn(roomData, roles, updatedPlayers, [...allEliminated]);
+  const winner = checkWinCondition(updatedPlayers, turn ? turn.roles : roles, lovers);
 
   await updateRoom(roomId, {
     winner: winner || null,
     status: winner ? 'ended' : roomData.status,
     hunterTriggered: null,
     events: arrayUnion(...events),
+    ...turn,
   });
 
   return { winner };

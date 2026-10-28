@@ -185,3 +185,41 @@ describe('startNextNight', () => {
     expect(updateRoom).not.toHaveBeenCalled();
   });
 });
+
+describe('the Wild Child by day', () => {
+  const ROLES = { will: 'werewolf', kid: 'wild_child', sam: 'seer', vic: 'villager', vera: 'villager', hank: 'hunter' };
+  const withChild = (roles, overrides = {}) => day(roles, { wildChildId: 'kid', wildChildModel: 'vic', ...overrides });
+
+  it('becomes a werewolf when the village lynches its role model, and wakes with the pack', async () => {
+    const update = await lynch(withChild(ROLES, { votes: votesFor({ will: 'vic', sam: 'vic', vera: 'vic' }) }));
+    expect(update.roles.kid).toBe('werewolf');
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
+    expect(update.status).toBe('night');
+    expect(update.nightSubPhase).toBe('werewolf');
+  });
+
+  it('counts as a wolf in the win check straight away', async () => {
+    const small = { will: 'werewolf', kid: 'wild_child', vic: 'villager', vera: 'villager' };
+    const update = await lynch(withChild(small, { votes: votesFor({ will: 'vic', vera: 'vic' }) }));
+    expect(update.winner).toBe('werewolves');
+  });
+
+  it('stays a villager when someone else is lynched', async () => {
+    const update = await lynch(withChild(ROLES, { votes: votesFor({ will: 'vera', sam: 'vera' }) }));
+    expect(update.roles).toBeUndefined();
+    expect(update.wildChildTurnedAt).toBeUndefined();
+  });
+
+  it('does not turn when it dies with its role model', async () => {
+    const lovers = { lovers: ['vic', 'kid'], votes: votesFor({ will: 'vic', sam: 'vic' }) };
+    expect((await lynch(withChild(ROLES, lovers))).roles).toBeUndefined();
+  });
+
+  it('is turned by the Hunter\'s last shot at its role model', async () => {
+    const game = withChild(ROLES, { dead: ['hank'], hunterTriggered: 'hank', hunterDiedDuring: 'day' });
+    await hunterShoot(ROOM_ID, game, 'vic');
+    const update = lastUpdate(updateRoom);
+    expect(update.roles).toEqual({ ...ROLES, kid: 'werewolf' });
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
+  });
+});
