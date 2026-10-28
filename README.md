@@ -375,6 +375,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
 | `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model) — nobody else's role leaks; the turned Wild Child's notice |
 | `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
 

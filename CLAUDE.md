@@ -34,7 +34,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                narrator dashboard, notes, wolf chat, sisters chat, "You were eliminated" overlay
     DayPhaseScreen.js        — Dawn announcement, discussion, voting, lynch result, Hunter shot,
                                day chat, wolf chat (for wolves), notes
-    GameOverScreen.js        — Winner reveal, full role dump, event log, Play Again (host)
+    GameOverScreen.js        — Winner reveal, full role dump, event log, Play Again (host); end sound from
+                               gameOverSound(room) (utils/gameOverSound.js: only while status is 'ended' with a
+                               known winner, so the Play Again reset never plays the wolves' sound)
   /components/
     PlayerCard.js            — Reusable player row with suspicion/role chip display;
                                props: avatarIcon (overrides letter avatar), avatarIconSize (default 40),
@@ -432,7 +434,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.

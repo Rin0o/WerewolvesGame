@@ -19,6 +19,7 @@ import { updateRoom, clearDayChat } from '../firebase/roomService';
 import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
+import { gameOverSound } from '../utils/gameOverSound';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.webp');
@@ -36,7 +37,7 @@ export default function GameOverScreen({ route, navigation }) {
   const winner = room?.winner;
   const isVillagers = winner === 'villagers';
   const isLovers = winner === 'lovers';
-  useSoundEffect(room ? (isVillagers || isLovers ? 'villagersWin' : 'wolvesWin') : null);
+  useSoundEffect(gameOverSound(room));
 
   useEffect(() => {
     if (!room) return;
