@@ -13,6 +13,7 @@ export const ROLE = {
   WOLF_HOUND: 'wolf_hound',
   FOX: 'fox',
   WILD_CHILD: 'wild_child',
+  VILLAGE_IDIOT: 'village_idiot',
 };
 
 export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF];
@@ -134,6 +135,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Win with the village while your role model lives. If they die, win with the werewolves.',
     ability: 'On the first night, choose a role model. While they live, you are a villager. If your role model dies, by any means, you become a Werewolf and join the pack.',
   },
+  [ROLE.VILLAGE_IDIOT]: {
+    name: 'Village Idiot',
+    emoji: '🤪',
+    team: 'villagers',
+    description: 'A harmless fool the village cannot bring itself to hang.',
+    goal: 'Help the village find and eliminate all Werewolves.',
+    ability: 'If the village votes you out, your card is revealed and you survive, but you can no longer vote. If the village votes you out again, you die. Werewolves, poison and the Hunter kill you normally.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -166,7 +175,7 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (white_wolf) comp.push(ROLE.WHITE_WOLF);
@@ -180,6 +189,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (bear_tamer) comp.push(ROLE.BEAR_TAMER);
   if (fox) comp.push(ROLE.FOX);
   if (wild_child) comp.push(ROLE.WILD_CHILD);
+  if (village_idiot) comp.push(ROLE.VILLAGE_IDIOT);
   if (sister) { comp.push(ROLE.SISTER); comp.push(ROLE.SISTER); }
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);

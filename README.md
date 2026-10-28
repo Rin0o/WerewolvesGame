@@ -37,7 +37,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. Instead they run the game from dashboards that show every role and every action.
-- **14 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, White Wolf and Wolf Hound.
+- **15 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, White Wolf and Wolf Hound.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
@@ -57,7 +57,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 3. **Night:** roles wake up one at a time in a fixed order. Only the player whose turn it is sees an action; everyone else sees a "the village sleeps" screen.
 4. **Dawn:** the app announces who died. If a Bear Tamer is alive and sits next to a werewolf, the bear also growls.
 5. **Day:** players discuss, using the day chat if they want, then each votes for a player.
-   - The player with the most votes is eliminated, and their role is revealed.
+   - The player with the most votes is eliminated, and their role is revealed. (The Village Idiot survives the first time; see Roles.)
    - No votes at all means nobody dies. A tie also means nobody dies, unless the host chose "Vote again" in the lobby: then the village votes once more (60 s), only between the tied players, and a second tie spares everyone.
    - Either way, night falls next.
 6. The game alternates between night and day until someone wins. The game-over screen shows the winner, every role and the full event log. The host can then start a new game in the same room.
@@ -111,6 +111,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
 | **Fox** | Village | Each night (from night 2 with a Quiet first night) may point at another player and learns whether that player or either of their living neighbours is a werewolf. While choosing, the Fox sees exactly which players will be sniffed. If none of the three is a wolf, the Fox loses its power and never wakes again. If the timer runs out, the Fox stays hidden and keeps its power. |
 | **Wild Child** | Village, then maybe Wolves | On night 1, chooses a role model (a random one if the timer runs out). While the model lives, the Wild Child is a villager, and the Seer sees them as one. If the model dies, by any cause, the Wild Child becomes a werewolf: a full-screen notice tells them privately whose death turned them and who their pack is, and they wake with the pack and use the wolf chat from then on. Nobody else is told. |
+| **Village Idiot** | Village | No night action. The first time the village votes them out, they are revealed to everyone and survive, but can no longer vote: their row shows the Idiot icon and "cannot vote", and the day ends without waiting for them. A second vote against them kills them. Wolves, poison and the Hunter kill them normally. Bots can be dealt this role, and bots don't vote for a revealed Idiot unless nobody else can be chosen. |
 | **White Wolf** | Alone | Hunts with the pack, who see them as a normal werewolf. Every second night (2, 4, 6…) also wakes alone and may devour one other werewolf. Wins only as the last player alive. The Seer and the Bear Tamer detect them as a wolf. |
 | **Wolf Hound** | Chosen | On night 1, secretly chooses Villager or Werewolf. Choosing the wolves makes them a werewolf straight away, so they wake with the pack that same night. If the timer runs out, they stay a Villager. |
 
@@ -130,7 +131,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, White Wolf and Wolf Hound are only available in Custom mode for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom mode. Roles are shuffled and dealt at random at the start of every game. In **Custom** mode the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, White Wolf and Wolf Hound are only available in Custom mode for now.
 
 ---
 
@@ -183,7 +184,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 |---|---|
 | Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
 | Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
-| A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote. Any time: mark themselves gone/back, take over as host (for themselves only) |
+| A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
 | The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
 | Chats | Members read and post as themselves (1–500 characters); only werewolves (White Wolf included) post in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
@@ -226,7 +227,8 @@ app/
     narrator/              Narrator night/day dashboards
   game-logic/
     roles.js               Role assignment, win conditions, role helpers
-    gameManager.js         startGame, night order, resolveNight, resolveLynch, hunterShoot
+    gameManager.js         startGame, night order, resolveNight, resolveLynch, hunterShoot (Wild Child, Village Idiot)
+    hostDecisions.js       What the host decides each night and day (pure, tested); the screens only apply it
     voteManager.js         Vote counting
   firebase/
     config.js              Firebase project configuration
@@ -237,6 +239,8 @@ app/
     useGameState.js        Values derived from the room for the current player
     usePlayer.js           Personal notes and suspicions (AsyncStorage)
     useHostFailover.js     Host heartbeat and automatic takeover
+    useUnreadMessages.js   Unread badges for the day, wolf and sisters chats
+    useWildChildNotice.js  The turned Wild Child's private notice
     useSoundEffect.js      Sound effects
   utils/session.js         Saved game for Rejoin
   utils/profile.js         Saved player name and sound setting
@@ -359,18 +363,19 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 
 | File | Covers |
 |---|---|
-| `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions, seating, Thief/lover/sister helpers |
+| `roles.test.js` | Compositions (incl. the 13+ and 18+ rules), custom compositions, random role dealing, win conditions, seating, Thief/lover/sister helpers, the Fox's sniffed group |
 | `voteManager.test.js` | Vote counting, ties and who is tied, unconfirmed votes, when all votes are in |
-| `nightOrder.test.js` | Who wakes on night 1 and later nights, skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote |
-| `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer |
-| `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night |
-| `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots |
+| `nightOrder.test.js` | Who wakes on night 1 and later nights (Fox, Wild Child included), skipping dead/absent roles, the next step, when a step is done, Thief swap timing, the pack vote |
+| `resolveNight.test.js` | Wolf kill, Saviour, Witch potions, lover chain, players who left, night 1 rules, Thief swap, Hunter, winners, Bear Tamer, the Fox losing its power, the Wild Child turning |
+| `dayFlow.test.js` | Lynch, ties and the tie revote, lover chain, Hunter shot, winners, starting the next night, the Village Idiot spared once, the Wild Child turning by day |
+| `hostDecisions.test.js` | The host's decisions: next night step, pack vote outcome, timeout defaults (never the Saviour or Seer on themselves), the narrator's Next, bot wolves, when voting is done and who can vote, timer lengths |
+| `startGame.test.js` | Dealing, the role-reading gate, the recorded composition, witch potions, narrator, chat-cleanup failure, fair dealing with bots (who may hold the Sisters or the Village Idiot) |
 | `bots.test.js` | How many seats bots fill (every empty one, so one player can test alone), random themed bot names, the name list itself |
-| `botChat.test.js` | Who a bot votes for (never itself, the dead or its pack; only the tied players in a revote), its chat lines matching that vote, wolf-chat lines |
+| `botChat.test.js` | Who a bot votes for (never itself, the dead, its pack or a revealed Village Idiot; only the tied players in a revote), its chat lines matching that vote, wolf-chat lines |
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
-| `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid) — nobody else's role leaks |
+| `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model) — nobody else's role leaks; the turned Wild Child's notice |
 | `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
 
 Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
@@ -381,7 +386,7 @@ Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline a
 npm run test:rules
 ```
 
-[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 30 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions, votes, Hunter shot, host takeover, chats) and checks that the wrong player can't make them. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
+[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 45 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions including the Fox and Wild Child, votes and the revealed Village Idiot, Hunter shot and the Wild Child turning, host takeover, wolf/sisters/day chats) and checks that the wrong player can't make them. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
 
 ---
 
@@ -391,7 +396,7 @@ In **Normal** and **Custom** games the host can switch on **🤖 Fill empty seat
 
 - **How many:** bots fill every empty seat up to 5 players (Normal) or up to the target player count (Custom). There's no minimum number of real players for now (until version 2.0), so you can play a whole game alone against bots to try things out.
 - **Names:** each game picks random villager names from [`app/constants/botNames.js`](app/constants/botNames.js) (e.g. "Old Tom 🤖", "Widow Agnes 🤖"), never repeating one and never matching a real player's name.
-- **Roles:** bots only play Werewolf, Villager or Sister (the Sisters have no night action). Roles with an action always go to real players first; the two Sisters are always dealt as a pair, so if only one fits on the real players, a bot gets the other. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
+- **Roles:** bots only play Werewolf, Villager, Sister or Village Idiot (roles without a night action). Roles with an action always go to real players first; the two Sisters are always dealt as a pair, so if only one fits on the real players, a bot gets the other. Werewolf seats are drawn at random across the whole table, so a real player is as likely to be a wolf as a bot. A wolf only moves to a bot when the real players are needed for the special roles.
 - **Behaviour:** the host's phone plays for them, with a pause so nobody's turn is skipped. Bot wolves vote a few seconds into the hunt and follow the pack's leading choice (or pick at random). Bots cast random day votes 30–90 seconds into the day, or a few seconds after every real player has voted.
 - **Chat (optional):** once bots are on, the host can also switch on **💬 Bots write in the chats** (off by default; otherwise bots vote silently). To make the village feel alive, bots then talk in the day chat: a line about last night (who died, a quiet night, the bears), a suspicion about someone, and then "I'm voting for X" right before they vote for exactly that player. Wolf bots never accuse their own pack, and in the wolf chat they propose or agree on the night's victim before voting. A bot says at most three things per day and goes quiet once it's dead or the vote is over.
 - Not available in Narrator mode. Play Again removes the bots; the next game adds fresh ones if the setting is still on.

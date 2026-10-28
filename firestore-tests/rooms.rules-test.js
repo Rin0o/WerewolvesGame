@@ -281,6 +281,12 @@ describe('day', () => {
     await assertSucceeds(updateDoc(as('bob').room, shot));
   });
 
+  it('a revealed Village Idiot can no longer vote', async () => {
+    await seed({ ...DAY, roles: { ...DAY.roles, sam: 'village_idiot' }, idiotRevealed: 'sam' });
+    await assertFails(updateDoc(as('sam').room, { 'votes.sam': { target: 'alice', confirmed: true } }));
+    await assertSucceeds(updateDoc(as('wendy').room, { 'votes.wendy': { target: 'sam', confirmed: true } }));
+  });
+
   it('the Hunter\'s shot may turn the Wild Child into a werewolf, and change no other role', async () => {
     const roles = { ...DAY.roles, wendy: 'wild_child' };
     await seed({ ...DAY, roles, hunterTriggered: 'bob', wildChildId: 'wendy', wildChildModel: 'sam' });

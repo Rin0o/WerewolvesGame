@@ -13,6 +13,7 @@ export const ROLE_ICONS = {
   wolf_hound: require('../../assets/role_icons/wolf_hound.webp'),
   fox:        require('../../assets/role_icons/fox.webp'),
   wild_child: require('../../assets/role_icons/wild_child.webp'),
+  village_idiot: require('../../assets/role_icons/village_idiot.webp'),
 };
 
 export const SUSPICION_ICONS = {

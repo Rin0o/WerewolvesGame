@@ -20,9 +20,11 @@ import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
-import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, TIE_RULE } from '../game-logic/gameManager';
+import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
 import { tallyVotes } from '../game-logic/voteManager';
-import { discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak } from '../game-logic/hostDecisions';
+import {
+  discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
+} from '../game-logic/hostDecisions';
 import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
@@ -195,7 +197,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     shownResultRef.current = true;
     const votesCopy = { ...votes };
     const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy);
-    setLastLynchResult({ tallyMap, eliminatedId, tie, votes: votesCopy });
+    setLastLynchResult({ tallyMap, eliminatedId, tie, votes: votesCopy, sparedIdiot: isIdiotSpared(room, eliminatedId) });
     setResultModalVisible(true);
   }, [room?.votesClosed, allIn]);
 
@@ -323,10 +325,13 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   const revoteTargets = room.revoteTargets?.length ? room.revoteTargets : null;
   const canBeVoted = (id) => !revoteTargets || revoteTargets.includes(id);
-  const canConfirmVote = gs.isAlive && !gs.isNarrator && !lastLynchResult && !hunterTriggered
+  const iCanVote = canVote(room, playerId);
+  const iAmRevealedIdiot = gs.isAlive && room.idiotRevealed === playerId;
+  const isRevealedIdiot = (p) => p.isAlive && p.id === room.idiotRevealed;
+  const canConfirmVote = iCanVote && !lastLynchResult && !hunterTriggered
     && !!myVoteTarget && !myVoteConfirmed;
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
-  const totalEligible = alivePlayers.filter((p) => !disconnected.includes(p.id)).length;
+  const totalEligible = dayVoters(room).filter((p) => !disconnected.includes(p.id)).length;
 
   return (
     <ImageBackground source={DAY_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
@@ -407,6 +412,7 @@ export default function DayPhaseScreen({ route, navigation }) {
             players={players}
             roles={roles}
             votes={votes}
+            voters={dayVoters(room)}
             phase={phase}
             onCloseVotes={() => closeVoting(roomId)}
             lastLynchResult={lastLynchResult}
@@ -442,7 +448,18 @@ export default function DayPhaseScreen({ route, navigation }) {
                 </View>
               </View>
             )}
-            {gs.isAlive && !gs.isNarrator && (
+            {iAmRevealedIdiot && (
+              <View style={[styles.votingForBanner, styles.idiotBanner, { backgroundColor: t.glassCard, borderColor: t.accent }]}>
+                <Image source={ROLE_ICONS.village_idiot} style={styles.idiotBannerIcon} resizeMode="contain" />
+                <View style={styles.idiotBannerText}>
+                  <Text style={[styles.bannerStateLabel, { color: t.accent }]}>You can no longer vote</Text>
+                  <Text style={[styles.revoteText, { color: t.text }]}>
+                    The village knows you are the Village Idiot. You can still talk, but if they vote you out again, you die.
+                  </Text>
+                </View>
+              </View>
+            )}
+            {iCanVote && (
               <View style={[
                 styles.votingForBanner,
                 { backgroundColor: t.glassCard, borderColor: myVoteConfirmed ? t.success : myVoteTarget ? t.primary : t.glassBorder },
@@ -493,7 +510,9 @@ export default function DayPhaseScreen({ route, navigation }) {
             <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
               <View style={styles.voteSectionHeader}>
                 <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-                  {gs.isNarrator ? 'Players (narrator view)' : gs.isAlive ? 'Tap a player to vote for them' : 'Players (spectating)'}
+                  {gs.isNarrator
+                    ? 'Players (narrator view)'
+                    : iCanVote ? 'Tap a player to vote for them' : gs.isAlive ? 'Players' : 'Players (spectating)'}
                 </Text>
                 <Text style={[styles.voteProgress, { color: t.textMuted }]}>
                   {confirmedCount}/{totalEligible} confirmed
@@ -529,15 +548,18 @@ export default function DayPhaseScreen({ route, navigation }) {
                             ? { ...t, surface: 'transparent', border: 'transparent' }
                             : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
                           }
-                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && !gs.isNarrator && canBeVoted(item.id) && handleSelectVote(item.id)}
-                          disabled={gs.isNarrator || !gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed || !canBeVoted(item.id)}
+                          onPress={() => item.isAlive && item.id !== playerId && iCanVote && canBeVoted(item.id) && handleSelectVote(item.id)}
+                          disabled={!iCanVote || item.id === playerId || !item.isAlive || myVoteConfirmed || !canBeVoted(item.id)}
                           selected={false}
-                          roleMap={gs.isNarrator || !item.isAlive ? roles : {}}
-                          showRole={gs.isNarrator || !item.isAlive}
+                          roleMap={gs.isNarrator || !item.isAlive || isRevealedIdiot(item) ? roles : {}}
+                          showRole={gs.isNarrator || !item.isAlive || isRevealedIdiot(item)}
                           noDeadOpacity={!item.isAlive}
-                          avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
+                          avatarIcon={!item.isAlive ? AVATAR_DEAD : isRevealedIdiot(item) ? ROLE_ICONS.village_idiot : AVATAR_UNKNOWN}
                           avatarIconSize={56}
                         />
+                        {isRevealedIdiot(item) && (
+                          <Text style={[styles.idiotTag, { color: t.accent }]}>Revealed · cannot vote</Text>
+                        )}
                       </View>
                       {item.isAlive && theyConfirmed && (
                         <Image source={DAY_CHECK_ICON} style={styles.confirmedBadgeImg} resizeMode="contain" />
@@ -765,6 +787,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   notInRevote: { opacity: 0.45 },
+  idiotBanner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  idiotBannerIcon: { width: 56, height: 56 },
+  idiotBannerText: { flex: 1, gap: 2 },
+  idiotTag: { ...FONTS.caption, fontWeight: '700', marginLeft: SPACING.md, marginBottom: SPACING.xs },
   revoteBanner: {
     flexDirection: 'row',
     alignItems: 'center',

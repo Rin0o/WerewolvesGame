@@ -126,6 +126,7 @@ service cloud.firestore {
 
       function voting() {
         return before().status == 'day'
+          && before().get('idiotRevealed', null) != uid()
           && changedOnly(['votes'])
           && after().votes.diff(before().get('votes', {})).affectedKeys().hasOnly([uid()])
           && after().votes[uid()].target is string;

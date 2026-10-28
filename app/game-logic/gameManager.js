@@ -205,7 +205,7 @@ function countRoles(roleMap) {
   return Object.values(roleMap).reduce((acc, role) => ({ ...acc, [role]: (acc[role] || 0) + 1 }), {});
 }
 
-const BOT_PLAYABLE_SPECIALS = [ROLE.SISTER];
+const BOT_PLAYABLE_SPECIALS = [ROLE.SISTER, ROLE.VILLAGE_IDIOT];
 
 function dealWithBots(humanPlayers, botPlayers, composition) {
   const wolfCount = composition.filter((r) => r === ROLE.WEREWOLF).length;
@@ -298,6 +298,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     wildChildId: null,
     wildChildModel: null,
     wildChildTurnedAt: null,
+    idiotRevealed: null,
   });
   await clearingChats;
 }
@@ -498,15 +499,24 @@ export async function startNextNight(roomId) {
   });
 }
 
+export function isIdiotSpared(room, lynchedId) {
+  return !!lynchedId && room.roles?.[lynchedId] === ROLE.VILLAGE_IDIOT && room.idiotRevealed !== lynchedId;
+}
+
 export async function resolveLynch(roomId, roomData) {
   const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
   const events = [];
 
-  const { tallyMap, eliminatedId, tie, tied } = tallyVotes(votes);
+  const { tallyMap, eliminatedId: votedOutId, tie, tied } = tallyVotes(votes);
+  const sparedIdiot = isIdiotSpared(roomData, votedOutId) ? votedOutId : null;
+  const eliminatedId = sparedIdiot ? null : votedOutId;
 
   const allEliminated = new Set();
 
-  if (eliminatedId) {
+  if (sparedIdiot) {
+    const idiot = players.find((p) => p.id === sparedIdiot);
+    events.push(`Day ${phase}: ${idiot?.nickname || 'Someone'} was voted out, but turned out to be the Village Idiot. The village spared them, but they can no longer vote.`);
+  } else if (eliminatedId) {
     const victim = players.find((p) => p.id === eliminatedId);
     const voteCount = tallyMap[eliminatedId];
     events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roles[eliminatedId] || '?'}`);
@@ -558,6 +568,7 @@ export async function resolveLynch(roomId, roomData) {
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
     ...turn,
+    ...(sparedIdiot && { idiotRevealed: sparedIdiot }),
     ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase, bearTamerGrowl: null }),
   });
 

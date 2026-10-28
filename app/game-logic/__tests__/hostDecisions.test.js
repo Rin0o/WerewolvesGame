@@ -3,7 +3,7 @@ jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion
 
 import {
   subPhaseSeconds, discussionSecondsFor, advanceNightPlan, hostNightPlan, nightTimeoutPlan, narratorAdvancePlan,
-  botWolvesToWake, botWolfMove, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak,
+  botWolvesToWake, botWolfMove, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote,
   WOLF_REVOTE_SECONDS,
 } from '../hostDecisions';
 import { makeGame, votesFor } from './helpers';
@@ -293,6 +293,15 @@ describe('day voting', () => {
     expect(humansAllVoted(room)).toBe(true);
     expect(botsYetToVote(room).map((p) => p.id)).toEqual(['vic', 'val']);
     expect(humansAllVoted(withBots(day(), ['vic']))).toBe(false);
+  });
+
+  it('a revealed Village Idiot no longer votes, and nobody waits for them', () => {
+    const room = withBots(day({ idiotRevealed: 'vic' }), ['vic']);
+    expect(canVote(room, 'vic')).toBe(false);
+    expect(canVote(room, 'val')).toBe(true);
+    expect(botsYetToVote(room).map((p) => p.id)).not.toContain('vic');
+    const { vic, ...others } = everyone('val');
+    expect(allDayVotesCast({ ...room, votes: others })).toBe(true);
   });
 
   it('keeps bots quiet once votes close', () => {

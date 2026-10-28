@@ -9,12 +9,12 @@ export default function NarratorDayDashboard({
   players,
   roles,
   votes,
+  voters,
   phase,
   onCloseVotes,
   lastLynchResult,
   hunterTriggered,
 }) {
-  const alivePlayers = players.filter((p) => p.isAlive && !p.isNarrator);
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
   const { tallyMap } = tallyVotes(votes);
   const sortedTally = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
@@ -30,9 +30,9 @@ export default function NarratorDayDashboard({
       {/* Per-voter breakdown */}
       <View style={[styles.section, { borderColor: t.border }]}>
         <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-          VOTES — {confirmedCount}/{alivePlayers.length} CONFIRMED
+          VOTES — {confirmedCount}/{voters.length} CONFIRMED
         </Text>
-        {alivePlayers.map((voter) => {
+        {voters.map((voter) => {
           const vote = votes[voter.id];
           const target = vote?.target ? players.find((p) => p.id === vote.target) : null;
           const confirmed = vote?.confirmed === true;

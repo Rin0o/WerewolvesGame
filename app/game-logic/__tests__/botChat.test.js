@@ -36,6 +36,16 @@ describe('botVoteTarget', () => {
     const room = makeGame({ ...TABLE, vic: 'werewolf' }, { status: 'day', revoteTargets: ['will', 'vic'] });
     for (let i = 0; i < 20; i++) expect(['will', 'vic']).toContain(botVoteTarget(room, 'bot-1'));
   });
+
+  it('never wastes a vote on the revealed Village Idiot', () => {
+    const room = makeGame({ ...TABLE, vic: 'village_idiot' }, { status: 'day', idiotRevealed: 'vic' });
+    for (let i = 0; i < 20; i++) expect(botVoteTarget(room, 'bot-0')).not.toBe('vic');
+  });
+
+  it('votes for the revealed Idiot only when nobody else can be chosen', () => {
+    const room = makeGame({ ...TABLE, vic: 'village_idiot' }, { status: 'day', idiotRevealed: 'vic', revoteTargets: ['vic', 'bot-0'] });
+    expect(botVoteTarget(room, 'bot-0')).toBe('vic');
+  });
 });
 
 describe('bot day chatter', () => {

@@ -186,6 +186,38 @@ describe('startNextNight', () => {
   });
 });
 
+describe('the Village Idiot', () => {
+  const ROLES = { ...VILLAGE, ida: 'village_idiot' };
+  const voteOutIda = votesFor({ will: 'ida', wanda: 'ida', sam: 'ida', vic: 'ida' });
+
+  it('survives the first lynch, is revealed and loses the vote', async () => {
+    const update = await lynch(day(ROLES, { votes: voteOutIda }));
+    expect(update.idiotRevealed).toBe('ida');
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+    expect(eventsOf(update)).toEqual([
+      'Day 2: Ida was voted out, but turned out to be the Village Idiot. The village spared them, but they can no longer vote.',
+    ]);
+    expect(update.status).toBe('night');
+  });
+
+  it('dies when the village votes them out a second time', async () => {
+    const update = await lynch(day(ROLES, { votes: voteOutIda, idiotRevealed: 'ida' }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'ida');
+    expect(update.idiotRevealed).toBeUndefined();
+  });
+
+  it('takes no lover down when spared', async () => {
+    await lynch(day(ROLES, { votes: voteOutIda, lovers: ['ida', 'vic'] }));
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+  });
+
+  it('is not saved from the Hunter\'s shot', async () => {
+    const game = day(ROLES, { dead: ['hank'], hunterTriggered: 'hank', hunterDiedDuring: 'day' });
+    await hunterShoot(ROOM_ID, game, 'ida');
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'ida');
+  });
+});
+
 describe('the Wild Child by day', () => {
   const ROLES = { will: 'werewolf', kid: 'wild_child', sam: 'seer', vic: 'villager', vera: 'villager', hank: 'hunter' };
   const withChild = (roles, overrides = {}) => day(roles, { wildChildId: 'kid', wildChildModel: 'vic', ...overrides });

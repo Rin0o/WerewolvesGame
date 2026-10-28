@@ -117,6 +117,14 @@ describe('startGame with bots', () => {
     }
   });
 
+  it('a bot can be the Village Idiot, which has no night action', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.VILLAGE_IDIOT, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+    }
+  });
+
   it('the sisters are always dealt as a pair, a bot taking the second one when needed', async () => {
     const composition = [ROLE.WEREWOLF, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER, ROLE.VILLAGER];
     for (let i = 0; i < 50; i++) {

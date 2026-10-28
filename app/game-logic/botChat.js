@@ -13,8 +13,10 @@ export function botVoteTarget(room, botId, random = Math.random) {
     && p.id !== botId
     && !p.isNarrator
     && (!revoteTargets?.length || revoteTargets.includes(p.id)));
-  const outsidePack = eligible.filter((p) => !(botIsWolf && isWolfRole(roles[p.id])));
-  const pool = outsidePack.length ? outsidePack : eligible;
+  const worthVoting = eligible.filter((p) => p.id !== room.idiotRevealed);
+  const candidates = worthVoting.length ? worthVoting : eligible;
+  const outsidePack = candidates.filter((p) => !(botIsWolf && isWolfRole(roles[p.id])));
+  const pool = outsidePack.length ? outsidePack : candidates;
   return pool.length ? pickFrom(pool, random).id : null;
 }
 

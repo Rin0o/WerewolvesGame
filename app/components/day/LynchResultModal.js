@@ -32,7 +32,7 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
   }, [visible]);
 
   if (!result) return null;
-  const { tallyMap, eliminatedId, tie, votes } = result;
+  const { tallyMap, eliminatedId, tie, votes, sparedIdiot = false } = result;
 
   const sortedEntries = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
   const totalVotes = sortedEntries.reduce((sum, [, c]) => sum + c, 0);
@@ -63,8 +63,16 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                 ) : roleInfo ? (
                   <Text style={styles.roleEmoji}>{roleInfo.emoji}</Text>
                 ) : null}
-                <Text style={[styles.victimName, { color: t.danger }]}>{eliminatedPlayer.nickname}</Text>
-                <Text style={[styles.verdictChip, { color: t.danger }]}>⚔️ LYNCHED</Text>
+                <Text style={[styles.victimName, { color: sparedIdiot ? t.accent : t.danger }]}>{eliminatedPlayer.nickname}</Text>
+                <Text style={[styles.verdictChip, { color: sparedIdiot ? t.accent : t.danger }]}>
+                  {sparedIdiot ? '🤪 SPARED — THE VILLAGE IDIOT' : '⚔️ LYNCHED'}
+                </Text>
+
+                {sparedIdiot && (
+                  <Text style={[styles.noVictimText, { color: t.text }]}>
+                    The village can't bring itself to hang a fool. {eliminatedPlayer.nickname} survives, but can no longer vote.
+                  </Text>
+                )}
 
                 {roleInfo && (
                   <View style={[styles.roleRevealCard, { borderColor: teamColor, backgroundColor: `${teamColor}18` }]}>

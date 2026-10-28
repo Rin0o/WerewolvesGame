@@ -140,8 +140,13 @@ export function botWolfMove(room, botId, random = Math.random) {
   return target ? { target, followsLeader: !!leading } : null;
 }
 
-function dayVoters(room) {
-  return (room.players || []).filter((p) => p.isAlive && !p.isNarrator);
+export function canVote(room, playerId) {
+  return (room.players || []).some((p) => p.id === playerId && p.isAlive && !p.isNarrator)
+    && room.idiotRevealed !== playerId;
+}
+
+export function dayVoters(room) {
+  return (room.players || []).filter((p) => canVote(room, p.id));
 }
 
 export function allDayVotesCast(room) {
@@ -161,7 +166,7 @@ export function humansAllVoted(room) {
 
 export function botsYetToVote(room) {
   if (!room || room.status !== 'day' || room.votesClosed) return [];
-  return (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
+  return dayVoters(room).filter((p) => p.isBot && !room.votes?.[p.id]);
 }
 
 export function botMaySpeak(room, botId) {
