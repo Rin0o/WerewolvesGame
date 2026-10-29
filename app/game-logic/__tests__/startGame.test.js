@@ -133,6 +133,15 @@ describe('startGame with bots', () => {
     }
   });
 
+  it('a wolf role no human can take still goes to a bot, as a plain werewolf', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.BIG_BAD_WOLF, ROLE.SEER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      const wolves = Object.values(update.roles).filter((r) => [ROLE.WEREWOLF, ROLE.BIG_BAD_WOLF].includes(r));
+      expect(wolves).toHaveLength(2);
+    }
+  });
+
   it('a bot can be the Elder, which has no night action', async () => {
     const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.ELDER, ROLE.VILLAGER, ROLE.VILLAGER];
     for (let i = 0; i < 50; i++) {

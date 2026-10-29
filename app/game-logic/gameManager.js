@@ -286,7 +286,9 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
   const freeHumans = shuffleArr(humanPlayers.filter((p) => !wolfIds.has(p.id)));
   const forHumans = [...humanOnly, ...shuffleArr(botPlayable)];
   const humanRoles = forHumans.slice(0, freeHumans.length);
-  const leftForBots = forHumans.slice(freeHumans.length).filter((r) => BOT_PLAYABLE_SPECIALS.includes(r));
+  const leftForBots = forHumans.slice(freeHumans.length)
+    .map((r) => (isWolfRole(r) ? ROLE.WEREWOLF : r))
+    .filter((r) => r === ROLE.WEREWOLF || BOT_PLAYABLE_SPECIALS.includes(r));
 
   const roleMap = {};
   const witchPotions = {};
