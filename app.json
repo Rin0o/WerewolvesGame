@@ -2,17 +2,18 @@
   "expo": {
     "name": "Werewolves of Miller's Hollow",
     "slug": "werewolves-millers-hollow",
-    "version": "1.1.3",
+    "owner": "Rino0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/game_icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.millardshollow.werewolves"
+      "bundleIdentifier": "com.willcode4beer.werewolves"
     },
     "android": {
-      "package": "com.millardshollow.werewolves",
-      "versionCode": 5,
+      "package": "com.willcode4beer.werewolves",
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/game_icon.png",
         "backgroundColor": "#0D0820"

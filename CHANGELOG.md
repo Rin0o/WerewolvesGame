@@ -2,6 +2,42 @@
 
 All notable changes to Werewolves of Miller's Hollow (Android). Newest version first.
 
+## [1.2.0] — 2026-10-29
+
+### Added
+- **Seven new roles,** available in Custom and Narrator games:
+  - **Fox:** each night, sniffs a player and their two neighbours to learn if a werewolf is among them. Finding none costs the Fox its power.
+  - **Wild Child:** picks a role model on the first night, and becomes a werewolf if that player dies.
+  - **Village Idiot:** survives the first time the village votes them out, but can no longer vote.
+  - **Raven:** marks a player each night, who starts the next vote with 2 votes against them.
+  - **Elder:** survives the first wolf attack. If the village kills the Elder, every villager loses their power.
+  - **Big Bad Wolf:** hunts with the pack, then takes a second victim alone, until a wolf dies.
+  - **Accursed Wolf-Father:** once per game, infects the pack's victim instead of killing them. They secretly join the wolves but keep their own role and power.
+- **Sisters' chat:** the two Sisters can talk privately at night.
+- **Dawn report:** a framed panel at the top of each day with who died (and their role), the bears, the Raven's mark and the Elder's fate. Below it, a section only you can see: your lover, your bears, a lost power. Tap its header to fold it while you vote.
+- **The pack's choice:** after the hunt, every wolf sees who the pack chose and how each wolf voted.
+- **The narrator chooses the roles,** with the same settings as Custom mode.
+- **Bots can play the Village Idiot and the Elder.**
+
+### Changed
+- **A new look:**
+  - The Home screen is now a moonlit village, with a gold settings gear.
+  - The lobby is a warm inn, with the room code on a wooden sign and a candle that lights up when each player is ready.
+  - The seating view shows a stained-glass table.
+  - New icons for the chat send buttons and tied votes.
+- **The bottom bar keeps the same order by day and night:** Options, Table, Notes, then the chats.
+- **The Notes role picker** scrolls and only lists the roles in this game.
+- **Updated to Expo SDK 58.**
+- **The event log** now names a lynched player's role properly ("Villager", not "villager").
+
+### Fixed
+- The wolves' victory sound sometimes played after a village win, when the host pressed Play Again.
+- When their timer ran out, the Saviour could protect themself and the Seer could inspect themself.
+- A Thief who stole Cupid or Werewolf could lose that night's action after closing the "you stole" card.
+- In games with bots, the White Wolf could be left out when no real player was free to take it, leaving fewer wolves than chosen.
+- A chat message disappeared when it couldn't be sent. It now stays in the box.
+- The dawn message showed role names like "bear_tamer".
+
 ## [1.1.3] — 2026-10-25
 
 ### Changed
