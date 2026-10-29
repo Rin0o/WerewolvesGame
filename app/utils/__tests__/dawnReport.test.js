@@ -24,6 +24,12 @@ describe('publicDawnNews', () => {
     expect(death.team).toBe('villagers');
   });
 
+  it('shows only the original role of a dead infected player, so the bite stays secret', () => {
+    const [death] = publicDawnNews(dawn({ eliminatedThisNight: ['sam'], dead: ['sam'], infectedId: 'sam' }));
+    expect(death.detail).toBe('They were the Seer.');
+    expect(death.team).toBe('villagers');
+  });
+
   it('drops the raven\'s mark once the village has lost its powers', () => {
     expect(keys(publicDawnNews(dawn({ ravenMark: 'vic', villagePowersLost: true })))).not.toContain('raven');
   });

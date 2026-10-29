@@ -9,11 +9,15 @@ const TEAM_LABELS = {
   werewolves: 'Werewolves',
 };
 
-export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [], children }) {
+const INFECTED_GOAL = 'Win with the werewolves: help the pack outnumber the village, without being found out.';
+
+export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [], infected = false, children }) {
   if (!role) return null;
   const info = getRoleInfo(role);
   const shownGroups = groups.filter((g) => g.names.length > 0);
-  const teamLabel = role === 'white_wolf' ? 'Alone' : TEAM_LABELS[info.team] || info.team;
+  const team = infected ? 'werewolves' : info.team;
+  const teamLabel = infected ? 'Werewolves (infected)' : role === 'white_wolf' ? 'Alone' : TEAM_LABELS[team] || team;
+  const teamColor = team === 'werewolves' ? t.danger : t.success;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -27,11 +31,19 @@ export default function RoleInfoModal({ visible, onClose, theme: t, role, title,
               <Text style={styles.emoji}>{info.emoji}</Text>
             )}
             <Text style={[styles.name, { color: t.text }]}>{info.name}</Text>
-            <View style={[styles.teamChip, { borderColor: info.team === 'werewolves' ? t.danger : t.success }]}>
-              <Text style={[styles.teamText, { color: info.team === 'werewolves' ? t.danger : t.success }]}>
+            <View style={[styles.teamChip, { borderColor: teamColor }]}>
+              <Text style={[styles.teamText, { color: teamColor }]}>
                 Team: {teamLabel}
               </Text>
             </View>
+            {infected && (
+              <View style={[styles.group, { borderColor: t.danger }]}>
+                <Text style={[styles.body, { color: t.danger, fontWeight: '700' }]}>
+                  The Accursed Wolf-Father infected you. You keep the {info.name}'s power, but you are one of the
+                  pack now: you wake with the wolves, use the wolf chat and win with the werewolves.
+                </Text>
+              </View>
+            )}
             <Text style={[styles.body, { color: t.textSecondary, fontStyle: 'italic' }]}>{info.description}</Text>
 
             {shownGroups.map((group) => (
@@ -44,7 +56,7 @@ export default function RoleInfoModal({ visible, onClose, theme: t, role, title,
             ))}
 
             <Text style={[styles.sectionLabel, { color: t.primary }]}>Goal</Text>
-            <Text style={[styles.body, { color: t.text }]}>{info.goal}</Text>
+            <Text style={[styles.body, { color: t.text }]}>{infected ? INFECTED_GOAL : info.goal}</Text>
             {info.ability && (
               <>
                 <Text style={[styles.sectionLabel, { color: t.primary }]}>Ability</Text>

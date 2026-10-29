@@ -1,5 +1,5 @@
 import { arrayUnion } from 'firebase/firestore';
-import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower } from '../constants/roles';
+import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower, ROLE_DEFINITIONS } from '../constants/roles';
 import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf } from './roles';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
@@ -627,7 +627,8 @@ export async function resolveLynch(roomId, roomData) {
   } else if (eliminatedId) {
     const victim = players.find((p) => p.id === eliminatedId);
     const voteCount = tallyMap[eliminatedId];
-    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roles[eliminatedId] || '?'}`);
+    const roleText = ROLE_DEFINITIONS[roles[eliminatedId]]?.name || '?';
+    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roleText}`);
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, lovers, events, `Day ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
   } else if (tie) {

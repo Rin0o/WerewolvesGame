@@ -77,6 +77,12 @@ describe('resolveLynch', () => {
     expect(update.nightActions).toEqual({});
   });
 
+  it('logs the lynched player\'s role by name, never their infection', async () => {
+    const votes = votesFor({ sam: 'vic', sal: 'vic', will: 'vic' });
+    expect(eventsOf(await lynch(day(VILLAGE, { votes })))[0]).toMatch(/Role: Villager$/);
+    expect(eventsOf(await lynch(day(VILLAGE, { votes, infectedId: 'vic' })))[0]).toMatch(/Role: Villager$/);
+  });
+
   it('plans the next night without the lynched player', async () => {
     const update = await lynch(day(VILLAGE, { votes: votesFor({ sam: 'sal', vic: 'sal', vera: 'sal' }) }));
     expect(update.nightSubPhase).toBe('werewolf');
