@@ -21,7 +21,7 @@ import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
-import { tallyVotes, ravenVotes, RAVEN_VOTES } from '../game-logic/voteManager';
+import { tallyVotes, ravenVotes, activeRavenMark, RAVEN_VOTES } from '../game-logic/voteManager';
 import { rolesInPlay } from '../game-logic/roles';
 import {
   discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
@@ -330,7 +330,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const iCanVote = canVote(room, playerId);
   const iAmRevealedIdiot = gs.isAlive && room.idiotRevealed === playerId;
   const isRevealedIdiot = (p) => p.isAlive && p.id === room.idiotRevealed;
-  const ravenMarked = players.find((p) => p.id === room.ravenMark && p.isAlive) || null;
+  const ravenMarked = players.find((p) => p.id === activeRavenMark(room)) || null;
   const canConfirmVote = iCanVote && !lastLynchResult && !hunterTriggered
     && !!myVoteTarget && !myVoteConfirmed;
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;

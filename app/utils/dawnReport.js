@@ -1,6 +1,6 @@
 import { ROLE, ROLE_DEFINITIONS, hasVillagePower } from '../constants/roles';
 import { getLoversPartner } from '../game-logic/roles';
-import { RAVEN_VOTES } from '../game-logic/voteManager';
+import { RAVEN_VOTES, activeRavenMark } from '../game-logic/voteManager';
 
 function findPlayer(room, id) {
   return (room.players || []).find((p) => p.id === id) || null;
@@ -34,7 +34,7 @@ export function publicDawnNews(room) {
   if (room.bearTamerGrowl === true) {
     news.push({ key: 'growl', icon: 'bear_growl', tone: 'warning', title: 'The bears growled at dawn', detail: 'A werewolf sits next to the Bear Tamer.', short: '🐻 Growl' });
   }
-  const marked = findPlayer(room, room.ravenMark);
+  const marked = findPlayer(room, activeRavenMark(room));
   if (marked?.isAlive) {
     news.push({
       key: 'raven',

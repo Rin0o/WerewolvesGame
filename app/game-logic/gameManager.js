@@ -521,14 +521,14 @@ export async function resolveNight(roomId, roomData) {
   const turn = wildChildTurn(wildChild, updatedRoles, updatedPlayers, [...allEliminated]);
   if (turn) updatedRoles = turn.roles;
 
-  const markedPlayer = updatedPlayers.find((p) => p.id === nightActions.raven && p.isAlive);
-  if (markedPlayer) {
-    events.push(`Night ${phase}: The raven marked ${markedPlayer.nickname}, who starts today's vote with ${RAVEN_VOTES} votes against them.`);
-  }
-
   const elderPoisoned = !!elderId && nightDeathCauses[elderId] === 'poison';
   if (elderPoisoned) events.push(`Night ${phase}: ${ELDER_KILLED_EVENT}`);
   const villagePowersLost = !!roomData.villagePowersLost || elderPoisoned;
+
+  const markedPlayer = villagePowersLost ? null : updatedPlayers.find((p) => p.id === nightActions.raven && p.isAlive);
+  if (markedPlayer) {
+    events.push(`Night ${phase}: The raven marked ${markedPlayer.nickname}, who starts today's vote with ${RAVEN_VOTES} votes against them.`);
+  }
 
   const hunterTriggered = villagePowersLost ? null
     : [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;

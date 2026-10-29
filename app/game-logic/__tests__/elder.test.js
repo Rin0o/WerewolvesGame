@@ -5,6 +5,7 @@ jest.mock('../../firebase/roomService', () => ({
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import { resolveNight, resolveLynch, hunterShoot, computeNightSequence, isIdiotSpared, ELDER_KILLED_EVENT } from '../gameManager';
+import { ravenVotes, activeRavenMark } from '../voteManager';
 import { updateRoom } from '../../firebase/roomService';
 import { makeGame, votesFor, lastUpdate, eventsOf, ROOM_ID } from './helpers';
 
@@ -98,6 +99,22 @@ describe('the village kills its Elder', () => {
     expect(update.nightDeathCauses).toEqual({ vic: 'werewolves', ed: 'poison' });
     expect(update.villagePowersLost).toBe(true);
     expect(eventsOf(update)).toContain(`Night 2: ${ELDER_KILLED_EVENT}`);
+  });
+
+  it('the Raven loses tonight\'s mark when the Elder is poisoned the same night', async () => {
+    const roles = { ...VILLAGE, vera: 'raven' };
+    const update = await resolve(makeGame(roles, { phase: 2, witchPotions: BOTH_POTIONS, nightActions: { witchPoison: 'ed', raven: 'vic' } }));
+    expect(update.villagePowersLost).toBe(true);
+    expect(update.ravenMark).toBeNull();
+    expect(eventsOf(update).some((e) => e.includes('raven'))).toBe(false);
+  });
+
+  it('a mark already on the table stops counting once the Hunter shoots the Elder', () => {
+    const roles = { ...VILLAGE, vera: 'raven' };
+    const room = makeGame(roles, { status: 'day', ravenMark: 'vic' });
+    expect(ravenVotes(room)).toEqual({ vic: 2 });
+    expect(ravenVotes({ ...room, villagePowersLost: true })).toEqual({});
+    expect(activeRavenMark({ ...room, villagePowersLost: true })).toBeNull();
   });
 
   it('the poison ignores the extra life', async () => {

@@ -24,13 +24,20 @@ describe('publicDawnNews', () => {
     expect(death.team).toBe('villagers');
   });
 
+  it('drops the raven\'s mark once the village has lost its powers', () => {
+    expect(keys(publicDawnNews(dawn({ ravenMark: 'vic', villagePowersLost: true })))).not.toContain('raven');
+  });
+
   it('calls a night without deaths peaceful', () => {
     expect(keys(publicDawnNews(dawn()))).toEqual(['peaceful']);
   });
 
-  it('adds the growl, the raven\'s mark and the dead Elder in that order', () => {
-    const news = publicDawnNews(dawn({ bearTamerGrowl: true, ravenMark: 'vic', villagePowersLost: true }));
-    expect(keys(news)).toEqual(['peaceful', 'growl', 'raven', 'elder']);
+  it('adds the growl, then the raven\'s mark', () => {
+    expect(keys(publicDawnNews(dawn({ bearTamerGrowl: true, ravenMark: 'vic' })))).toEqual(['peaceful', 'growl', 'raven']);
+  });
+
+  it('announces the dead Elder', () => {
+    expect(keys(publicDawnNews(dawn({ villagePowersLost: true, dead: ['ed'] })))).toEqual(['peaceful', 'elder']);
   });
 
   it('drops the raven\'s mark on a dead player', () => {

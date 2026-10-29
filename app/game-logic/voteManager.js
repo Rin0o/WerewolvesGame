@@ -1,3 +1,5 @@
+import { ROLE, hasVillagePower } from '../constants/roles';
+
 export const RAVEN_VOTES = 2;
 
 export function allVotesIn(votes, players, disconnectedPlayers = []) {
@@ -7,10 +9,15 @@ export function allVotesIn(votes, players, disconnectedPlayers = []) {
   return aliveIds.length > 0 && aliveIds.every((id) => votes[id]?.confirmed === true);
 }
 
-export function ravenVotes(room) {
+export function activeRavenMark(room) {
   const marked = room.ravenMark;
+  if (!marked || !hasVillagePower(room, ROLE.RAVEN)) return null;
+  return (room.players || []).some((p) => p.id === marked && p.isAlive) ? marked : null;
+}
+
+export function ravenVotes(room) {
+  const marked = activeRavenMark(room);
   if (!marked || room.revoteTargets?.length) return {};
-  if (!(room.players || []).some((p) => p.id === marked && p.isAlive)) return {};
   return { [marked]: RAVEN_VOTES };
 }
 
