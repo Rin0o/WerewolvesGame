@@ -349,7 +349,6 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   function dismissSeerResult() {
     setSeerResult(null);
-    setMyActionDone(true);
     if (pendingDay.current) {
       navigation.replace('DayPhase', { roomId, playerId, nickname });
     }
@@ -373,7 +372,6 @@ export default function NightPhaseScreen({ route, navigation }) {
 
   function dismissFoxResult() {
     setFoxResult(null);
-    setMyActionDone(true);
     if (pendingDay.current) {
       navigation.replace('DayPhase', { roomId, playerId, nickname });
     }
@@ -665,7 +663,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {(showSeerResult || (showAction && gs.myRole === ROLE.SEER)) && (
+        {(showSeerResult || (showAction && nightSubPhase === 'seer')) && (
           <SeerAction
             theme={t}
             players={alivePlayers}
@@ -679,7 +677,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {showAction && gs.myRole === ROLE.WITCH && (
+        {showAction && nightSubPhase === 'witch' && (
           <WitchAction
             theme={t}
             players={alivePlayers}
@@ -698,7 +696,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {showAction && gs.myRole === ROLE.CUPID && (
+        {showAction && nightSubPhase === 'cupid' && (
           <CupidAction
             theme={t}
             players={players.filter((p) => p.isAlive)}
@@ -708,7 +706,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {(showThiefReveal || (showAction && gs.myRole === ROLE.THIEF)) && (
+        {(showThiefReveal || (showAction && nightSubPhase === 'thief')) && (
           <ThiefAction
             theme={t}
             availableRoles={gs.availableThiefRoles || []}
@@ -716,7 +714,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             thiefStolenRole={thiefStolenRole}
             onSelectRole={setThiefChoice}
             onSubmit={submitThiefChoice}
-            onDismissReveal={() => { setMyActionDone(true); setThiefStolenRole(null); }}
+            onDismissReveal={() => setThiefStolenRole(null)}
           />
         )}
 
@@ -777,7 +775,7 @@ export default function NightPhaseScreen({ route, navigation }) {
           />
         )}
 
-        {showAction && gs.myRole === ROLE.SAVIOUR && (
+        {showAction && nightSubPhase === 'saviour' && (
           <SaviourAction
             theme={t}
             players={players.filter((p) => p.isAlive)}
