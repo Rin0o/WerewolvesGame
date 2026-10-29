@@ -802,8 +802,9 @@ export default function NightPhaseScreen({ route, navigation }) {
       )}
 
       <View style={[styles.bottomBar, { borderTopColor: t.border, backgroundColor: t.glassToolbar }]}>
-        <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
+        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
         <SeatingTableButton onPress={() => setTableOpen(true)} />
+        <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
         {canUseWolfChat && (
           <BarButton
             source={NIGHT_CHAT_ICON}
@@ -820,7 +821,6 @@ export default function NightPhaseScreen({ route, navigation }) {
             accessibilityLabel="Sisters chat"
           />
         )}
-        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
 
       <GameOptionsModal

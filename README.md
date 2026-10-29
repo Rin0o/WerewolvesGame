@@ -31,7 +31,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 ## Features
 
-- **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in ⚙️ settings on the Home screen, which also has a sound on/off switch and shows the app version.
+- **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in the settings on the Home screen, which also has a sound on/off switch and shows the app version.
 - **Rooms with a 5-letter code:** one player creates a room and the others join by typing the code or scanning a QR code the lobby can show. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
@@ -55,7 +55,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 1. **Lobby:** players join with the room code (typed, or scanned from the QR code behind the lobby's Show QR button) and mark themselves ready. The host picks a game mode and starts. A game needs at least 5 players.
 2. **Role reveal:** each player privately sees their role card. Werewolves also see the other werewolves, and the two Sisters see each other. The night only starts once everyone has tapped "I understand my role"; after a minute the host can start anyway. During the game, the eye button in the header shows your role again, along with your pack, sister or lover, and every role in this game as it was dealt.
 3. **Night:** roles wake up one at a time in a fixed order. Only the player whose turn it is sees an action; everyone else sees a "the village sleeps" screen.
-4. **Dawn:** the app announces who died. If a Bear Tamer is alive and sits next to a werewolf, the bear also growls.
+4. **Dawn:** a framed dawn report at the top of the day screen announces who died (with their role and team) or a peaceful night, plus the bears' growl, the Raven's mark and a dead Elder, one line at a time. Below that, a section marked "Only you can see this" holds news for you alone: your lover, your bears, the Elder surviving, a lost power. Tap the report's header to fold it into one line while you vote.
 5. **Day:** players discuss, using the day chat if they want, then each votes for a player.
    - The player with the most votes is eliminated, and their role is revealed. (The Village Idiot survives the first time, and a player marked by the Raven starts with 2 votes; see Roles.)
    - No votes at all means nobody dies. A tie also means nobody dies, unless the host chose "Vote again" in the lobby: then the village votes once more (60 s), only between the tied players, and a second tie spares everyone.
@@ -380,6 +380,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `dawnReport.test.js` | What the dawn report tells everyone (deaths with role and team, peaceful night, growl, Raven's mark, dead Elder) and what only one player sees (lover, Bear Tamer, surviving Elder, lost power); nothing private for the dead or the narrator |
 | `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
 | `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model, an infected player) — nobody else's role leaks; the turned Wild Child's and the infected player's notices |
 | `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
@@ -438,7 +439,7 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Rooms are readable by any signed-in user,** because joining by code has to find the room before the player is a member. Writes are restricted (see [Firestore rules](#firestore-rules)).
 - **Host takeover isn't checked by the server.** The rules let any member make themselves host; only the app waits for 25 seconds of silence first.
 - **Timers run on each phone**, so they can drift slightly on slow devices.
-- **Leaving mid-game:** *Leave game* sits in the Options pop-up (the gear button at the end of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
+- **Leaving mid-game:** *Leave game* sits in the Options pop-up (the first button on the left of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
 - **Bear Tamer neighbours** are based on join order, not on where people actually sit.

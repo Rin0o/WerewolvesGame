@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Image,
+  ImageBackground,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -21,9 +22,27 @@ import { loadSession, clearSession, screenForStatus } from '../utils/session';
 import { loadProfile, sameNickname } from '../utils/profile';
 import SettingsPanel from '../components/SettingsPanel';
 import QrScannerModal from '../components/QrScannerModal';
-import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const MOON_IMAGE = require('../../assets/moon_borderless.webp');
+const HOME_BACKGROUND = require('../../assets/home_background.webp');
+const SETTINGS_ICON = require('../../assets/home_settings.webp');
+const MOONLIGHT_TITLE = '#FFF1CC';
+const MOONLIGHT_TEXT = '#EDE3FF';
+const MOONLIGHT_LINE = 'rgba(237,227,255,0.45)';
+const LANTERN_GOLD = '#E8C060';
+const DARK_GLASS = 'rgba(13,8,32,0.78)';
+const SETTINGS_THEME = {
+  ...NIGHT,
+  surface: '#1E1340',
+  surfaceAlt: '#33246A',
+  border: 'rgba(232,192,96,0.65)',
+  primary: '#9A6BF5',
+  text: MOONLIGHT_TITLE,
+  textSecondary: LANTERN_GOLD,
+  textMuted: '#CDBFEA',
+  modalOverlay: 'rgba(0,0,0,0.65)',
+};
 
 const STATUS_LABELS = {
   lobby: 'waiting in the lobby',
@@ -162,7 +181,7 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
-  const t = DAY;
+  const t = NIGHT;
 
   if (!profile) {
     return (
@@ -173,30 +192,33 @@ export default function HomeScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
+    <ImageBackground source={HOME_BACKGROUND} style={[styles.safe, { backgroundColor: t.background }]} resizeMode="cover">
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} hitSlop={12}>
-              <Text style={styles.settingsIcon}>⚙️</Text>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} hitSlop={12} accessibilityLabel="Settings">
+              <Image source={SETTINGS_ICON} style={styles.settingsIcon} resizeMode="contain" />
             </TouchableOpacity>
-            <Image source={MOON_IMAGE} style={styles.moon} resizeMode="contain" />
-            <Text style={[styles.title, { color: t.primary }]}>Werewolves</Text>
-            <Text style={[styles.subtitle, { color: t.textSecondary }]}>of Miller's Hollow</Text>
-            <Text style={[styles.playingAs, { color: t.textSecondary }]}>
-              Playing as <Text style={[styles.playingAsName, { color: t.text }]}>{profile.nickname}</Text>
-            </Text>
+            <View style={styles.headerVeil}>
+              <Image source={MOON_IMAGE} style={styles.moon} resizeMode="contain" />
+              <Text style={[styles.title, styles.moonlit, { color: MOONLIGHT_TITLE }]}>Werewolves</Text>
+              <Text style={[styles.subtitle, styles.moonlit, { color: MOONLIGHT_TEXT }]}>of Miller's Hollow</Text>
+              <Text style={[styles.playingAs, styles.moonlit, { color: MOONLIGHT_TEXT }]}>
+                Playing as <Text style={[styles.playingAsName, { color: MOONLIGHT_TITLE }]}>{profile.nickname}</Text>
+              </Text>
+            </View>
           </View>
 
           {resumable && (
-            <View style={[styles.card, styles.resumeCard, { backgroundColor: t.surface, borderColor: t.primary }]}>
-              <Text style={[styles.label, { color: t.textSecondary }]}>Game in progress</Text>
+            <View style={[styles.card, styles.resumeCard]}>
+              <Text style={[styles.label, { color: t.accent }]}>Game in progress</Text>
               <Text style={[styles.resumeText, { color: t.text }]}>
                 Room {resumable.code} is {STATUS_LABELS[resumable.status]}. You're playing as {resumable.nickname}.
               </Text>
               <TouchableOpacity
-                style={[styles.btn, styles.resumeBtn, { backgroundColor: t.primary }]}
+                style={[styles.btn, styles.btnPrimary, styles.resumeBtn]}
                 onPress={handleRejoin}
               >
                 <Text style={styles.btnText}>↩️ Rejoin Game</Text>
@@ -209,27 +231,27 @@ export default function HomeScreen({ navigation }) {
 
           {/* Create Room */}
           <TouchableOpacity
-            style={[styles.btn, styles.btnPrimary, { backgroundColor: t.primary }]}
+            style={[styles.btn, styles.btnPrimary]}
             onPress={handleCreateRoom}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : (
+            {loading ? <ActivityIndicator color={MOONLIGHT_TITLE} /> : (
               <Text style={styles.btnText}>🏠 Create Room</Text>
             )}
           </TouchableOpacity>
 
           {/* Divider */}
           <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: t.border }]} />
-            <Text style={[styles.dividerText, { color: t.textMuted }]}>or join one</Text>
-            <View style={[styles.dividerLine, { backgroundColor: t.border }]} />
+            <View style={[styles.dividerLine, { backgroundColor: MOONLIGHT_LINE }]} />
+            <Text style={[styles.dividerText, styles.moonlit, { color: MOONLIGHT_TEXT }]}>or join one</Text>
+            <View style={[styles.dividerLine, { backgroundColor: MOONLIGHT_LINE }]} />
           </View>
 
           {/* Join Room */}
-          <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.label, { color: t.textSecondary }]}>Room Code</Text>
+          <View style={[styles.card, { borderColor: t.primary }]}>
+            <Text style={[styles.label, { color: t.accent }]}>Room Code</Text>
             <TextInput
-              style={[styles.input, styles.codeInput, { backgroundColor: t.surfaceAlt, color: t.text, borderColor: t.border }]}
+              style={[styles.input, styles.codeInput, { backgroundColor: t.surfaceAlt, color: t.text, borderColor: t.primary }]}
               value={roomCode}
               onChangeText={(v) => setRoomCode(v.toUpperCase())}
               placeholder="XXXXX"
@@ -240,24 +262,24 @@ export default function HomeScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.btn, styles.btnSecondary, { borderColor: t.primary }]}
+            style={[styles.btn, styles.btnSecondary]}
             onPress={handleJoinRoom}
             disabled={loading}
           >
-            <Text style={[styles.btnText, { color: t.primary }]}>🚪 Join Room</Text>
+            <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>🚪 Join Room</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btn, styles.btnSecondary, { borderColor: t.primary }]}
+            style={[styles.btn, styles.btnSecondary]}
             onPress={() => setScannerOpen(true)}
             disabled={loading}
           >
-            <Text style={[styles.btnText, { color: t.primary }]}>📷 Scan QR Code</Text>
+            <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>📷 Scan QR Code</Text>
           </TouchableOpacity>
 
           {Platform.OS === 'android' && (
             <TouchableOpacity style={styles.closeAppBtn} onPress={() => BackHandler.exitApp()}>
-              <Text style={[styles.closeAppText, { color: t.textMuted }]}>Close the app</Text>
+              <Text style={[styles.closeAppText, styles.moonlit, { color: MOONLIGHT_TEXT }]}>Close the app</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -266,7 +288,7 @@ export default function HomeScreen({ navigation }) {
       <SettingsPanel
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        theme={t}
+        theme={SETTINGS_THEME}
         profile={profile}
         onProfileChange={setProfile}
       />
@@ -278,18 +300,31 @@ export default function HomeScreen({ navigation }) {
         theme={t}
       />
     </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
-  settingsBtn: { position: 'absolute', top: -SPACING.lg, right: 0, zIndex: 10, padding: SPACING.xs },
-  settingsIcon: { fontSize: 28 },
+  settingsBtn: { position: 'absolute', top: SPACING.sm - SPACING.xxl, right: -SPACING.sm, zIndex: 10, padding: SPACING.xs },
+  settingsIcon: { width: 52, height: 52 },
   playingAs: { ...FONTS.body, marginTop: SPACING.md },
   playingAsName: { fontWeight: '700' },
   content: { padding: SPACING.lg, paddingTop: SPACING.xxl },
   header: { alignItems: 'center', marginBottom: SPACING.xxl },
+  headerVeil: {
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.xl,
+    backgroundColor: 'rgba(8,4,24,0.55)',
+  },
+  moonlit: {
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
   moon: { width: 88, height: 88, marginBottom: SPACING.sm },
   title: { ...FONTS.title, fontSize: 36 },
   subtitle: { ...FONTS.subheading, marginTop: SPACING.xs },
@@ -298,6 +333,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderWidth: 1,
     marginBottom: SPACING.md,
+    backgroundColor: DARK_GLASS,
   },
   label: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.xs, fontWeight: '700' },
   input: {
@@ -314,13 +350,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  btnPrimary: {},
-  btnSecondary: { backgroundColor: 'transparent', borderWidth: 2 },
-  btnText: { ...FONTS.button, color: '#fff' },
+  btnPrimary: { backgroundColor: NIGHT.primaryDark, borderWidth: 1.5, borderColor: LANTERN_GOLD },
+  btnSecondary: { backgroundColor: DARK_GLASS, borderWidth: 2, borderColor: LANTERN_GOLD },
+  btnText: { ...FONTS.button, color: MOONLIGHT_TITLE },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.sm },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { ...FONTS.caption, marginHorizontal: SPACING.sm },
-  resumeCard: { borderWidth: 2 },
+  resumeCard: { borderWidth: 2, borderColor: LANTERN_GOLD },
   resumeText: { ...FONTS.body, marginBottom: SPACING.md },
   resumeBtn: { marginBottom: SPACING.sm },
   forgetText: { ...FONTS.caption, textAlign: 'center' },

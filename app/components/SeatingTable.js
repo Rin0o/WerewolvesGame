@@ -7,6 +7,8 @@ import { FONTS, RADIUS, SPACING } from '../constants/theme';
 const AVATAR_UNKNOWN = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD    = require('../../assets/suspicion_level_icons/dead.webp');
 const TABLE_VIEW_ICON = require('../../assets/table_view.webp');
+const TABLE_IMAGE    = require('../../assets/table.webp');
+const TABLE_SCALE = 1.25;
 
 const NEIGHBOUR_COLOR = '#E8B020';
 const TABLE_MAX_SIZE = 380;
@@ -52,16 +54,16 @@ export default function SeatingTable({ visible, onClose, theme: t, players, play
           <Text style={[styles.title, { color: t.text }]}>The Table</Text>
 
           <View style={{ width: size, height: size }}>
-            <View
+            <Image
+              source={TABLE_IMAGE}
+              resizeMode="contain"
               style={[
-                styles.tableDisk,
+                styles.tableImage,
                 {
-                  left: center - radius * 0.55,
-                  top: center - radius * 0.55,
-                  width: radius * 1.1,
-                  height: radius * 1.1,
-                  borderColor: t.border,
-                  backgroundColor: t.surfaceAlt,
+                  left: center - radius * TABLE_SCALE / 2,
+                  top: center - radius * TABLE_SCALE / 2,
+                  width: radius * TABLE_SCALE,
+                  height: radius * TABLE_SCALE,
                 },
               ]}
             />
@@ -133,7 +135,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   title: { ...FONTS.subheading },
-  tableDisk: { position: 'absolute', borderRadius: RADIUS.full, borderWidth: 3 },
+  tableImage: { position: 'absolute' },
   seat: { position: 'absolute', alignItems: 'center' },
   avatarRing: {
     borderRadius: RADIUS.full,

@@ -32,7 +32,7 @@ import NotesPanel from '../components/NotesPanel';
 import DayChat from '../components/day/DayChat';
 import PrivateChat from '../components/PrivateChat';
 import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
-import NightAnnouncement from '../components/day/NightAnnouncement';
+import DawnReport from '../components/day/DawnReport';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
@@ -45,7 +45,7 @@ import useTurnedWolfNotice from '../hooks/useTurnedWolfNotice';
 import TurnedWolfNotice from '../components/TurnedWolfNotice';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
-import { ROLE_DEFINITIONS, ROLE, hasVillagePower } from '../constants/roles';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.webp');
 const NOTES_ICON           = require('../../assets/notes.webp');
@@ -54,7 +54,6 @@ const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.webp');
 const DAY_CHECK_ICON       = require('../../assets/day_check.webp');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
-const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
 const OPTIONS_ICON         = require('../../assets/options.webp');
 const SCALE_ICON           = require('../../assets/scale.webp');
 
@@ -243,14 +242,12 @@ export default function DayPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, phase, events = [], eliminatedThisNight, hunterTriggered } = room;
+  const { players = [], roles = {}, phase, events = [], hunterTriggered } = room;
   const votes = room.votes || {};
 
   const myVoteEntry = votes[playerId];
   const myVoteConfirmed = myVoteEntry?.confirmed === true;
 
-  const nightVictimIds = Array.isArray(eliminatedThisNight) ? eliminatedThisNight : (eliminatedThisNight ? [eliminatedThisNight] : []);
-  const nightVictims = nightVictimIds.map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
   function handleSelectVote(targetId) {
     if (myVoteConfirmed) return;
@@ -375,67 +372,7 @@ export default function DayPhaseScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        {gs.isLover && gs.myLover && (
-          <View style={[styles.loverAnnouncement, { backgroundColor: 'rgba(255,240,248,0.92)', borderColor: '#E85090' }]}>
-            <Text style={styles.loverEmoji}>💘</Text>
-            <Text style={[styles.loverTitle, { color: '#E85090' }]}>You are in love!</Text>
-            <Text style={[styles.announcementText, { color: t.text }]}>
-              Your lover is {gs.myLover.nickname}. If they die, you die too.
-              {'\n'}If you are the last two alive, you win together.
-            </Text>
-          </View>
-        )}
-
-        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} ravenMarked={ravenMarked} />
-
-        {room.villagePowersLost && (
-          <View style={[styles.bearGrowlCard, { backgroundColor: 'rgba(180,40,40,0.18)', borderColor: '#C0392B' }]}>
-            <Image source={ROLE_ICONS.elder} style={styles.bearGrowlIcon} resizeMode="contain" />
-            <View style={styles.bearGrowlTextBox}>
-              <Text style={[styles.bearGrowlTitle, { color: '#C0392B' }]}>The village killed its Elder</Text>
-              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
-                Every villager has lost their power for the rest of the game.
-                {gs.isAlive && !hasVillagePower(room, gs.myRole) ? ` That includes you: as the ${ROLE_DEFINITIONS[gs.myRole]?.name}, your power is gone.` : ''}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {gs.isAlive && gs.myRole === ROLE.ELDER && room.elderWoundedNight === phase && (
-          <View style={[styles.bearGrowlCard, { backgroundColor: 'rgba(180,40,40,0.18)', borderColor: '#C0392B' }]}>
-            <Image source={ROLE_ICONS.elder} style={styles.bearGrowlIcon} resizeMode="contain" />
-            <View style={styles.bearGrowlTextBox}>
-              <Text style={[styles.bearGrowlTitle, { color: '#C0392B' }]}>You survived the night</Text>
-              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
-                You were attacked last night and survived. The next wolf attack will be fatal. The village was not told.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
-          <View style={[
-            styles.bearGrowlCard,
-            { backgroundColor: room.bearTamerGrowl ? 'rgba(180,40,40,0.18)' : 'rgba(40,120,40,0.15)',
-              borderColor: room.bearTamerGrowl ? '#C0392B' : '#27AE60' },
-          ]}>
-            <Image
-              source={room.bearTamerGrowl ? BEAR_GROWL_ICON : ROLE_ICONS.bear_tamer}
-              style={styles.bearGrowlIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.bearGrowlTextBox}>
-              <Text style={[styles.bearGrowlTitle, { color: room.bearTamerGrowl ? '#C0392B' : '#27AE60' }]}>
-                {room.bearTamerGrowl ? 'The bears are growling!' : 'The bears are silent.'}
-              </Text>
-              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
-                {room.bearTamerGrowl
-                  ? 'At least one of your neighbors is a Werewolf.'
-                  : 'Neither of your neighbors is a Werewolf.'}
-              </Text>
-            </View>
-          </View>
-        )}
+        {!showTransition && <DawnReport key={phase} theme={t} room={room} playerId={playerId} />}
 
         {gs.isNarrator && (
           <NarratorDayDashboard
@@ -628,6 +565,8 @@ export default function DayPhaseScreen({ route, navigation }) {
       )}
 
       <View style={[styles.bottomBar, { borderTopColor: t.glassBorder, backgroundColor: t.glassToolbar }]}>
+        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
+        <SeatingTableButton onPress={() => setTableOpen(true)} />
         <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
         <BarButton
           source={DAY_CHAT_ICON}
@@ -635,7 +574,6 @@ export default function DayPhaseScreen({ route, navigation }) {
           unread={unreadDayMessages}
           accessibilityLabel="Village chat"
         />
-        <SeatingTableButton onPress={() => setTableOpen(true)} />
         {gs.isNarrator && (
           <BarButton
             source={ROLE_ICONS.werewolf}
@@ -644,7 +582,6 @@ export default function DayPhaseScreen({ route, navigation }) {
             accessibilityLabel="Wolf chat"
           />
         )}
-        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
 
       <GameOptionsModal
@@ -741,31 +678,6 @@ const styles = StyleSheet.create({
   phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
   title: { ...FONTS.heading, textAlign: 'center' },
   scroll: { flex: 1 },
-  bearGrowlCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    gap: SPACING.md,
-  },
-  bearGrowlIcon: { width: 56, height: 56 },
-  bearGrowlTextBox: { flex: 1 },
-  bearGrowlTitle: { ...FONTS.subheading, fontWeight: '700', marginBottom: 2 },
-  bearGrowlSub: { ...FONTS.body },
-  loverAnnouncement: {
-    margin: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  loverEmoji: { fontSize: 32 },
-  loverTitle: { ...FONTS.subheading, fontWeight: '700' },
-  announcementText: { ...FONTS.body, textAlign: 'center' },
   playerSection: { padding: SPACING.md, borderRadius: RADIUS.lg, margin: SPACING.md, marginTop: SPACING.sm },
   voteSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   sectionTitle: {
