@@ -42,6 +42,7 @@ function potionsLeft(room, playerId) {
 
 export function infectedNotice(room, playerId) {
   if (!room || room.infectedId !== playerId || !room.infectedAt) return null;
+  if (!(room.players || []).some((p) => p.id === playerId && p.isAlive)) return null;
   const role = room.roles?.[playerId];
   const roleName = ROLE_DEFINITIONS[role]?.name || 'Villager';
   const keepsPower = role === ROLE.WITCH

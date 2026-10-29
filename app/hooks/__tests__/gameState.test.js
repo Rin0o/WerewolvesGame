@@ -83,6 +83,10 @@ describe('an infected player', () => {
     const notice = infectedNotice(infected({ infectedId: 'sam' }), 'sam');
     expect(notice.changes[0]).toBe('You are still the Seer, and keep its power.');
   });
+
+  it('is not told anything when they died the night they were bitten', () => {
+    expect(infectedNotice(infected({ dead: ['wendy'] }), 'wendy')).toBeNull();
+  });
 });
 
 describe('the Wild Child\'s notice', () => {
