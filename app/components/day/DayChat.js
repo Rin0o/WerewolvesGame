@@ -30,7 +30,11 @@ export default function DayChat({ visible, onClose, theme: t, roomId, playerId, 
     const trimmed = text.trim();
     if (!trimmed || !isAlive) return;
     setText('');
-    await sendDayMessage(roomId, playerId, nickname, trimmed);
+    try {
+      await sendDayMessage(roomId, playerId, nickname, trimmed);
+    } catch {
+      setText(trimmed);
+    }
   }
 
   const reversed = [...messages].reverse();

@@ -63,7 +63,11 @@ export default function PrivateChat({ chat, visible, onClose, roomId, playerId, 
     const trimmed = text.trim();
     if (!trimmed || !isAlive) return;
     setText('');
-    await config.send(roomId, playerId, nickname, trimmed);
+    try {
+      await config.send(roomId, playerId, nickname, trimmed);
+    } catch {
+      setText(trimmed);
+    }
   }
 
   const reversed = [...messages].reverse();
