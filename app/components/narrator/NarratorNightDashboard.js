@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE, ROLE_DEFINITIONS, isWolfRole, teamRoles } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, ELDER_SILENCED_ROLES, isWolfRole, teamRoles } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 import { getFoxGroup, foxSmellsWolf } from '../../game-logic/roles';
 
@@ -33,6 +33,8 @@ export default function NarratorNightDashboard({
   players,
   roles,
   infectedId = null,
+  elderWounded = false,
+  villagePowersLost = false,
   nightActions = {},
   phase,
   nightSubPhase,
@@ -220,6 +222,12 @@ export default function NarratorNightDashboard({
                 {roleDef?.name || '—'}
               </Text>
               {p.id === infectedId && <Text style={[styles.rosterDead, { color: t.danger }]}> (infected)</Text>}
+              {p.isAlive && role === ROLE.ELDER && elderWounded && (
+                <Text style={[styles.rosterDead, { color: t.danger }]}> (extra life used)</Text>
+              )}
+              {p.isAlive && villagePowersLost && ELDER_SILENCED_ROLES.includes(role) && (
+                <Text style={[styles.rosterDead, { color: t.textMuted }]}> (no power)</Text>
+              )}
               {!p.isAlive && <Text style={[styles.rosterDead, { color: t.textMuted }]}> (dead)</Text>}
             </View>
           );

@@ -165,9 +165,10 @@ service cloud.firestore {
 
       function huntersShot() {
         return before().get('hunterTriggered', null) == uid()
-          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt'])
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost'])
           && after().players.size() == before().players.size()
-          && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning());
+          && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning())
+          && (!after().diff(before()).affectedKeys().hasAny(['villagePowersLost']) || after().villagePowersLost == true);
       }
 
       allow read: if signedIn();

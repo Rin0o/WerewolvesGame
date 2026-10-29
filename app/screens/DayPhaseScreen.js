@@ -45,7 +45,7 @@ import useTurnedWolfNotice from '../hooks/useTurnedWolfNotice';
 import TurnedWolfNotice from '../components/TurnedWolfNotice';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
-import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
+import { ROLE_DEFINITIONS, ROLE, hasVillagePower } from '../constants/roles';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.webp');
 const NOTES_ICON           = require('../../assets/notes.webp');
@@ -387,6 +387,31 @@ export default function DayPhaseScreen({ route, navigation }) {
         )}
 
         <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} ravenMarked={ravenMarked} />
+
+        {room.villagePowersLost && (
+          <View style={[styles.bearGrowlCard, { backgroundColor: 'rgba(180,40,40,0.18)', borderColor: '#C0392B' }]}>
+            <Image source={ROLE_ICONS.elder} style={styles.bearGrowlIcon} resizeMode="contain" />
+            <View style={styles.bearGrowlTextBox}>
+              <Text style={[styles.bearGrowlTitle, { color: '#C0392B' }]}>The village killed its Elder</Text>
+              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
+                Every villager has lost their power for the rest of the game.
+                {gs.isAlive && !hasVillagePower(room, gs.myRole) ? ` That includes you: as the ${ROLE_DEFINITIONS[gs.myRole]?.name}, your power is gone.` : ''}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {gs.isAlive && gs.myRole === ROLE.ELDER && room.elderWoundedNight === phase && (
+          <View style={[styles.bearGrowlCard, { backgroundColor: 'rgba(180,40,40,0.18)', borderColor: '#C0392B' }]}>
+            <Image source={ROLE_ICONS.elder} style={styles.bearGrowlIcon} resizeMode="contain" />
+            <View style={styles.bearGrowlTextBox}>
+              <Text style={[styles.bearGrowlTitle, { color: '#C0392B' }]}>You survived the night</Text>
+              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
+                You were attacked last night and survived. The next wolf attack will be fatal. The village was not told.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
           <View style={[

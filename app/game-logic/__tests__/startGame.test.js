@@ -133,6 +133,20 @@ describe('startGame with bots', () => {
     }
   });
 
+  it('a bot can be the Elder, which has no night action', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.ELDER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+    }
+  });
+
+  it('starts every game with the Elder unhurt and the village\'s powers intact', async () => {
+    const update = await start(humans(5), { composition: [ROLE.WEREWOLF, ROLE.ELDER, ROLE.SEER, ROLE.VILLAGER, ROLE.VILLAGER] });
+    expect(update.elderWoundedNight).toBeNull();
+    expect(update.villagePowersLost).toBe(false);
+  });
+
   it('the sisters are always dealt as a pair, a bot taking the second one when needed', async () => {
     const composition = [ROLE.WEREWOLF, ROLE.SISTER, ROLE.SISTER, ROLE.VILLAGER, ROLE.VILLAGER];
     for (let i = 0; i < 50; i++) {

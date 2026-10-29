@@ -17,7 +17,16 @@ export const ROLE = {
   RAVEN: 'raven',
   BIG_BAD_WOLF: 'big_bad_wolf',
   WOLF_FATHER: 'wolf_father',
+  ELDER: 'elder',
 };
+
+export const ELDER_SILENCED_ROLES = [
+  ROLE.SEER, ROLE.WITCH, ROLE.SAVIOUR, ROLE.FOX, ROLE.RAVEN, ROLE.HUNTER, ROLE.BEAR_TAMER, ROLE.VILLAGE_IDIOT,
+];
+
+export function hasVillagePower(room, role) {
+  return !(room?.villagePowersLost && ELDER_SILENCED_ROLES.includes(role));
+}
 
 export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF, ROLE.BIG_BAD_WOLF, ROLE.WOLF_FATHER];
 
@@ -178,6 +187,14 @@ export const ROLE_DEFINITIONS = {
     goal: 'Eliminate enough villagers so werewolves equal or outnumber them.',
     ability: 'You hunt with the pack. Once per game, after the pack has chosen its victim, you may infect them instead of killing them: they secretly join the pack, keep their own role and power, and win with the werewolves. If the Saviour protected them, the bite fails and you keep your infection.',
   },
+  [ROLE.ELDER]: {
+    name: 'Elder',
+    emoji: '🧙‍♂️',
+    team: 'villagers',
+    description: 'The oldest and toughest soul in Miller\'s Hollow.',
+    goal: 'Help the village find and eliminate all Werewolves — and make sure the village never turns on you.',
+    ability: 'You survive the first wolf attack (the pack\'s or the Big Bad Wolf\'s); the second one kills you. The Wolf-Father\'s bite is not an attack. If the village kills you (vote, Witch\'s poison or Hunter\'s shot), every villager loses their power for the rest of the game.',
+  },
 };
 
 // Suggested role compositions per player count
@@ -210,7 +227,7 @@ export function getCompositionForCount(count) {
   ];
 }
 
-export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father }) {
+export function buildCustomComposition({ playerCount, werewolf, seer, witch, hunter, cupid, thief, saviour, bear_tamer, sister, white_wolf, wolf_hound, fox, wild_child, village_idiot, raven, big_bad_wolf, wolf_father, elder }) {
   const comp = [];
   for (let i = 0; i < werewolf; i++) comp.push(ROLE.WEREWOLF);
   if (big_bad_wolf) comp.push(ROLE.BIG_BAD_WOLF);
@@ -228,6 +245,7 @@ export function buildCustomComposition({ playerCount, werewolf, seer, witch, hun
   if (wild_child) comp.push(ROLE.WILD_CHILD);
   if (village_idiot) comp.push(ROLE.VILLAGE_IDIOT);
   if (raven) comp.push(ROLE.RAVEN);
+  if (elder) comp.push(ROLE.ELDER);
   if (sister) { comp.push(ROLE.SISTER); comp.push(ROLE.SISTER); }
   const villagers = playerCount - comp.length;
   for (let i = 0; i < Math.max(0, villagers); i++) comp.push(ROLE.VILLAGER);

@@ -70,7 +70,7 @@ import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import { ROLE_ICONS } from '../constants/icons';
 import useUnreadMessages from '../hooks/useUnreadMessages';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE, isWolfRole, isPackWolf, teamRoles } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, isWolfRole, isPackWolf, teamRoles, hasVillagePower } from '../constants/roles';
 
 const FORCE_START_AFTER_MS = 60000;
 const WAIT_TITLE_COLOR = '#FFF1CC';
@@ -78,6 +78,22 @@ const WAIT_SUB_COLOR = '#EDE3FF';
 const BOT_WOLF_CHAT_CHANCE = 0.7;
 const BOT_WOLF_MIN_DELAY_MS = 4000;
 const BOT_WOLF_MAX_DELAY_MS = 10000;
+
+function powerNoteFor(room, myRole) {
+  if (!hasVillagePower(room, myRole)) {
+    return { icon: ROLE_ICONS.elder, text: `The village killed its Elder. As the ${ROLE_DEFINITIONS[myRole]?.name}, you have lost your power for the rest of the game.` };
+  }
+  if (myRole === ROLE.ELDER && room.elderWoundedNight) {
+    return { icon: ROLE_ICONS.elder, text: 'You have already survived one wolf attack. The next one will kill you.' };
+  }
+  if (myRole === ROLE.FOX && room.foxPowerLost) {
+    return { icon: ROLE_ICONS.fox, text: 'You have lost your power. As the Fox, you no longer wake up at night.' };
+  }
+  if (myRole === ROLE.BIG_BAD_WOLF && wolfHasDied(room)) {
+    return { icon: ROLE_ICONS.big_bad_wolf, text: 'A wolf has died. You still hunt with the pack, but you no longer take a second victim.' };
+  }
+  return null;
+}
 
 function botDelay() {
   return BOT_WOLF_MIN_DELAY_MS + Math.random() * (BOT_WOLF_MAX_DELAY_MS - BOT_WOLF_MIN_DELAY_MS);
@@ -496,12 +512,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const showingResult = showSeerResult || showFoxResult || showThiefReveal;
   const showAction = isMyNightTurn(room, playerId) && !myActionDone && !showingResult;
   const showWaiting = !gs.isNarrator && !showAction && !showingResult;
-  const powerLostNote = !gs.isAlive ? null
-    : gs.myRole === ROLE.FOX && room.foxPowerLost
-      ? { icon: ROLE_ICONS.fox, text: 'You have lost your power. As the Fox, you no longer wake up at night.' }
-      : gs.myRole === ROLE.BIG_BAD_WOLF && wolfHasDied(room)
-        ? { icon: ROLE_ICONS.big_bad_wolf, text: 'A wolf has died. You still hunt with the pack, but you no longer take a second victim.' }
-        : null;
+  const powerLostNote = gs.isAlive ? powerNoteFor(room, gs.myRole) : null;
   const myWolfVote = nightActions.wolfVotes?.[playerId];
   const canConfirmWolfVote = showAction && nightSubPhase === 'werewolf' && !isQuietFirstNight(room)
     && !!wolfTarget && wolfTarget !== myWolfVote;
@@ -547,6 +558,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             players={players}
             roles={roles}
             infectedId={room.infectedId || null}
+            elderWounded={!!room.elderWoundedNight}
+            villagePowersLost={!!room.villagePowersLost}
             nightActions={nightActions}
             phase={phase}
             nightSubPhase={nightSubPhase}

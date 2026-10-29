@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Image, Modal, StyleSheet, ScrollView } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE_DEFINITIONS } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
 
 const DISPLAY_SECONDS = 8;
@@ -87,6 +87,12 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                       {roleInfo.description}
                     </Text>
                   </View>
+                )}
+
+                {roleKey === ROLE.ELDER && (
+                  <Text style={[styles.noVictimText, { color: t.danger, fontWeight: '700' }]}>
+                    The village killed its Elder. Every villager has lost their power for the rest of the game.
+                  </Text>
                 )}
               </>
             ) : (

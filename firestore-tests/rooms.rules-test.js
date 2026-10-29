@@ -337,6 +337,20 @@ describe('day', () => {
     await assertSucceeds(updateDoc(as('bob').room, shot({ ...roles, wendy: 'werewolf' })));
   });
 
+  it('the Hunter who shoots the Elder takes away the village\'s powers, and cannot give them back', async () => {
+    await seed({ ...DAY, roles: { ...DAY.roles, sam: 'elder' }, hunterTriggered: 'bob', villagePowersLost: false });
+    const shot = (villagePowersLost) => ({
+      players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+      hunterTriggered: null,
+      events: arrayUnion('The Hunter\'s last shot took down sam.'),
+      villagePowersLost,
+    });
+    await assertFails(updateDoc(as('bob').room, { ...shot(true), hunterTriggered: 'bob', villagePowersLost: 'yes' }));
+    await assertSucceeds(updateDoc(as('bob').room, shot(true)));
+    await seed({ ...DAY, hunterTriggered: 'bob', villagePowersLost: true });
+    await assertFails(updateDoc(as('bob').room, shot(false)));
+  });
+
   it('without a Wild Child, the Hunter cannot touch the roles', async () => {
     await seed({ ...DAY, hunterTriggered: 'bob' });
     await assertFails(updateDoc(as('bob').room, { hunterTriggered: null, roles: { ...DAY.roles, bob: 'werewolf' } }));
