@@ -18,6 +18,7 @@ All notable changes to Werewolves of Miller's Hollow (Android). Newest version f
 - **The pack's choice:** after the hunt, every wolf sees who the pack chose and how each wolf voted.
 - **The narrator chooses the roles,** with the same settings as Custom mode.
 - **Bots can play the Village Idiot and the Elder.**
+- **A White Wolf victory banner** for the White Wolf's solo win.
 
 ### Changed
 - **A new look:**

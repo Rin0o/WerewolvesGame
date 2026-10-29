@@ -25,6 +25,7 @@ import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.webp');
 const WEREWOLVES_WIN_BANNER = require('../../assets/werewolves_win.webp');
 const LOVERS_WIN_BANNER = require('../../assets/lovers_win.webp');
+const WHITE_WOLF_WIN_BANNER = require('../../assets/white_wolf_win.webp');
 const LEAVE_ICON = require('../../assets/exit_game.webp');
 const PLAY_AGAIN_ICON = require('../../assets/play_again.webp');
 
@@ -94,13 +95,15 @@ export default function GameOverScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Winner banner */}
         <Image
-          source={isLovers ? LOVERS_WIN_BANNER : isVillagers ? VILLAGERS_WIN_BANNER : WEREWOLVES_WIN_BANNER}
+          source={
+            isLovers ? LOVERS_WIN_BANNER
+              : isVillagers ? VILLAGERS_WIN_BANNER
+              : winner === 'white_wolf' ? WHITE_WOLF_WIN_BANNER
+              : WEREWOLVES_WIN_BANNER
+          }
           style={styles.winnerBanner}
           resizeMode="contain"
         />
-        {winner === 'white_wolf' && (
-          <Text style={[styles.soloWinner, { color: t.accent }]}>The White Wolf stands alone. They win!</Text>
-        )}
 
         {/* Player roles reveal */}
         <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>All Roles Revealed</Text>
@@ -182,7 +185,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
-  soloWinner: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.md },
   winnerBanner: {
     width: '100%',
     height: 220,

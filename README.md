@@ -448,7 +448,6 @@ Versions follow **MAJOR.MINOR.PATCH**:
 
 ## Ideas for the future
 
-- **A White Wolf victory banner** (it currently reuses the werewolves banner with a line of text).
 - **Seat order in the lobby,** so the Bear Tamer reflects the real table.
 - **Server-side role secrecy** (roles moved out of the room document).
 - **An iOS build.**
