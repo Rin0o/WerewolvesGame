@@ -1,6 +1,6 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower, ROLE_DEFINITIONS } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf } from './roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf } from './roles';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
   getRoom,
@@ -564,10 +564,6 @@ export async function resolveNight(roomId, roomData) {
   return { winner, eliminatedId };
 }
 
-function nicknames(players, ids) {
-  return ids.map((id) => players.find((p) => p.id === id)?.nickname || '?');
-}
-
 export const TIE_RULE = { NO_LYNCH: 'no_lynch', REVOTE: 'revote' };
 
 export function tiedForRevote(room) {
@@ -582,7 +578,7 @@ export async function startRevote(roomId, room, tied) {
     votesClosed: false,
     revoteTargets: tied,
     phaseStartedAt: new Date().toISOString(),
-    events: arrayUnion(`Day ${room.phase}: The vote was tied between ${nicknames(room.players || [], tied).join(' and ')}. The village votes again.`),
+    events: arrayUnion(`Day ${room.phase}: The vote was tied between ${tied.map((id) => nicknameOf(room.players || [], id)).join(' and ')}. The village votes again.`),
   });
 }
 
@@ -632,7 +628,7 @@ export async function resolveLynch(roomId, roomData) {
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, lovers, events, `Day ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
   } else if (tie) {
-    const tiedNames = nicknames(players, tied).join(', ');
+    const tiedNames = tied.map((id) => nicknameOf(players, id)).join(', ');
     events.push(`Day ${phase}: The vote ended in a tie (${tiedNames}) — no one was eliminated.`);
   } else {
     events.push(`Day ${phase}: No votes were confirmed — the village remains divided.`);

@@ -10,10 +10,20 @@ import {
   getSeating,
   getSisters,
   getWerewolves,
+  nicknameOf,
   rolesInPlay,
 } from '../roles';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
 import { makeGame, countRoles } from './helpers';
+
+describe('nicknameOf', () => {
+  it('finds a player\'s name, with ? for anyone missing', () => {
+    const { players } = makeGame({ vic: 'villager' });
+    expect(nicknameOf(players, 'vic')).toBe('Vic');
+    expect(nicknameOf(players, 'ghost')).toBe('?');
+    expect(nicknameOf(undefined, 'vic')).toBe('?');
+  });
+});
 
 function players(count) {
   return Array.from({ length: count }, (_, i) => ({ id: `p${i}`, nickname: `P${i}`, isAlive: true }));

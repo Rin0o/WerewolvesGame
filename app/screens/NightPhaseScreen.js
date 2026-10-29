@@ -58,7 +58,7 @@ import PackResult from '../components/night-actions/PackResult';
 import WolfFatherAction from '../components/night-actions/WolfFatherAction';
 import TurnedWolfNotice from '../components/TurnedWolfNotice';
 import useTurnedWolfNotice from '../hooks/useTurnedWolfNotice';
-import { getFoxGroup, foxSmellsWolf, rolesInPlay } from '../game-logic/roles';
+import { getFoxGroup, foxSmellsWolf, rolesInPlay, nicknameOf } from '../game-logic/roles';
 import WolfHoundAction from '../components/night-actions/WolfHoundAction';
 import WhiteWolfAction from '../components/night-actions/WhiteWolfAction';
 import NotesPanel from '../components/NotesPanel';
@@ -70,7 +70,8 @@ import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import { ROLE_ICONS } from '../constants/icons';
 import useUnreadMessages from '../hooks/useUnreadMessages';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
-import { ROLE, ROLE_DEFINITIONS, isWolfRole, isPackWolf, teamRoles, hasVillagePower } from '../constants/roles';
+import { ROLE, isWolfRole, isPackWolf, teamRoles } from '../constants/roles';
+import { nightReminder } from '../utils/dawnReport';
 
 const FORCE_START_AFTER_MS = 60000;
 const WAIT_TITLE_COLOR = '#FFF1CC';
@@ -78,22 +79,6 @@ const WAIT_SUB_COLOR = '#EDE3FF';
 const BOT_WOLF_CHAT_CHANCE = 0.7;
 const BOT_WOLF_MIN_DELAY_MS = 4000;
 const BOT_WOLF_MAX_DELAY_MS = 10000;
-
-function powerNoteFor(room, myRole) {
-  if (!hasVillagePower(room, myRole)) {
-    return { icon: ROLE_ICONS.elder, text: `The village killed its Elder. As the ${ROLE_DEFINITIONS[myRole]?.name}, you have lost your power for the rest of the game.` };
-  }
-  if (myRole === ROLE.ELDER && room.elderWoundedNight) {
-    return { icon: ROLE_ICONS.elder, text: 'You have already survived one wolf attack. The next one will kill you.' };
-  }
-  if (myRole === ROLE.FOX && room.foxPowerLost) {
-    return { icon: ROLE_ICONS.fox, text: 'You have lost your power. As the Fox, you no longer wake up at night.' };
-  }
-  if (myRole === ROLE.BIG_BAD_WOLF && wolfHasDied(room)) {
-    return { icon: ROLE_ICONS.big_bad_wolf, text: 'A wolf has died. You still hunt with the pack, but you no longer take a second victim.' };
-  }
-  return null;
-}
 
 function botDelay() {
   return BOT_WOLF_MIN_DELAY_MS + Math.random() * (BOT_WOLF_MAX_DELAY_MS - BOT_WOLF_MIN_DELAY_MS);
@@ -341,7 +326,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function submitSeerReveal() {
     if (!seerTarget) return;
     setSeerResult({
-      name: players.find((p) => p.id === seerTarget)?.nickname || '?',
+      name: nicknameOf(players, seerTarget),
       isWolf: isWolfRole(team[seerTarget]),
     });
     await submitNightAction(roomId, 'seer', seerTarget);
@@ -364,7 +349,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   async function submitFoxSniff() {
     if (!foxTarget) return;
     setFoxResult({
-      names: getFoxGroup(players, foxTarget).map((id) => players.find((p) => p.id === id)?.nickname || '?'),
+      names: getFoxGroup(players, foxTarget).map((id) => nicknameOf(players, id)),
       foundWolf: foxSmellsWolf(players, team, foxTarget),
     });
     await submitNightAction(roomId, 'fox', foxTarget);
@@ -377,63 +362,9 @@ export default function NightPhaseScreen({ route, navigation }) {
     }
   }
 
-  async function submitWildChildModel() {
-    if (!wildChildModel) return;
-    await submitNightAction(roomId, 'wildChild', wildChildModel);
-    setMyActionDone(true);
-  }
-
-  async function submitWolfFatherChoice(infect) {
-    await submitNightAction(roomId, infect ? 'wolfFather' : 'wolfFatherSkip', true);
-    setMyActionDone(true);
-  }
-
-  async function submitBigBadWolfKill() {
-    if (!bigBadWolfTarget) return;
-    await submitNightAction(roomId, 'bigBadWolf', bigBadWolfTarget);
-    setMyActionDone(true);
-  }
-
-  async function submitBigBadWolfSkip() {
-    await submitNightAction(roomId, 'bigBadWolfSkip', true);
-    setMyActionDone(true);
-  }
-
-  async function submitRavenMark() {
-    if (!ravenTarget) return;
-    await submitNightAction(roomId, 'raven', ravenTarget);
-    setMyActionDone(true);
-  }
-
-  async function submitRavenSkip() {
-    await submitNightAction(roomId, 'ravenSkip', true);
-    setMyActionDone(true);
-  }
-
-  async function submitFoxSkip() {
-    await submitNightAction(roomId, 'foxSkip', true);
-    setMyActionDone(true);
-  }
-
-  async function submitWitchSave() {
-    await submitNightAction(roomId, 'witchSave', victimId);
-    setMyActionDone(true);
-  }
-
-  async function submitWitchPoison() {
-    if (!witchPoisonTarget) return;
-    await submitNightAction(roomId, 'witchPoison', witchPoisonTarget);
-    setMyActionDone(true);
-  }
-
-  async function submitWitchSkip() {
-    await submitNightAction(roomId, 'witchSkip', true);
-    setMyActionDone(true);
-  }
-
-  async function submitCupidChoice() {
-    if (cupidTargets.length !== 2) return;
-    await submitNightAction(roomId, 'cupid', cupidTargets);
+  async function finishAction(key, value) {
+    if (!value) return;
+    await submitNightAction(roomId, key, value);
     setMyActionDone(true);
   }
 
@@ -441,29 +372,6 @@ export default function NightPhaseScreen({ route, navigation }) {
     if (!thiefChoice) return;
     await submitNightAction(roomId, 'thief', thiefChoice);
     setThiefStolenRole(thiefChoice);
-  }
-
-  async function submitSaviourProtect() {
-    if (!saviourTarget) return;
-    await submitNightAction(roomId, 'saviour', saviourTarget);
-    setMyActionDone(true);
-  }
-
-  async function submitHoundChoice() {
-    if (!houndChoice) return;
-    await submitNightAction(roomId, 'wolfHound', houndChoice);
-    setMyActionDone(true);
-  }
-
-  async function submitWhiteWolfKill() {
-    if (!whiteWolfTarget) return;
-    await submitNightAction(roomId, 'whiteWolf', whiteWolfTarget);
-    setMyActionDone(true);
-  }
-
-  async function submitWhiteWolfSkip() {
-    await submitNightAction(roomId, 'whiteWolfSkip', true);
-    setMyActionDone(true);
   }
 
   function toggleCupidTarget(id) {
@@ -510,7 +418,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const showingResult = showSeerResult || showFoxResult || showThiefReveal;
   const showAction = isMyNightTurn(room, playerId) && !myActionDone && !showingResult;
   const showWaiting = !gs.isNarrator && !showAction && !showingResult;
-  const powerLostNote = gs.isAlive ? powerNoteFor(room, gs.myRole) : null;
+  const powerLostNote = gs.isAlive ? nightReminder(room, gs.myRole, { wolfHasDied: wolfHasDied(room) }) : null;
   const myWolfVote = nightActions.wolfVotes?.[playerId];
   const canConfirmWolfVote = showAction && nightSubPhase === 'werewolf' && !isQuietFirstNight(room)
     && !!wolfTarget && wolfTarget !== myWolfVote;
@@ -617,7 +525,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             )}
             {powerLostNote && nightSubPhase !== ROLE_REVEAL_STEP && (
               <View style={[styles.powerLostNote, { borderColor: t.danger }]}>
-                <Image source={powerLostNote.icon} style={styles.powerLostIcon} resizeMode="contain" />
+                <Image source={ROLE_ICONS[powerLostNote.icon]} style={styles.powerLostIcon} resizeMode="contain" />
                 <Text style={[styles.powerLostText, { color: WAIT_TITLE_COLOR }]}>{powerLostNote.text}</Text>
               </View>
             )}
@@ -630,7 +538,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             theme={t}
             choice={houndChoice}
             onSelect={setHoundChoice}
-            onSubmit={submitHoundChoice}
+            onSubmit={() => finishAction('wolfHound', houndChoice)}
           />
         )}
 
@@ -658,8 +566,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             players={alivePlayers.filter((p) => isPackWolf(team[p.id]))}
             target={whiteWolfTarget}
             onSelectTarget={setWhiteWolfTarget}
-            onSubmit={submitWhiteWolfKill}
-            onSkip={submitWhiteWolfSkip}
+            onSubmit={() => finishAction('whiteWolf', whiteWolfTarget)}
+            onSkip={() => finishAction('whiteWolfSkip', true)}
           />
         )}
 
@@ -688,9 +596,9 @@ export default function NightPhaseScreen({ route, navigation }) {
             witchPoisonTarget={witchPoisonTarget}
             onSelectChoice={setWitchChoice}
             onSelectPoisonTarget={setWitchPoisonTarget}
-            onSave={submitWitchSave}
-            onPoison={submitWitchPoison}
-            onSkip={submitWitchSkip}
+            onSave={() => finishAction('witchSave', victimId)}
+            onPoison={() => finishAction('witchPoison', witchPoisonTarget)}
+            onSkip={() => finishAction('witchSkip', true)}
             suspicions={playerHooks.suspicions}
             suspectedRoles={playerHooks.suspectedRoles}
           />
@@ -702,7 +610,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             players={players.filter((p) => p.isAlive)}
             cupidTargets={cupidTargets}
             onToggleTarget={toggleCupidTarget}
-            onSubmit={submitCupidChoice}
+            onSubmit={() => finishAction('cupid', cupidTargets.length === 2 ? cupidTargets : null)}
           />
         )}
 
@@ -724,7 +632,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             players={alivePlayers}
             model={wildChildModel}
             onSelectModel={setWildChildModel}
-            onSubmit={submitWildChildModel}
+            onSubmit={() => finishAction('wildChild', wildChildModel)}
           />
         )}
 
@@ -737,7 +645,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             target={foxTarget}
             onSelectTarget={setFoxTarget}
             onSubmit={submitFoxSniff}
-            onSkip={submitFoxSkip}
+            onSkip={() => finishAction('foxSkip', true)}
             result={foxResult}
             onDismissResult={dismissFoxResult}
           />
@@ -747,8 +655,8 @@ export default function NightPhaseScreen({ route, navigation }) {
           <WolfFatherAction
             theme={t}
             victimName={packVictim?.nickname || '?'}
-            onInfect={() => submitWolfFatherChoice(true)}
-            onKill={() => submitWolfFatherChoice(false)}
+            onInfect={() => finishAction('wolfFather', true)}
+            onKill={() => finishAction('wolfFatherSkip', true)}
           />
         )}
 
@@ -759,8 +667,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             packVictimName={packVictim?.nickname || null}
             target={bigBadWolfTarget}
             onSelectTarget={setBigBadWolfTarget}
-            onSubmit={submitBigBadWolfKill}
-            onSkip={submitBigBadWolfSkip}
+            onSubmit={() => finishAction('bigBadWolf', bigBadWolfTarget)}
+            onSkip={() => finishAction('bigBadWolfSkip', true)}
           />
         )}
 
@@ -770,8 +678,8 @@ export default function NightPhaseScreen({ route, navigation }) {
             players={alivePlayers}
             target={ravenTarget}
             onSelectTarget={setRavenTarget}
-            onSubmit={submitRavenMark}
-            onSkip={submitRavenSkip}
+            onSubmit={() => finishAction('raven', ravenTarget)}
+            onSkip={() => finishAction('ravenSkip', true)}
           />
         )}
 
@@ -782,7 +690,7 @@ export default function NightPhaseScreen({ route, navigation }) {
             lastProtected={saviourLastProtected}
             saviourTarget={saviourTarget}
             onSelectTarget={setSaviourTarget}
-            onSubmit={submitSaviourProtect}
+            onSubmit={() => finishAction('saviour', saviourTarget)}
           />
         )}
 

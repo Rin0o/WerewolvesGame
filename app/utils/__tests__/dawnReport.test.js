@@ -1,4 +1,4 @@
-import { publicDawnNews, privateDawnNews, dawnSummary } from '../dawnReport';
+import { publicDawnNews, privateDawnNews, dawnSummary, nightReminder } from '../dawnReport';
 import { makeGame } from '../../game-logic/__tests__/helpers';
 
 const TABLE = {
@@ -86,6 +86,21 @@ describe('privateDawnNews', () => {
     expect(privateDawnNews(room, 'bea')).toEqual([]);
     const withNarrator = { ...room, players: [...room.players, { id: 'nar', nickname: 'Nar', isAlive: true, isNarrator: true }] };
     expect(privateDawnNews(withNarrator, 'nar')).toEqual([]);
+  });
+});
+
+describe('nightReminder', () => {
+  it('reminds a silenced villager, the wounded Elder, the powerless Fox and the lone Big Bad Wolf', () => {
+    expect(nightReminder(dawn({ villagePowersLost: true }), 'seer')).toMatchObject({ icon: 'elder' });
+    expect(nightReminder(dawn({ elderWoundedNight: 2 }), 'elder').text).toContain('The next one will kill you');
+    expect(nightReminder(dawn({ foxPowerLost: true }), 'fox')).toMatchObject({ icon: 'fox' });
+    expect(nightReminder(dawn(), 'big_bad_wolf', { wolfHasDied: true })).toMatchObject({ icon: 'big_bad_wolf' });
+  });
+
+  it('has nothing for a role with nothing to remember, or for the narrator', () => {
+    expect(nightReminder(dawn({ villagePowersLost: true }), 'villager')).toBeNull();
+    expect(nightReminder(dawn(), 'big_bad_wolf')).toBeNull();
+    expect(nightReminder(dawn({ villagePowersLost: true }), undefined)).toBeNull();
   });
 });
 

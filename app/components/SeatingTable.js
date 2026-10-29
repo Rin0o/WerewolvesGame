@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
-import { getSeating, getLivingNeighbours } from '../game-logic/roles';
+import { getSeating, getLivingNeighbours, nicknameOf } from '../game-logic/roles';
 import BarButton from './BarButton';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
@@ -22,7 +22,7 @@ function avatarSizeFor(seatCount) {
 }
 
 function neighbourText(players, neighbours) {
-  const name = (id) => players.find((p) => p.id === id)?.nickname ?? '?';
+  const name = (id) => nicknameOf(players, id);
   const [left, right] = neighbours;
   if (left === right) return `Your only neighbour: ${name(left)}`;
   return `Your neighbours: ${name(left)} and ${name(right)}`;

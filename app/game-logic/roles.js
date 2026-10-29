@@ -111,6 +111,10 @@ export function rolesInPlay(roleComposition) {
 /**
  * Returns the partner ID for a given lover, or null if not a lover.
  */
+export function nicknameOf(players = [], id) {
+  return players.find((p) => p.id === id)?.nickname || '?';
+}
+
 export function getLoversPartner(playerId, lovers) {
   if (!lovers || !lovers.includes(playerId)) return null;
   return lovers.find((id) => id !== playerId) || null;

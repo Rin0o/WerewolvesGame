@@ -3,6 +3,7 @@ import { View, Text, Image, Modal, StyleSheet, ScrollView } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE, ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
+import { nicknameOf } from '../../game-logic/roles';
 
 const DISPLAY_SECONDS = 8;
 const SCALE_ICON = require('../../../assets/scale.webp');
@@ -116,13 +117,13 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
               <View style={[styles.tallyBox, { borderTopColor: t.border }]}>
                 <Text style={[styles.tallyTitle, { color: t.textSecondary }]}>VOTE BREAKDOWN</Text>
                 {sortedEntries.map(([targetId, count]) => {
-                  const targetName = players.find((p) => p.id === targetId)?.nickname || '?';
+                  const targetName = nicknameOf(players, targetId);
                   const isEliminated = targetId === eliminatedId;
                   const barColor = isEliminated ? t.danger : t.accent;
                   const barPct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
                   const voters = Object.entries(votes)
                     .filter(([, v]) => v?.confirmed && v?.target === targetId)
-                    .map(([vid]) => ({ id: vid, nickname: players.find((p) => p.id === vid)?.nickname || '?' }));
+                    .map(([vid]) => ({ id: vid, nickname: nicknameOf(players, vid) }));
 
                   return (
                     <View key={targetId} style={[styles.tallyRow, { borderColor: isEliminated ? `${t.danger}40` : `${t.border}80` }]}>

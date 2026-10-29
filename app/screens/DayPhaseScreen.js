@@ -22,7 +22,7 @@ import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDay
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
 import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
 import { tallyVotes, ravenVotes, activeRavenMark, RAVEN_VOTES } from '../game-logic/voteManager';
-import { rolesInPlay } from '../game-logic/roles';
+import { rolesInPlay, nicknameOf } from '../game-logic/roles';
 import {
   discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
 } from '../game-logic/hostDecisions';
@@ -411,7 +411,7 @@ export default function DayPhaseScreen({ route, navigation }) {
                 <View style={styles.revoteTextCol}>
                   <Text style={[styles.bannerStateLabel, { color: t.accent }]}>Tie — vote again</Text>
                   <Text style={[styles.revoteText, { color: t.text }]}>
-                    Only {revoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' and ')} can be chosen.
+                    Only {revoteTargets.map((id) => nicknameOf(players, id)).join(' and ')} can be chosen.
                     A second tie spares everyone.
                   </Text>
                 </View>

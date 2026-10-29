@@ -111,7 +111,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                getWerewolves(), getSisters(), getPlayerWithRole(),
                                getLoversPartner(), getAvailableRolesForThief(),
                                getSeating() (players minus narrator), getLivingNeighbours(),
-                               getFoxGroup(), foxSmellsWolf(), rolesInPlay(roleComposition)
+                               getFoxGroup(), foxSmellsWolf(), rolesInPlay(roleComposition),
+                               nicknameOf(players, id) (the one name lookup; ? when missing)
     gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
                                advanceNightUpdate(), livingWolves(), wolfPrey(), wolfVoteOutcome(),
                                wolfOutcomeUpdate(), leadingWolfTarget(), packHuntResult(), isMyNightTurn(),
@@ -164,7 +165,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                memory): loadProfile(), updateProfile(), nicknameError(),
                                sameNickname(), NICKNAME_MAX
     dawnReport.js            — publicDawnNews(room), privateDawnNews(room, playerId) (living, non-narrator only),
-                               dawnSummary(publicNews, privateCount): the DawnReport rows, tested as a privacy check
+                               dawnSummary(publicNews, privateCount): the DawnReport rows;
+                               nightReminder(room, myRole, { wolfHasDied }) for the night moon screen (same texts), tested as a privacy check
     roomQr.js                — roomJoinLink(code) → "werewolves://join/CODE"; roomCodeFromScan(data)
                                → code or null
   /constants/

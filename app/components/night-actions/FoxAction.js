@@ -4,13 +4,9 @@ import PlayerCard from '../PlayerCard';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { NIGHT_PANEL, NIGHT_ROW } from './nightStyles';
 import { ROLE_ICONS } from '../../constants/icons';
-import { getFoxGroup } from '../../game-logic/roles';
+import { getFoxGroup, nicknameOf } from '../../game-logic/roles';
 
 const NIGHT_CHECK_ICON = require('../../../assets/night_check.webp');
-
-function nicknameOf(players, id) {
-  return players.find((p) => p.id === id)?.nickname || '?';
-}
 
 function SniffedGroup({ theme: t, seating, playerId, targetId }) {
   const group = getFoxGroup(seating, targetId);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ROLE, ROLE_DEFINITIONS, teamRoles } from '../constants/roles';
-import { getWerewolves } from '../game-logic/roles';
+import { getWerewolves, nicknameOf } from '../game-logic/roles';
 
 const dismissedNotices = new Set();
 
@@ -8,11 +8,7 @@ function livingPackNames(room, playerId) {
   const players = room.players || [];
   return getWerewolves(teamRoles(room.roles, room.infectedId))
     .filter((id) => id !== playerId && players.some((p) => p.id === id && p.isAlive))
-    .map((id) => players.find((p) => p.id === id)?.nickname || '?');
-}
-
-function nameOf(room, id) {
-  return (room.players || []).find((p) => p.id === id)?.nickname || '?';
+    .map((id) => nicknameOf(players, id));
 }
 
 const PACK_CHANGES = [
@@ -28,7 +24,7 @@ export function wildChildNotice(room, playerId) {
     key: `${room.code}:${playerId}:${room.wildChildTurnedAt}`,
     fromRole: ROLE.WILD_CHILD,
     title: 'You are now a Werewolf',
-    cause: `Your role model, ${nameOf(room, room.wildChildModel)}, is dead. Grief has turned you: you have left the village and joined the pack.`,
+    cause: `Your role model, ${nicknameOf(room.players, room.wildChildModel)}, is dead. Grief has turned you: you have left the village and joined the pack.`,
     changes: PACK_CHANGES,
     pack: livingPackNames(room, playerId),
   };

@@ -89,15 +89,27 @@ export function privateDawnNews(room, playerId) {
     });
   }
   if (myRole && !hasVillagePower(room, myRole)) {
-    news.push({
-      key: 'power-lost',
-      icon: ROLE.ELDER,
-      tone: 'private',
-      title: 'Your power is gone',
-      detail: `As the ${ROLE_DEFINITIONS[myRole]?.name}, you lost your power when the village killed its Elder.`,
-    });
+    news.push({ key: 'power-lost', icon: ROLE.ELDER, tone: 'private', title: 'Your power is gone', detail: elderPowerLostText(myRole) });
   }
   return news;
+}
+
+function elderPowerLostText(myRole) {
+  return `As the ${ROLE_DEFINITIONS[myRole]?.name}, you lost your power for the rest of the game when the village killed its Elder.`;
+}
+
+export function nightReminder(room, myRole, { wolfHasDied = false } = {}) {
+  if (!hasVillagePower(room, myRole)) return { icon: ROLE.ELDER, text: elderPowerLostText(myRole) };
+  if (myRole === ROLE.ELDER && room.elderWoundedNight) {
+    return { icon: ROLE.ELDER, text: 'You have already survived one wolf attack. The next one will kill you.' };
+  }
+  if (myRole === ROLE.FOX && room.foxPowerLost) {
+    return { icon: ROLE.FOX, text: 'You have lost your power. As the Fox, you no longer wake up at night.' };
+  }
+  if (myRole === ROLE.BIG_BAD_WOLF && wolfHasDied) {
+    return { icon: ROLE.BIG_BAD_WOLF, text: 'A wolf has died. You still hunt with the pack, but you no longer take a second victim.' };
+  }
+  return null;
 }
 
 export function dawnSummary(publicNews, privateCount) {

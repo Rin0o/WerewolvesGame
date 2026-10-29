@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { ROLE, ROLE_DEFINITIONS, ELDER_SILENCED_ROLES, isWolfRole, teamRoles } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
-import { getFoxGroup, foxSmellsWolf } from '../../game-logic/roles';
+import { getFoxGroup, foxSmellsWolf, nicknameOf } from '../../game-logic/roles';
 
 const SUBPHASE_LABELS = {
   reveal:   'Players Read Their Roles',
@@ -53,12 +53,12 @@ export default function NarratorNightDashboard({
   const seerIsWolf        = seerTarget ? isWolfRole(team[seerTarget.id]) : false;
   const wolfObserved      = nightActions.werewolfObserved === true;
   const wolfRevoteNames   = nightActions.wolfRevoteTargets
-    ? nightActions.wolfRevoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' / ')
+    ? nightActions.wolfRevoteTargets.map((id) => nicknameOf(players, id)).join(' / ')
     : null;
   const houndSide         = nightActions.wolfHound;
   const whiteWolfPrey     = nightActions.whiteWolf ? players.find((p) => p.id === nightActions.whiteWolf) : null;
   const foxGroupNames     = nightActions.fox
-    ? getFoxGroup(players, nightActions.fox).map((id) => players.find((p) => p.id === id)?.nickname || '?').join(', ')
+    ? getFoxGroup(players, nightActions.fox).map((id) => nicknameOf(players, id)).join(', ')
     : null;
   const foxFoundWolf      = nightActions.fox ? foxSmellsWolf(players, team, nightActions.fox) : false;
   const packVictim        = nightActions.werewolf ? players.find((p) => p.id === nightActions.werewolf) : null;
