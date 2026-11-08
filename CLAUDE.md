@@ -25,7 +25,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                if no name is saved, otherwise Home
     WelcomeScreen.js         — One-time "choose your name" screen; saves it to the profile
     HomeScreen.js            — "Playing as <name>", settings (home_settings.webp gear), NIGHT theme, create/join room (saved name),
-                               Scan QR Code (QrScannerModal), Rejoin card for a saved session, and a
+                               Scan QR Code (QrScannerModal), Role Guide (RoleGuide), Rejoin card for a saved session, and a
                                "Close the app" link (Android only, `BackHandler.exitApp()`; iOS forbids it)
     LobbyScreen.js           — Room code with Share and Show QR buttons (QR in a pop-up), game mode
                                selector, role config, LobbyTable (seat choice), player list; saves session
@@ -60,6 +60,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     SettingsPanel.js         — Settings modal on Home (NIGHT theme): edit name (Save/Cancel), sound on/off (saved
                                immediately), app version
     RoomQrCode.js            — QR code for a string, drawn as a grid of Views (white quiet zone)
+    RoleGuide.js             — Full-screen role guide from Home (SETTINGS_THEME): every role in ROLE_DEFINITIONS,
+                               grouped The Village / The Werewolves / Alone (White Wolf) / Either side
+                               (SIDE_CHANGING_ROLES: Thief, Wolf Hound, Wild Child), icon + name + description;
+                               a tap opens RoleInfoModal with showCard (the big role card image instead of the icon)
     QrScannerModal.js        — Full-screen camera scanner: permission prompt, accepts only join links,
                                calls onCodeScanned(code) once per opening
     SeatingTable.js          — Round-table modal (table.webp in the middle, seats on a circle, viewer at the bottom, own living
@@ -70,7 +74,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                ("+"), a candle per player, "Still standing" for players without a seat. A
                                player taps a free seat (takeSeat); the host taps a player, then any seat, to
                                move or swap (takeSeat with swap). Seat 0 or the viewer's seat at the bottom
-    RoleInfoModal.js         — Role pop-up: icon, name, team, description, goal, ability, `infected` (team Werewolves,
+    RoleInfoModal.js         — Role pop-up (backdrop Pressable behind the card, so the card's ScrollView scrolls):
+                               icon (or the card image with `showCard`, ROLE_IMAGES from RoleCard), name, team (a
+                               SIDE_CHANGING_ROLES role reads "Village at first (can join the wolves)"), description, goal, ability, `infected` (team Werewolves,
                                an infection note and the pack's goal; MyRoleButton passes gs.isInfected), plus optional
                                `groups` of related players; used by the Lobby role pills and MyRoleButton
     MyRoleButton.js          — show_role.webp (eye) button in the Night/Day header; opens RoleInfoModal with the

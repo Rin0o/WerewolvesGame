@@ -38,6 +38,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. They choose the roles as in Custom mode (the player count doesn't include them), then run the game from dashboards that show every role and every action.
 - **19 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Accursed Wolf-Father, White Wolf and Wolf Hound.
+- **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.

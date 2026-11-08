@@ -28,6 +28,8 @@ export function hasVillagePower(room, role) {
   return !(room?.villagePowersLost && ELDER_SILENCED_ROLES.includes(role));
 }
 
+export const SIDE_CHANGING_ROLES = [ROLE.THIEF, ROLE.WOLF_HOUND, ROLE.WILD_CHILD];
+
 export const WOLF_ROLES = [ROLE.WEREWOLF, ROLE.WHITE_WOLF, ROLE.BIG_BAD_WOLF, ROLE.WOLF_FATHER];
 
 export function isWolfRole(role) {

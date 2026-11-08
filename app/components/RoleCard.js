@@ -4,7 +4,7 @@ import { getRoleInfo } from '../game-logic/roles';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
-const ROLE_IMAGES = {
+export const ROLE_IMAGES = {
   villager: require('../../assets/roles/villager.webp'),
   werewolf: require('../../assets/roles/werewolf.webp'),
   seer: require('../../assets/roles/seer.webp'),

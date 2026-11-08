@@ -22,6 +22,7 @@ import { loadSession, clearSession, screenForStatus } from '../utils/session';
 import { loadProfile, sameNickname } from '../utils/profile';
 import SettingsPanel from '../components/SettingsPanel';
 import QrScannerModal from '../components/QrScannerModal';
+import RoleGuide from '../components/RoleGuide';
 import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const MOON_IMAGE = require('../../assets/moon_borderless.webp');
@@ -55,6 +56,7 @@ export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -277,6 +279,10 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>📷 Scan QR Code</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setGuideOpen(true)}>
+            <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>📖 Role Guide</Text>
+          </TouchableOpacity>
+
           {Platform.OS === 'android' && (
             <TouchableOpacity style={styles.closeAppBtn} onPress={() => BackHandler.exitApp()}>
               <Text style={[styles.closeAppText, styles.moonlit, { color: MOONLIGHT_TEXT }]}>Close the app</Text>
@@ -292,6 +298,8 @@ export default function HomeScreen({ navigation }) {
         profile={profile}
         onProfileChange={setProfile}
       />
+
+      <RoleGuide visible={guideOpen} onClose={() => setGuideOpen(false)} theme={SETTINGS_THEME} />
 
       <QrScannerModal
         visible={scannerOpen}

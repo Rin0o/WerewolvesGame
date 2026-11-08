@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, Image, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { getRoleInfo } from '../game-logic/roles';
 import { ROLE_ICONS } from '../constants/icons';
+import { ROLE_IMAGES } from './RoleCard';
+import { ROLE, SIDE_CHANGING_ROLES } from '../constants/roles';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const TEAM_LABELS = {
@@ -11,21 +13,28 @@ const TEAM_LABELS = {
 
 const INFECTED_GOAL = 'Win with the werewolves: help the pack outnumber the village, without being found out.';
 
-export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [], infected = false, children }) {
+export default function RoleInfoModal({ visible, onClose, theme: t, role, title, groups = [], infected = false, showCard = false, children }) {
   if (!role) return null;
   const info = getRoleInfo(role);
   const shownGroups = groups.filter((g) => g.names.length > 0);
   const team = infected ? 'werewolves' : info.team;
-  const teamLabel = infected ? 'Werewolves (infected)' : role === 'white_wolf' ? 'Alone' : TEAM_LABELS[team] || team;
-  const teamColor = team === 'werewolves' ? t.danger : t.success;
+  const eitherSide = !infected && SIDE_CHANGING_ROLES.includes(role);
+  const teamLabel = infected ? 'Werewolves (infected)'
+    : role === ROLE.WHITE_WOLF ? 'Alone'
+    : eitherSide ? 'Village at first (can join the wolves)'
+    : TEAM_LABELS[team] || team;
+  const teamColor = team === 'werewolves' ? t.danger : eitherSide ? t.accent : t.success;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={[styles.overlay, { backgroundColor: t.modalOverlay }]} onPress={onClose}>
-        <Pressable style={[styles.card, { backgroundColor: t.overlay, borderColor: t.glassBorder || t.border }]}>
+      <View style={[styles.overlay, { backgroundColor: t.modalOverlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={[styles.card, { backgroundColor: t.overlay, borderColor: t.glassBorder || t.border }]}>
           <ScrollView contentContainerStyle={styles.content}>
             {title && <Text style={[styles.caption, { color: t.textSecondary }]}>{title}</Text>}
-            {ROLE_ICONS[role] ? (
+            {showCard && ROLE_IMAGES[role] ? (
+              <Image source={ROLE_IMAGES[role]} style={styles.cardImage} resizeMode="contain" />
+            ) : ROLE_ICONS[role] ? (
               <Image source={ROLE_ICONS[role]} style={styles.icon} resizeMode="contain" />
             ) : (
               <Text style={styles.emoji}>{info.emoji}</Text>
@@ -66,8 +75,8 @@ export default function RoleInfoModal({ visible, onClose, theme: t, role, title,
             {children}
             <Text style={[styles.caption, { color: t.textMuted, marginTop: SPACING.md }]}>Tap outside to close</Text>
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -77,6 +86,7 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: RADIUS.lg, borderWidth: 1 },
   content: { padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm },
   icon: { width: 96, height: 96 },
+  cardImage: { width: '100%', height: 400, borderRadius: RADIUS.md },
   emoji: { fontSize: 64 },
   name: { ...FONTS.heading },
   teamChip: { borderWidth: 1, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 3 },
