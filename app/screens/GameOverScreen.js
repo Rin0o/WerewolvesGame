@@ -15,7 +15,7 @@ import useRoom from '../hooks/useRoom';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
-import { updateRoom, clearDayChat } from '../firebase/roomService';
+import { updateRoom, clearDayChat, clearGhostChat } from '../firebase/roomService';
 import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
@@ -67,7 +67,9 @@ export default function GameOverScreen({ route, navigation }) {
       return;
     }
     await clearDayChat(roomId);
+    await clearGhostChat(roomId).catch(() => {});
     await updateRoom(roomId, {
+      ghostIds: [],
       status: 'lobby',
       phase: 0,
       roles: {},

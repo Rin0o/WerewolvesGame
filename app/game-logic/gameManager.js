@@ -9,6 +9,7 @@ import {
   clearNightActions,
   clearWerewolfChat,
   clearSisterChat,
+  clearGhostChat,
 } from '../firebase/roomService';
 import { pickBotNames } from './bots';
 
@@ -307,7 +308,7 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
 }
 
 export async function startGame(roomId, players, { composition: customComposition = null, classicFirstNight = false, botCount = 0 } = {}) {
-  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId)]).catch(() => {});
+  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId), clearGhostChat(roomId)]).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
@@ -341,6 +342,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     roles: roleMap,
     witchPotions,
     players: allPlayers,
+    ghostIds: narratorPlayers.map((p) => p.id),
     status: 'night',
     phase: 1,
     phaseStartedAt: new Date().toISOString(),

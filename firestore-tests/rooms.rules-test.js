@@ -502,3 +502,49 @@ describe('sisters chat', () => {
     await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'sisterChat', 'm1')));
   });
 });
+
+describe('ghost chat', () => {
+  const ghostChat = (db) => collection(db, 'rooms', ROOM, 'ghostChat');
+  const HAUNTED_DAY = {
+    ...DAY,
+    players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+    ghostIds: ['sam'],
+  };
+
+  beforeEach(() => seed(HAUNTED_DAY, { ghostChat: { m1: { senderId: 'sam', senderNickname: 'sam', text: 'boo', createdAt: new Date() } } }));
+
+  it('the dead read and post, the living cannot even read it', async () => {
+    await assertSucceeds(getDocs(ghostChat(as('sam').db)));
+    await assertSucceeds(addDoc(ghostChat(as('sam').db), message('sam')));
+    await assertFails(getDocs(ghostChat(as('alice').db)));
+    await assertFails(getDocs(ghostChat(as('host').db)));
+    await assertFails(addDoc(ghostChat(as('alice').db), message('alice')));
+    await assertFails(addDoc(ghostChat(as('sam').db), message('alice')));
+  });
+
+  it('the narrator is in it from the start', async () => {
+    await seed({ ...DAY, ghostIds: ['host'] });
+    await assertSucceeds(getDocs(ghostChat(as('host').db)));
+    await assertSucceeds(addDoc(ghostChat(as('host').db), message('host')));
+  });
+
+  it('once the game is over or back in the lobby, members may read it (to clear it), strangers never', async () => {
+    await seed({ ...HAUNTED_DAY, status: 'ended' });
+    await assertSucceeds(getDocs(ghostChat(as('alice').db)));
+    await seed({ ...HAUNTED_DAY, status: 'lobby' });
+    await assertSucceeds(getDocs(ghostChat(as('host').db)));
+    await assertFails(getDocs(ghostChat(as('stranger').db)));
+  });
+
+  it('only the host clears it', async () => {
+    await assertFails(deleteDoc(doc(as('sam').db, 'rooms', ROOM, 'ghostChat', 'm1')));
+    await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'ghostChat', 'm1')));
+  });
+
+  it('the Hunter\'s shot adds the dead to the ghosts, but never removes one', async () => {
+    await seed({ ...HAUNTED_DAY, hunterTriggered: 'bob' });
+    const shotWendy = HAUNTED_DAY.players.map((p) => (p.id === 'wendy' ? { ...p, isAlive: false } : p));
+    await assertSucceeds(updateDoc(as('bob').room, { players: shotWendy, ghostIds: arrayUnion('wendy') }));
+    await assertFails(updateDoc(as('bob').room, { ghostIds: [] }));
+  });
+});

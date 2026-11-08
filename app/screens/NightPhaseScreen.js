@@ -115,6 +115,7 @@ const NIGHT_BACKGROUND = require('../../assets/night_background.webp');
 const NOTES_ICON       = require('../../assets/notes.webp');
 const NIGHT_CHAT_ICON  = require('../../assets/night_chat.webp');
 const SISTERS_CHAT_ICON = require('../../assets/sisters_chat.webp');
+const DEATH_CHAT_ICON = require('../../assets/death_chat.webp');
 const DEAD_ICON        = require('../../assets/suspicion_level_icons/dead.webp');
 const OPTIONS_ICON     = require('../../assets/options.webp');
 const MOON_IMAGE       = require('../../assets/moon_borderless.webp');
@@ -163,6 +164,12 @@ export default function NightPhaseScreen({ route, navigation }) {
   const unreadSisterMessages = useUnreadMessages(roomId, 'sister', playerId, {
     isOpen: sisterChatVisible,
     enabled: canUseSisterChat,
+  });
+  const [ghostChatVisible, setGhostChatVisible] = useState(false);
+  const canUseGhostChat = !!room?.ghostIds?.includes(playerId);
+  const unreadGhostMessages = useUnreadMessages(roomId, 'ghost', playerId, {
+    isOpen: ghostChatVisible,
+    enabled: canUseGhostChat,
   });
   const pendingDay = useRef(false);
   const roomRef = useRef(null);
@@ -727,6 +734,14 @@ export default function NightPhaseScreen({ route, navigation }) {
             accessibilityLabel="Sisters chat"
           />
         )}
+        {canUseGhostChat && (
+          <BarButton
+            source={DEATH_CHAT_ICON}
+            onPress={() => setGhostChatVisible(true)}
+            unread={unreadGhostMessages}
+            accessibilityLabel="Death chat"
+          />
+        )}
       </View>
 
       <GameOptionsModal
@@ -753,6 +768,19 @@ export default function NightPhaseScreen({ route, navigation }) {
           chat="sister"
           visible={sisterChatVisible}
           onClose={() => setSisterChatVisible(false)}
+          roomId={roomId}
+          playerId={playerId}
+          nickname={nickname}
+          isAlive={gs.isAlive && !gs.isNarrator}
+          isNarrator={gs.isNarrator}
+        />
+      )}
+
+      {canUseGhostChat && (
+        <PrivateChat
+          chat="ghost"
+          visible={ghostChatVisible}
+          onClose={() => setGhostChatVisible(false)}
           roomId={roomId}
           playerId={playerId}
           nickname={nickname}

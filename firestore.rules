@@ -170,8 +170,9 @@ service cloud.firestore {
 
       function huntersShot() {
         return before().get('hunterTriggered', null) == uid()
-          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost'])
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost', 'ghostIds'])
           && after().players.size() == before().players.size()
+          && after().get('ghostIds', []).hasAll(before().get('ghostIds', []))
           && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning())
           && (!after().diff(before()).affectedKeys().hasAny(['villagePowersLost']) || after().villagePowersLost == true);
       }
@@ -234,6 +235,17 @@ service cloud.firestore {
         || (validBotMessage(roomAt(roomId)) && (botRole(roomAt(roomId)) in ['werewolf', 'white_wolf', 'big_bad_wolf', 'wolf_father']
           || roomAt(roomId).get('infectedId', null) == request.resource.data.senderId))
       );
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+
+    function ghostOf(room) {
+      return request.auth.uid in room.get('ghostIds', []);
+    }
+
+    match /rooms/{roomId}/ghostChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId))
+        && (ghostOf(roomAt(roomId)) || roomAt(roomId).status in ['lobby', 'ended']);
+      allow create: if memberOf(roomAt(roomId)) && ghostOf(roomAt(roomId)) && validMessage();
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
 

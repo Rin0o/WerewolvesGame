@@ -41,6 +41,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
+- **Death Chat:** once eliminated, players talk with each other and with the narrator, by day and by night. The living never see it, and the Firestore rules don't let them read it.
 - **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
@@ -192,11 +193,11 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 | Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
 | Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
 | A member | In the lobby: leave, flip their own ready flag, or change their own seat. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
-| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true) |
+| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true); add the players the shot kills to `ghostIds` (never remove one) |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
-| Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
+| Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the dead and the narrator (`ghostIds`) read or post in the Death Chat, which every member can read again in the lobby or after the game; only the host deletes |
 
-Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. Nobody can delete a room.
+Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. For the same reason, a `ghostIds` list (the narrator and every dead player) decides who may read the Death Chat. Nobody can delete a room.
 
 The rules are tested against the Firestore emulator (`npm run test:rules`, see [Automated tests](#automated-tests)).
 

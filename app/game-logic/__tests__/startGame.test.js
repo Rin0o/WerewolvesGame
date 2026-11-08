@@ -2,13 +2,14 @@ jest.mock('../../firebase/roomService', () => ({
   updateRoom: jest.fn(() => Promise.resolve()),
   clearWerewolfChat: jest.fn(() => Promise.resolve()),
   clearSisterChat: jest.fn(() => Promise.resolve()),
+  clearGhostChat: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import {
   startGame, computeNightSequence, nextNightSubPhase, isSubPhaseDone, playersStillReading, ROLE_REVEAL_STEP,
 } from '../gameManager';
-import { updateRoom, clearWerewolfChat, clearSisterChat } from '../../firebase/roomService';
+import { updateRoom, clearWerewolfChat, clearSisterChat, clearGhostChat } from '../../firebase/roomService';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
 import { BOT_MARK } from '../../constants/botNames';
 import { lastUpdate, countRoles, ROOM_ID } from './helpers';
@@ -33,6 +34,13 @@ describe('startGame', () => {
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
     expect(clearSisterChat).toHaveBeenCalledWith(ROOM_ID);
+    expect(clearGhostChat).toHaveBeenCalledWith(ROOM_ID);
+  });
+
+  it('starts the ghost chat with only the narrator in it', async () => {
+    expect((await start(humans(6))).ghostIds).toEqual([]);
+    const players = [...humans(6), { id: 'nar', nickname: 'Nar', isAlive: true, isNarrator: true }];
+    expect((await start(players)).ghostIds).toEqual(['nar']);
   });
 
   it('records the dealt composition so players can see which roles are in the game', async () => {

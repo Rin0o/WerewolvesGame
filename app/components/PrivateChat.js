@@ -16,12 +16,15 @@ import {
   sendWerewolfMessage,
   subscribeToSisterChat,
   sendSisterMessage,
+  subscribeToGhostChat,
+  sendGhostMessage,
   CHAT_MESSAGE_MAX,
 } from '../firebase/roomService';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
 const SEND_ICON = require('../../assets/send_night.webp');
+const DEATH_CHAT_ICON = require('../../assets/death_chat.webp');
 
 const CHATS = {
   werewolf: {
@@ -44,12 +47,22 @@ const CHATS = {
     subscribe: subscribeToSisterChat,
     send: sendSisterMessage,
   },
+  ghost: {
+    title: 'Death Chat',
+    icon: DEATH_CHAT_ICON,
+    empty: 'No messages yet. Only the dead and the narrator can read this.',
+    placeholder: 'Speak from beyond...',
+    ghostsPost: true,
+    subscribe: subscribeToGhostChat,
+    send: sendGhostMessage,
+  },
 };
 
 export default function PrivateChat({ chat, visible, onClose, roomId, playerId, nickname, isAlive, isNarrator = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const config = CHATS[chat];
+  const canPost = config.ghostsPost ? !isAlive || isNarrator : isAlive;
 
   const t = NIGHT;
 
@@ -61,7 +74,7 @@ export default function PrivateChat({ chat, visible, onClose, roomId, playerId, 
 
   async function send() {
     const trimmed = text.trim();
-    if (!trimmed || !isAlive) return;
+    if (!trimmed || !canPost) return;
     setText('');
     try {
       await config.send(roomId, playerId, nickname, trimmed);
@@ -120,7 +133,7 @@ export default function PrivateChat({ chat, visible, onClose, roomId, playerId, 
             }}
           />
 
-          {isAlive ? (
+          {canPost ? (
             <View style={[styles.inputRow, { borderTopColor: t.border }]}>
               <TextInput
                 style={[styles.input, { backgroundColor: t.surfaceAlt, borderColor: t.border, color: t.text }]}

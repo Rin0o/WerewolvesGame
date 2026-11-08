@@ -47,9 +47,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                roles prop (role reveal is day-screen-only); uses setSuspicion
                                (direct level set) from usePlayer rather than cycleSuspicion
     PrivateChat.js           — Real-time Firestore chat for a closed group: chat="werewolf" (wolves + narrator)
-                               or chat="sister" (Sisters + narrator, night screen only); CHATS holds each
-                               chat's title, icon, texts and roomService functions; isNarrator shows the
-                               observer label instead of the input
+                               or chat="sister" (Sisters + narrator, night screen only) or chat="ghost" (the "Death
+                               Chat": dead players + narrator, day and night; `ghostsPost` lets the dead and the
+                               narrator write); CHATS holds each chat's title, icon, texts and roomService functions;
+                               isNarrator shows the observer label instead of the input
     Timer.js                 — Countdown with urgency styling (red at ≤10s); calls the latest
                                onExpire through a ref
     RoleCard.js              — Role card with WebP image (assets/roles/), description,
@@ -165,7 +166,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                suggests only for players without one yet. Every change goes through update() on a
                                ref, so two quick changes never overwrite each other
     useHostFailover.js       — Host heartbeat + automatic host takeover (used on every room screen)
-    useUnreadMessages.js     — useUnreadMessages(roomId, 'day'|'werewolf'|'sister', playerId, { isOpen, enabled }) →
+    useUnreadMessages.js     — useUnreadMessages(roomId, 'day'|'werewolf'|'sister'|'ghost', playerId, { isOpen, enabled }) →
                                count of other players' messages not yet seen; seen ids live in a module-level
                                Map for the app session, so they survive Night↔Day navigation
     useTurnedWolfNotice.js   — useTurnedWolfNotice(room, playerId) → { notice, dismiss }; the pure parts are
@@ -233,6 +234,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   bear_growl.webp            — Bear growl icon (DawnReport: public growl row and the Bear Tamer's private row; the silent
                                card uses role_icons/bear_tamer.webp)
   sisters_chat.webp          — Sisters Chat button (NightPhaseScreen bottom bar, Sisters + narrator)
+  death_chat.webp            — Death Chat button and header icon (Night + Day bottom bars, last; ghosts + narrator)
   send_day.webp / send_night.webp — Send buttons (52px): DayChat uses send_day; PrivateChat (wolf + sisters) send_night
   scale.webp                 — Tie / revote icon (replaces the ⚖️ emoji): DayPhaseScreen revote banner,
                                LynchResultModal tie verdict, Lobby "Vote again" tied-vote option
@@ -342,6 +344,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   hunterDiedDuring: "night"|"day"|null  // When the Hunter died; after the shot only "day" ends the day (next night)
   lovers: [playerId, playerId]|null  // Set by Cupid on night 1
   disconnectedPlayers: string[]   // Players who clicked Leave; cleared at phase end
+  ghostIds: string[]              // Who may read and post in ghostChat: the narrator (written by startGame) plus every
+                                  // dead player (eliminatePlayer adds them with arrayUnion in the same write that marks
+                                  // them dead). Rules can't search `players`, so this list is what they check. [] on Play Again
   gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
   classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). Absent = Quiet
   fillWithBots: bool              // Host's lobby choice (Normal/Custom only): pad empty seats with bots at start
@@ -361,7 +366,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 ```
 { senderId, senderNickname, text, createdAt: Timestamp }
 ```
-`werewolfChat` and `sisterChat` are cleared at game start (in parallel with the start write); `dayChat` is cleared on Play Again.
+`rooms/{roomId}/ghostChat/{messageId}` (the Death Chat) has the same shape.
+`werewolfChat`, `sisterChat` and `ghostChat` are cleared at game start (in parallel with the start write); `dayChat` and
+`ghostChat` are cleared on Play Again.
 
 ## Roles
 
@@ -461,7 +468,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Narrator mode**: Host is flagged `isNarrator: true` on their player object and excluded from role assignment, win-condition checks, vote eligibility, and the night-action bot-target pool. The narrator skips `RoleRevealScreen` and goes straight to `NightPhaseScreen`. At night they see `NarratorNightDashboard` (full role visibility, submitted actions, manual Next/Skip to advance sub-phases — no auto-timer). At day they see `NarratorDayDashboard` (per-voter live breakdown, tally bars, Close Votes button) and see all roles in the player list. `useGameState` exposes `gs.isNarrator`. The day discussion timer is hidden in narrator mode; `closeVoting()` (sets `votesClosed: true`) is the narrator's trigger to end voting, which then flows into the normal `resolveLynch` path.
 - **Lobby role info**: every role pill and Custom-mode role label in the Lobby opens `RoleInfoModal` for that role.
 - **Elimination screen**: A player killed during the night sees a full-screen `Modal` (translucent status/navigation bars) on NightPhaseScreen: large `dead.webp`, "You were eliminated", the cause from `nightDeathCauses[playerId]` (`DEATH_MESSAGES`) in italics, and a "Continue as a ghost" button to the day.
-- **Unread chat badges**: the Day Chat, Wolf Chat and Sisters Chat bar buttons show a red count from `useUnreadMessages`; opening the chat marks everything as seen.
+- **Unread chat badges**: the Day Chat, Wolf Chat, Sisters Chat and Death Chat bar buttons show a red count from `useUnreadMessages`; opening the chat marks everything as seen.
 - **Timers**: Enforced client-side only. `phaseStartedAt` stored as ISO string for reference. Host auto-submits on expire. Night steps get 45s (`SUBPHASE_SECONDS` in hostDecisions.js, used by wolves on later nights and the Witch); Seer, Saviour, Fox, Raven, Big Bad Wolf and White Wolf 25s, Wolf-Father 20s, Thief, Cupid and Wild Child 30s, Wolf Hound 15s (`SUBPHASE_SECONDS_OVERRIDES`), and wolves on night 1 (observe only, no kill) 15s — see `subPhaseSeconds()`. Day: discussion 30s per living player, clamped to 90–240s (`discussionSecondsFor`, fixed once per day in `discussionSecondsRef` because `Timer` restarts when `totalSeconds` changes), Hunter's shot 20s (`HUNTER_SHOT_SECONDS`), lynch result screen 8s (`LynchResultModal` `DISPLAY_SECONDS`). Timers are maximums: a step ends as soon as its player acts.
 - **Image assets**: Originals live in `assets-src/` as full-resolution PNGs; the app only references WebP files in `assets/`. To add or update an image, put the PNG in `assets-src/`, then export a WebP to the same path under `assets/` (quality ~85, keep alpha), sized to ~3× its on-screen size: icons 384px, small buttons 512–600px, banners 900–1320px, role cards 1200px tall, backgrounds at original size. Never `require()` from `assets-src/` — Metro would bundle the full-size file.
 - **Role card images**: `RoleCard` component maps role keys to static `require()` calls for WebPs in `assets/roles/`. Roles without an image (none currently) fall back to the emoji defined in `ROLE_DEFINITIONS`.
@@ -472,7 +479,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 - **Theme switching**: Day = warm oranges/cream (`DAY` in theme.js). Night = deep blues/purples (`NIGHT`). Each screen imports the correct theme constant directly and passes it to the `Timer` component.
 - **Full-screen backgrounds**: `DayPhaseScreen` and `NightPhaseScreen` use `<ImageBackground>` as the root element with `resizeMode="cover"` to bleed edge-to-edge. `<SafeAreaView>` is nested inside. The header is a semi-transparent `<View>` (not an ImageBackground).
 - **Phase screen header pattern**: Both phase screens use a `flexDirection: 'row'` `<View>` header containing: a pill-shaped phase badge (label + number), `MyRoleButton` (eye icon that never shows the role itself; hidden for the narrator), a centered flex-1 title (shrinks to fit, 2 lines max) and a 72px timer slot. Day header: `rgba(255,245,230,0.95)` bg; night header: `rgba(13,8,32,0.82)` bg.
-- **Phase screen bottom bar**: tools only, as equal-width `BarButton`s, background `theme.glassToolbar`. Same order by day and night, each button shown only when it applies: Options, Seating (`table_view.webp`), Notes, then the chats — Day Chat (day only), Wolf Chat (`night_chat.webp` at night for the wolves and the narrator; by day the narrator only, with the werewolf icon — `WerewolfAction` and `NarratorNightDashboard` no longer have their own chat buttons), Sisters Chat (`sisters_chat.webp`; night only, Sisters, and the narrator when the game has Sisters). Rarely used Options sits far left, away from stray taps; the most used buttons sit on the right, in thumb reach. The Options button uses `options.webp`. **Confirm vote** is not in the bar: it's a `ConfirmChoiceButton` above the bar ("Confirm your vote" + target name), shown only while a target is selected and not yet confirmed. Day: `day_confirm.webp` icon. Night (wolves hunting, not on a Quiet night 1): werewolf icon, label "Change your vote" once the wolf has voted and picks someone else; `WerewolfAction` itself no longer has a confirm button in hunt mode.
+- **Phase screen bottom bar**: tools only, as equal-width `BarButton`s, background `theme.glassToolbar`. Same order by day and night, each button shown only when it applies: Options, Seating (`table_view.webp`), Notes, then the chats — Day Chat (day only), Wolf Chat (`night_chat.webp` at night for the wolves and the narrator; by day the narrator only, with the werewolf icon — `WerewolfAction` and `NarratorNightDashboard` no longer have their own chat buttons), Sisters Chat (`sisters_chat.webp`; night only, Sisters, and the narrator when the game has Sisters), Death Chat (`death_chat.webp`; day and night, whoever is in `ghostIds`: dead players and the narrator). Rarely used Options sits far left, away from stray taps; the most used buttons sit on the right, in thumb reach. The Options button uses `options.webp`. **Confirm vote** is not in the bar: it's a `ConfirmChoiceButton` above the bar ("Confirm your vote" + target name), shown only while a target is selected and not yet confirmed. Day: `day_confirm.webp` icon. Night (wolves hunting, not on a Quiet night 1): werewolf icon, label "Change your vote" once the wolf has voted and picks someone else; `WerewolfAction` itself no longer has a confirm button in hunt mode.
 - **Glass-card pattern**: UI sections (vote panel, hunter box, player list, action boxes) use semi-transparent `rgba(...)` backgrounds so the background image remains visible. Day cards use warm cream `rgba(255,245,230,0.93)`; night action boxes use `NIGHT.glassCard` (`rgba(10,5,28,0.62)`) with the shared `NIGHT_PANEL` / `NIGHT_ROW` styles (large radius, faint violet edge, light rows). The night waiting view is a centred moon scene (`moon_borderless.webp`); its text sits on a soft borderless veil (`waitVeil`, `rgba(8,4,24,0.6)`) in moonlight colours (`WAIT_TITLE_COLOR`, `WAIT_SUB_COLOR`) with a text shadow, so it stays readable over the purple background.
 - **PhaseTransition banners**: `PhaseTransition.js` shows `dawn_banner.webp` (day) or `night_banner.webp` (night) instead of emojis, animated with Reanimated scale + fade via an `Animated.View` wrapper.
 - **Image-only buttons**: All interactive buttons in phase screens are `<TouchableOpacity>` wrapping a `<Image>` WebP — no text labels. Text buttons remain only for in-game submit actions (e.g. "Confirm Kill", "Reveal Their Nature", the day's Confirm vote button).
@@ -498,9 +505,11 @@ Writes are limited to what the app does; anything else is denied:
 - **Read rooms**: any signed-in user (join-by-code must find the room before you're a member).
 - **Join**: a non-member in a lobby room appends only themselves to `players` (with `isHost: false`) and to `memberIds`.
 - **Members**: leave the lobby / toggle own `isReady` or change own `seat` (an int 0–29) (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'` (wolves: only `wolfVotes.<own uid>` and `werewolfObserved` — the victim `werewolf` is host-only); add only themselves to `roleAcknowledged` at night; write only `votes.<uid>` while `status == 'day'` (never the revealed Village Idiot, `idiotRevealed`); add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
-- **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's), plus `roles`/`wildChildTurnedAt` only to turn `wildChildId` from `wild_child` into `werewolf`, and `villagePowersLost` only to `true` (shooting the Elder).
+- **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's), plus `ghostIds` (only adding, for the players the shot kills), and `roles`/`wildChildTurnedAt` only to turn `wildChildId` from `wild_child` into `werewolf`, and `villagePowersLost` only to `true` (shooting the Elder).
 - **Host**: anything except `code`, `createdAt`, `hostId`, `memberIds`.
-- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf`, `big_bad_wolf` and `wolf_father` roles, and the player in `infectedId`, post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`.
+- **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf`, `big_bad_wolf` and `wolf_father` roles, and the player in `infectedId`, post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`. `ghostChat` is the one chat the rules keep secret: only players in `ghostIds` read
+  or post in it, except that any member may read it in the lobby or once the game has ended (so the host can clear it).
+  Subscribe to it only when `room.ghostIds` holds the player, or the listener fails.
 - **When a new write path is added to the app, add a rule and a test in `firestore-tests/rooms.rules-test.js`** — otherwise it will be denied in production.
 - Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 

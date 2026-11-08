@@ -164,7 +164,7 @@ export async function eliminatePlayer(roomId, playerId) {
   if (!snap.exists()) return;
   const { players } = snap.data();
   const updated = players.map((p) => (p.id === playerId ? { ...p, isAlive: false } : p));
-  await updateDoc(roomRef, { players: updated });
+  await updateDoc(roomRef, { players: updated, ghostIds: arrayUnion(playerId) });
 }
 
 // ─── Night actions ────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ export function subscribeToDayChat(roomId, callback) {
   });
 }
 
-// ─── Private night chats (werewolves, sisters) ────────────────────────────────
+// ─── Private chats (werewolves, sisters, ghosts) ──────────────────────────────
 
 async function clearChat(roomId, chat) {
   const snap = await getDocs(collection(db, 'rooms', roomId, chat));
@@ -256,6 +256,18 @@ export function sendSisterMessage(roomId, senderId, senderNickname, text) {
 
 export function subscribeToSisterChat(roomId, callback) {
   return subscribeToChat(roomId, 'sisterChat', callback);
+}
+
+export function clearGhostChat(roomId) {
+  return clearChat(roomId, 'ghostChat');
+}
+
+export function sendGhostMessage(roomId, senderId, senderNickname, text) {
+  return sendChatMessage(roomId, 'ghostChat', senderId, senderNickname, text);
+}
+
+export function subscribeToGhostChat(roomId, callback) {
+  return subscribeToChat(roomId, 'ghostChat', callback);
 }
 
 // ─── Player notes (stored per-device only via AsyncStorage, not Firestore) ───

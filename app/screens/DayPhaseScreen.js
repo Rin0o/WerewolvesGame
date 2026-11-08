@@ -56,6 +56,7 @@ const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
 const OPTIONS_ICON         = require('../../assets/options.webp');
 const SCALE_ICON           = require('../../assets/scale.webp');
+const DEATH_CHAT_ICON      = require('../../assets/death_chat.webp');
 
 const HUNTER_SHOT_SECONDS = 20;
 const REVOTE_SECONDS = 60;
@@ -82,6 +83,12 @@ export default function DayPhaseScreen({ route, navigation }) {
   const unreadWolfMessages = useUnreadMessages(roomId, 'werewolf', playerId, {
     isOpen: wolfChatOpen,
     enabled: !!gs.isNarrator,
+  });
+  const [ghostChatOpen, setGhostChatOpen] = useState(false);
+  const canUseGhostChat = !!room?.ghostIds?.includes(playerId);
+  const unreadGhostMessages = useUnreadMessages(roomId, 'ghost', playerId, {
+    isOpen: ghostChatOpen,
+    enabled: canUseGhostChat,
   });
   const turnedWolfNotice = useTurnedWolfNotice(room, playerId);
   const [resolving, setResolving] = useState(false);
@@ -582,6 +589,14 @@ export default function DayPhaseScreen({ route, navigation }) {
             accessibilityLabel="Wolf chat"
           />
         )}
+        {canUseGhostChat && (
+          <BarButton
+            source={DEATH_CHAT_ICON}
+            onPress={() => setGhostChatOpen(true)}
+            unread={unreadGhostMessages}
+            accessibilityLabel="Death chat"
+          />
+        )}
       </View>
 
       <GameOptionsModal
@@ -642,6 +657,19 @@ export default function DayPhaseScreen({ route, navigation }) {
           nickname={nickname}
           isAlive={false}
           isNarrator={true}
+        />
+      )}
+
+      {canUseGhostChat && (
+        <PrivateChat
+          chat="ghost"
+          visible={ghostChatOpen}
+          onClose={() => setGhostChatOpen(false)}
+          roomId={roomId}
+          playerId={playerId}
+          nickname={nickname}
+          isAlive={gs.isAlive && !gs.isNarrator}
+          isNarrator={gs.isNarrator}
         />
       )}
     </SafeAreaView>
