@@ -1,6 +1,6 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower, ROLE_DEFINITIONS } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf } from './roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf, arrangeSeats } from './roles';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
   getRoom,
@@ -334,6 +334,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     witchPotions = result.witchPotions;
   }
 
+  allPlayers = arrangeSeats(allPlayers);
   if (narratorPlayers.length > 0) allPlayers = [...allPlayers, ...narratorPlayers];
 
   await updateRoom(roomId, {

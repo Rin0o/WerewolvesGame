@@ -167,6 +167,36 @@ describe('lobby', () => {
     await assertFails(updateDoc(room, { players: readyFor('bob') }));
   });
 
+  it('a player takes or changes their own seat but nobody else\'s', async () => {
+    const seatFor = (id, seat) => LOBBY.players.map((p) => (p.id === id ? { ...p, seat } : p));
+    await assertSucceeds(updateDoc(as('alice').room, { players: seatFor('alice', 3) }));
+    await seed({ ...LOBBY, players: seatFor('alice', 3) });
+    await assertSucceeds(updateDoc(as('alice').room, { players: seatFor('alice', 0) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor('bob', 1) }));
+  });
+
+  it('a seat is a whole number on the table', async () => {
+    const seatFor = (seat) => LOBBY.players.map((p) => (p.id === 'alice' ? { ...p, seat } : p));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(-1) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(30) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(1.5) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor('1') }));
+  });
+
+  it('the host swaps two players\' seats', async () => {
+    const seated = LOBBY.players.map((p, i) => ({ ...p, seat: i }));
+    await seed({ ...LOBBY, players: seated });
+    const swapped = seated.map((p) => (p.id === 'alice' ? { ...p, seat: 2 } : p.id === 'bob' ? { ...p, seat: 1 } : p));
+    await assertFails(updateDoc(as('alice').room, { players: swapped }));
+    await assertSucceeds(updateDoc(as('host').room, { players: swapped }));
+  });
+
+  it('nobody changes seats once the game has started', async () => {
+    await seed(NIGHT);
+    const players = NIGHT.players.map((p) => (p.id === 'alice' ? { ...p, seat: 4 } : p));
+    await assertFails(updateDoc(as('alice').room, { players }));
+  });
+
   it('a player cannot change anything else about themselves', async () => {
     const players = LOBBY.players.map((p) => (p.id === 'alice' ? { ...p, isHost: true } : p));
     await assertFails(updateDoc(as('alice').room, { players }));

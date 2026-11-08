@@ -7,7 +7,7 @@ import { FONTS, RADIUS, SPACING } from '../constants/theme';
 const AVATAR_UNKNOWN = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD    = require('../../assets/suspicion_level_icons/dead.webp');
 const TABLE_VIEW_ICON = require('../../assets/table_view.webp');
-const TABLE_IMAGE    = require('../../assets/table.webp');
+export const TABLE_IMAGE = require('../../assets/table.webp');
 const TABLE_SCALE = 1.25;
 
 const NEIGHBOUR_COLOR = '#E8B020';
@@ -19,6 +19,38 @@ function avatarSizeFor(seatCount) {
   if (seatCount >= 14) return 34;
   if (seatCount >= 10) return 42;
   return 52;
+}
+
+export function tableLayout(seatCount, size) {
+  const avatar = avatarSizeFor(seatCount);
+  const seatWidth = avatar + NAME_EXTRA_WIDTH;
+  const seatHeight = avatar + NAME_HEIGHT;
+  const radius = (size - Math.max(seatWidth, seatHeight)) / 2;
+  const center = size / 2;
+  const step = (2 * Math.PI) / Math.max(seatCount, 1);
+  const tableImageSize = radius * TABLE_SCALE;
+  return {
+    avatar,
+    seatWidth,
+    seatHeight,
+    tableImageStyle: {
+      position: 'absolute',
+      left: center - tableImageSize / 2,
+      top: center - tableImageSize / 2,
+      width: tableImageSize,
+      height: tableImageSize,
+    },
+    seatStyle(index, bottomIndex) {
+      const angle = Math.PI / 2 - (index - bottomIndex) * step;
+      return {
+        position: 'absolute',
+        alignItems: 'center',
+        width: seatWidth,
+        left: center + radius * Math.cos(angle) - seatWidth / 2,
+        top: center + radius * Math.sin(angle) - seatHeight / 2,
+      };
+    },
+  };
 }
 
 function neighbourText(players, neighbours) {
@@ -40,12 +72,8 @@ export default function SeatingTable({ visible, onClose, theme: t, players, play
   const myIndex = Math.max(0, seats.findIndex((p) => p.id === playerId));
 
   const size = Math.min(width - SPACING.md * 4, TABLE_MAX_SIZE);
-  const avatar = avatarSizeFor(seats.length);
-  const seatWidth = avatar + NAME_EXTRA_WIDTH;
-  const seatHeight = avatar + NAME_HEIGHT;
-  const radius = (size - Math.max(seatWidth, seatHeight)) / 2;
-  const center = size / 2;
-  const step = (2 * Math.PI) / Math.max(seats.length, 1);
+  const layout = tableLayout(seats.length, size);
+  const { avatar } = layout;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -54,30 +82,12 @@ export default function SeatingTable({ visible, onClose, theme: t, players, play
           <Text style={[styles.title, { color: t.text }]}>The Table</Text>
 
           <View style={{ width: size, height: size }}>
-            <Image
-              source={TABLE_IMAGE}
-              resizeMode="contain"
-              style={[
-                styles.tableImage,
-                {
-                  left: center - radius * TABLE_SCALE / 2,
-                  top: center - radius * TABLE_SCALE / 2,
-                  width: radius * TABLE_SCALE,
-                  height: radius * TABLE_SCALE,
-                },
-              ]}
-            />
+            <Image source={TABLE_IMAGE} resizeMode="contain" style={layout.tableImageStyle} />
             {seats.map((p, i) => {
-              const angle = Math.PI / 2 - (i - myIndex) * step;
-              const x = center + radius * Math.cos(angle);
-              const y = center + radius * Math.sin(angle);
               const isMe = p.id === playerId;
               const isNeighbour = neighbours.includes(p.id);
               return (
-                <View
-                  key={p.id}
-                  style={[styles.seat, { width: seatWidth, left: x - seatWidth / 2, top: y - seatHeight / 2 }]}
-                >
+                <View key={p.id} style={layout.seatStyle(i, myIndex)}>
                   <View
                     style={[
                       styles.avatarRing,
@@ -135,8 +145,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   title: { ...FONTS.subheading },
-  tableImage: { position: 'absolute' },
-  seat: { position: 'absolute', alignItems: 'center' },
   avatarRing: {
     borderRadius: RADIUS.full,
     borderWidth: 3,

@@ -17,14 +17,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useRoom from '../hooks/useRoom';
 import useHostFailover from '../hooks/useHostFailover';
 import { saveSession, clearSession } from '../utils/session';
-import { setPlayerReady, leaveRoom, updateRoom } from '../firebase/roomService';
+import { setPlayerReady, takeSeat, leaveRoom, updateRoom } from '../firebase/roomService';
 import { startGame, TIE_RULE } from '../game-logic/gameManager';
+import { seatChart } from '../game-logic/roles';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 import { botSeats } from '../game-logic/bots';
 import { ROLE_ICONS } from '../constants/icons';
 import RoomQrCode from '../components/RoomQrCode';
 import RoleInfoModal from '../components/RoleInfoModal';
+import LobbyTable from '../components/LobbyTable';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
@@ -60,6 +62,7 @@ export default function LobbyScreen({ route, navigation }) {
   const [starting, setStarting] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [infoRole, setInfoRole] = useState(null);
+  const [selectedSeatPlayer, setSelectedSeatPlayer] = useState(null);
 
   React.useEffect(() => {
     saveSession({ roomId, playerId, nickname });
@@ -132,6 +135,12 @@ export default function LobbyScreen({ route, navigation }) {
   const customComposition = isValidConfig ? buildCustomComposition(cfg) : [];
   const customRoleCounts = customComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
 
+  const seatedHumans = humanPlayers.filter((p) => !(gameMode === 'narrator' && p.id === hostId));
+  const tableSize = Math.max(choosesRoles ? cfg.playerCount : MIN_PLAYERS, seatedHumans.length);
+  const chart = seatChart(seatedHumans, tableSize);
+  const standing = seatedHumans.filter((p) => !chart.includes(p));
+  const canSit = seatedHumans.some((p) => p.id === playerId);
+
   const canStart = choosesRoles ? customCanStart : normalCanStart;
   const showCast = choosesRoles ? (isHost || isValidConfig) : effectiveCount >= MIN_PLAYERS;
 
@@ -167,6 +176,21 @@ export default function LobbyScreen({ route, navigation }) {
 
   async function handleReady() {
     await setPlayerReady(roomId, playerId, !myPlayer?.isReady);
+  }
+
+  function handleSeatPress(seat) {
+    const occupant = chart[seat];
+    if (isHost && selectedSeatPlayer) {
+      setSelectedSeatPlayer(null);
+      if (occupant?.id === selectedSeatPlayer) return;
+      takeSeat(roomId, selectedSeatPlayer, seat, { swap: true }).catch(() => {});
+      return;
+    }
+    if (isHost && occupant) {
+      setSelectedSeatPlayer(occupant.id);
+      return;
+    }
+    if (!occupant && canSit) takeSeat(roomId, playerId, seat).catch(() => {});
   }
 
   async function handleStart() {
@@ -555,6 +579,18 @@ export default function LobbyScreen({ route, navigation }) {
           ? `Around the table (${playingHumans}/${cfg.playerCount}, plus the narrator)`
           : `Around the table (${humanPlayers.length}${gameMode === 'custom' ? `/${cfg.playerCount}` : ''})`}
       </Text>
+
+      <LobbyTable
+        theme={t}
+        chart={chart}
+        standing={standing}
+        playerId={playerId}
+        isHost={isHost}
+        canSit={canSit}
+        selectedId={selectedSeatPlayer}
+        fillWithBots={botsAvailable && fillWithBots}
+        onSeatPress={handleSeatPress}
+      />
     </>
   );
 

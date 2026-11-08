@@ -40,6 +40,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **19 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Accursed Wolf-Father, White Wolf and Wolf Hound.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
+- **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
 - **Game log:** an event history, plus a full role reveal at the end.
@@ -107,7 +108,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |
 | **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on, starting that same night. If none is available, stays with the village. |
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
-| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
+| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players around the table as seated in the lobby, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
 | **Fox** | Village | Each night (from night 2 with a Quiet first night) may point at another player and learns whether that player or either of their living neighbours is a werewolf. While choosing, the Fox sees exactly which players will be sniffed. If none of the three is a wolf, the Fox loses its power and never wakes again. If the timer runs out, the Fox stays hidden and keeps its power. |
 | **Wild Child** | Village, then maybe Wolves | On night 1, chooses a role model (a random one if the timer runs out). While the model lives, the Wild Child is a villager, and the Seer sees them as one. If the model dies, by any cause, the Wild Child becomes a werewolf: a full-screen notice tells them privately whose death turned them and who their pack is, and they wake with the pack and use the wolf chat from then on. Nobody else is told. |
@@ -168,7 +169,7 @@ One phone, the host's, notices when a night step is finished or all votes are in
 ### Automatic host takeover
 The host's phone increments a `hostHeartbeat` counter every 8 seconds.
 - Every other phone tracks how long it has been since it last saw the counter change. It uses its own clock, so phones whose clocks disagree don't trigger false takeovers.
-- After 25 seconds of silence, the next player in join order becomes host through a Firestore transaction, which only succeeds if no one else got there first. If that player is also gone, the one after them tries 6 seconds later, and so on.
+- After 25 seconds of silence, the next player in the player list (join order in the lobby, seat order once the game starts) becomes host through a Firestore transaction, which only succeeds if no one else got there first. If that player is also gone, the one after them tries 6 seconds later, and so on.
 - The new host carries on where the old one stopped: a night step, a timer that already ran out, or a pending vote result.
 - If the old host comes back, they continue as a normal player.
 - Takeover is turned off in Narrator games once they start, because only the narrator can move those forward.
@@ -188,7 +189,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 |---|---|
 | Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
 | Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
-| A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
+| A member | In the lobby: leave, flip their own ready flag, or change their own seat. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
 | The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true) |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
 | Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
@@ -443,7 +444,6 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Leaving mid-game:** *Leave game* sits in the Options pop-up (the first button on the left of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
-- **Bear Tamer neighbours** are based on join order, not on where people actually sit.
 
 ---
 

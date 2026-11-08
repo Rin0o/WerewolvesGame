@@ -28,7 +28,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                Scan QR Code (QrScannerModal), Rejoin card for a saved session, and a
                                "Close the app" link (Android only, `BackHandler.exitApp()`; iOS forbids it)
     LobbyScreen.js           — Room code with Share and Show QR buttons (QR in a pop-up), game mode
-                               selector, role config, player list; saves session
+                               selector, role config, LobbyTable (seat choice), player list; saves session
     RoleRevealScreen.js      — Private role card shown to each player (narrator skips it)
     NightPhaseScreen.js      — Night sub-phases (thief, cupid, wild_child, werewolf, wolf_father, big_bad_wolf, witch,
                                seer, saviour, fox, raven),
@@ -63,7 +63,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                calls onCodeScanned(code) once per opening
     SeatingTable.js          — Round-table modal (table.webp in the middle, seats on a circle, viewer at the bottom, own living
                                neighbours ringed, dead seats dimmed); SeatingTableButton is its
-                               bottom-bar button (table_view.webp)
+                               bottom-bar button (table_view.webp); tableLayout(seatCount, size) is the circle
+                               geometry it shares with LobbyTable
+    LobbyTable.js            — Lobby seat picker on the same round table: seatChart(seats) with free seats
+                               ("+"), a candle per player, "Still standing" for players without a seat. A
+                               player taps a free seat (takeSeat); the host taps a player, then any seat, to
+                               move or swap (takeSeat with swap). Seat 0 or the viewer's seat at the bottom
     RoleInfoModal.js         — Role pop-up: icon, name, team, description, goal, ability, `infected` (team Werewolves,
                                an infection note and the pack's goal; MyRoleButton passes gs.isInfected), plus optional
                                `groups` of related players; used by the Lobby role pills and MyRoleButton
@@ -110,7 +115,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     roles.js                 — assignRoles(players, composition?), checkWinCondition(),
                                getWerewolves(), getSisters(), getPlayerWithRole(),
                                getLoversPartner(), getAvailableRolesForThief(),
-                               getSeating() (players minus narrator), getLivingNeighbours(),
+                               getSeating() (players minus narrator), seatChart(players, tableSize),
+                               arrangeSeats(players) (seat order for startGame), getLivingNeighbours(),
                                getFoxGroup(), foxSmellsWolf(), rolesInPlay(roleComposition),
                                nicknameOf(players, id) (the one name lookup; ? when missing)
     gameManager.js           — startGame(), computeNightSequence(), nextNightSubPhase(), isSubPhaseDone(),
@@ -135,7 +141,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     authService.js           — signInAnon(), subscribeToAuth()
     roomService.js           — All Firestore reads/writes: rooms (create/find/get/join/leave),
                                night actions, votes, chats, disconnect/reconnect,
-                               beatHost(), takeOverHost()
+                               beatHost(), takeOverHost(); setPlayerReady() and takeSeat() change the
+                               lobby's players in a transaction (no lost updates when two players tap at once)
   /hooks/
     useRoom.js               — Real-time room listener → { room, loading, error }; keeps the last
                                snapshot per room so the next screen renders instantly;
@@ -254,8 +261,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   phase: number                   // Cycle count (0 in lobby, 1 on the first night, +1 each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
   createdAt: Timestamp
-  players: [                      // Array of player objects, in join order (= Bear Tamer seating)
-    { id, nickname, isAlive, isHost, isReady, isBot?, isNarrator? }
+  players: [                      // Lobby: join order. From startGame on: seat order (arrangeSeats), narrator last
+    { id, nickname, isAlive, isHost, isReady, seat?, isBot?, isNarrator? }
+                                  // seat: the lobby seat the player chose (0-based); startGame gives every player
+                                  // (bots too) their final seat. Kept on Play Again, so the table stays as it was
   ]
   roles: { [playerId]: role }     // NEVER render other players' roles (except GameOver / narrator / see "Roles are private")
   nightSubPhase: "reveal"|"thief"|"cupid"|"wild_child"|"wolf_hound"|"saviour"|"fox"|"werewolf"|"wolf_father"|"big_bad_wolf"|"white_wolf"|"witch"|"seer"|"raven"|"done"
@@ -395,7 +404,7 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 **Saviour** — each night (from night 2 with a Quiet first night), protects one other player (not themself) from the wolves. Can't pick `saviourLastProtected` (shown greyed out). Protection blocks only the wolf kill, not the Witch's poison.
 
-**Bear Tamer** — no action. At dawn `computeBearTamerGrowl()` checks the Bear Tamer's two neighbours from `getLivingNeighbours()` (roles.js): the nearest *living* seat on each side in `getSeating()` order (`players` join order, narrator excluded), wrapping around. If either is a werewolf, `bearTamerGrowl = true` and `DawnReport` shows "The bears growled at dawn" to everyone (the Bear Tamer also gets a private row: growling or silent). `SeatingTable` uses the same helpers, so the picture always matches the growl; it highlights each viewer's own neighbours, never the Bear Tamer's.
+**Bear Tamer** — no action. At dawn `computeBearTamerGrowl()` checks the Bear Tamer's two neighbours from `getLivingNeighbours()` (roles.js): the nearest *living* seat on each side in `getSeating()` order (`players` in seat order as chosen in the lobby, narrator excluded), wrapping around. If either is a werewolf, `bearTamerGrowl = true` and `DawnReport` shows "The bears growled at dawn" to everyone (the Bear Tamer also gets a private row: growling or silent). `SeatingTable` uses the same helpers, so the picture always matches the growl; it highlights each viewer's own neighbours, never the Bear Tamer's.
 
 **Sisters** — two players who know each other's identity at game start. No night action. Their role key is `sister` (each gets the same key); `getSisters(roleMap)` returns both IDs. `useGameState` exposes `gs.isSister` and `gs.fellowSisters` (the other sister's ID). At `RoleRevealScreen`, the RoleCard shows a "Your Sister" box identical in structure to the wolves' "Fellow Werewolves" box. The custom-mode lobby toggle adds 2 slots (handled by `usedSlots` reduce counting `sister` as 2). At night only, the Sisters talk in their own chat (`PrivateChat chat="sister"`, `rooms/{id}/sisterChat`); the narrator observes it when the game has Sisters (`room.roleComposition.sister`). There is no day button and the rules refuse posts outside `status == 'night'`. Bot Sisters never post there (decided: no bot lines for this chat).
 
@@ -472,7 +481,7 @@ Writes are limited to what the app does; anything else is denied:
 - **Create**: only as host (`hostId == uid`, `memberIds == [uid]`, status `lobby`, one player = you).
 - **Read rooms**: any signed-in user (join-by-code must find the room before you're a member).
 - **Join**: a non-member in a lobby room appends only themselves to `players` (with `isHost: false`) and to `memberIds`.
-- **Members**: leave the lobby / toggle own `isReady` (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'` (wolves: only `wolfVotes.<own uid>` and `werewolfObserved` — the victim `werewolf` is host-only); add only themselves to `roleAcknowledged` at night; write only `votes.<uid>` while `status == 'day'` (never the revealed Village Idiot, `idiotRevealed`); add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
+- **Members**: leave the lobby / toggle own `isReady` or change own `seat` (an int 0–29) (checked with `players.removeAll()` diffs); write only their role's `nightActions` keys while `status == 'night'` (wolves: only `wolfVotes.<own uid>` and `werewolfObserved` — the victim `werewolf` is host-only); add only themselves to `roleAcknowledged` at night; write only `votes.<uid>` while `status == 'day'` (never the revealed Village Idiot, `idiotRevealed`); add/remove only themselves in `disconnectedPlayers`; take over `hostId` only for themselves.
 - **Hunter**: while `hunterTriggered == uid`, may write `players`, `winner`, `status`, `hunterTriggered`, `events` (`hunterShoot` runs on the Hunter's phone, not the host's), plus `roles`/`wildChildTurnedAt` only to turn `wildChildId` from `wild_child` into `werewolf`, and `villagePowersLost` only to `true` (shooting the Elder).
 - **Host**: anything except `code`, `createdAt`, `hostId`, `memberIds`.
 - **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf`, `big_bad_wolf` and `wolf_father` roles, and the player in `infectedId`, post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`.
@@ -517,6 +526,5 @@ cd android
 - Disconnected players are eliminated at the end of the phase they left in (no multi-phase grace period)
 - Host failover needs every player on a version with `useHostFailover`; an older host never sends heartbeats and would be replaced after ~25s
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
-- **Seat selection**: Bear Tamer neighbors are determined by join order. A future enhancement could let players drag-reorder their seats in the lobby before game start, which would make the Bear Tamer's information more meaningful and closer to the physical game experience.
 - **Bot cap lifted until 2.0**: bots may fill the whole table (for solo testing). For 2.0, decide whether to bring back the half-table cap (`botSeats` returned `{ bots, missing }` with `bots = min(empty, humans)`)
 - Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are Custom/Narrator-mode only (not in `ROLE_COMPOSITIONS`)

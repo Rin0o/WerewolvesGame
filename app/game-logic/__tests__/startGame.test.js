@@ -51,7 +51,7 @@ describe('startGame', () => {
   it('the night begins once every player still at the table has read their role', async () => {
     const update = await start(humans(5), { botCount: 2 });
     const room = { ...update, disconnectedPlayers: ['h4'] };
-    expect(playersStillReading(room).map((p) => p.id)).toEqual(['h0', 'h1', 'h2', 'h3']);
+    expect(playersStillReading(room).map((p) => p.id).sort()).toEqual(['h0', 'h1', 'h2', 'h3']);
     expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2'] })).toBe(false);
     expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2', 'h3'] })).toBe(true);
   });
@@ -68,6 +68,14 @@ describe('startGame', () => {
     const update = await start(humans(8));
     const witch = Object.keys(update.roles).find((id) => update.roles[id] === ROLE.WITCH);
     expect(update.witchPotions).toEqual({ [witch]: { save: true, poison: true } });
+  });
+
+  it('seats players where they sat in the lobby and bots in the free seats', async () => {
+    const players = humans(3).map((p, i) => (i === 0 ? { ...p, seat: 4 } : i === 2 ? { ...p, seat: 1 } : p));
+    const update = await start(players, { botCount: 2 });
+    expect(update.players.map((p) => p.seat)).toEqual([0, 1, 2, 3, 4]);
+    expect(update.players[4].id).toBe('h0');
+    expect(update.players[1].id).toBe('h2');
   });
 
   it('keeps the narrator in the game without a role', async () => {

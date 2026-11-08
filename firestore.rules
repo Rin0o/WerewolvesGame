@@ -87,7 +87,11 @@ service cloud.firestore {
           && playersRemoved()[0].id == uid();
       }
 
-      function togglingReady() {
+      function validSeat(p) {
+        return !('seat' in p) || (p.seat is int && p.seat >= 0 && p.seat < 30);
+      }
+
+      function editingOwnLobbyEntry() {
         return before().status == 'lobby'
           && changedOnly(['players'])
           && after().players.size() == before().players.size()
@@ -95,7 +99,8 @@ service cloud.firestore {
           && playersAdded().size() == 1
           && playersRemoved()[0].id == uid()
           && playersAdded()[0].id == uid()
-          && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady']);
+          && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady', 'seat'])
+          && validSeat(playersAdded()[0]);
       }
 
       function ownWolfVoteOnly() {
@@ -185,7 +190,7 @@ service cloud.firestore {
         || joining()
         || (memberOf(before()) && (
           leavingLobby()
-          || togglingReady()
+          || editingOwnLobbyEntry()
           || nightAction()
           || voting()
           || connection()
