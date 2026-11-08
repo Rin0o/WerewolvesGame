@@ -11,27 +11,63 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { subscribeToWerewolfChat, sendWerewolfMessage, CHAT_MESSAGE_MAX } from '../firebase/roomService';
+import {
+  subscribeToWerewolfChat,
+  sendWerewolfMessage,
+  subscribeToSisterChat,
+  sendSisterMessage,
+  CHAT_MESSAGE_MAX,
+} from '../firebase/roomService';
 import { NIGHT, RADIUS, SPACING, FONTS } from '../constants/theme';
 import { ROLE_ICONS } from '../constants/icons';
 
-export default function WerewolfChat({ visible, onClose, roomId, playerId, nickname, isAlive, isNarrator = false }) {
+const SEND_ICON = require('../../assets/send_night.webp');
+
+const CHATS = {
+  werewolf: {
+    title: 'Wolf Pack Chat',
+    icon: ROLE_ICONS.werewolf,
+    empty: 'No messages yet. Wolves only.',
+    placeholder: 'Whisper to the pack...',
+    narratorNote: '📖 Narrator — observing the wolf pack',
+    deadNote: '🐺 You are dead — watching from the shadows',
+    subscribe: subscribeToWerewolfChat,
+    send: sendWerewolfMessage,
+  },
+  sister: {
+    title: 'Sisters Chat',
+    icon: ROLE_ICONS.sister,
+    empty: 'No messages yet. Only you and your sister can read this.',
+    placeholder: 'Whisper to your sister...',
+    narratorNote: '📖 Narrator — observing the sisters',
+    deadNote: '🕯️ You are dead — watching over your sister',
+    subscribe: subscribeToSisterChat,
+    send: sendSisterMessage,
+  },
+};
+
+export default function PrivateChat({ chat, visible, onClose, roomId, playerId, nickname, isAlive, isNarrator = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const config = CHATS[chat];
 
   const t = NIGHT;
 
   useEffect(() => {
     if (!roomId) return;
-    const unsub = subscribeToWerewolfChat(roomId, setMessages);
+    const unsub = config.subscribe(roomId, setMessages);
     return () => unsub();
-  }, [roomId]);
+  }, [roomId, chat]);
 
   async function send() {
     const trimmed = text.trim();
     if (!trimmed || !isAlive) return;
     setText('');
-    await sendWerewolfMessage(roomId, playerId, nickname, trimmed);
+    try {
+      await config.send(roomId, playerId, nickname, trimmed);
+    } catch {
+      setText(trimmed);
+    }
   }
 
   const reversed = [...messages].reverse();
@@ -46,8 +82,8 @@ export default function WerewolfChat({ visible, onClose, roomId, playerId, nickn
           <View style={styles.handle} />
 
           <View style={styles.headerRow}>
-            <Image source={ROLE_ICONS.werewolf} style={styles.headerIcon} resizeMode="contain" />
-            <Text style={[styles.title, { color: t.accent }]}>Wolf Pack Chat</Text>
+            <Image source={config.icon} style={styles.headerIcon} resizeMode="contain" />
+            <Text style={[styles.title, { color: t.accent }]}>{config.title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Text style={[styles.closeText, { color: t.textMuted }]}>✕</Text>
             </TouchableOpacity>
@@ -61,7 +97,7 @@ export default function WerewolfChat({ visible, onClose, roomId, playerId, nickn
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <Text style={[styles.empty, { color: t.textMuted }]}>
-                No messages yet. Wolves only.
+                {config.empty}
               </Text>
             }
             renderItem={({ item }) => {
@@ -91,30 +127,26 @@ export default function WerewolfChat({ visible, onClose, roomId, playerId, nickn
                 value={text}
                 onChangeText={setText}
                 maxLength={CHAT_MESSAGE_MAX}
-                placeholder="Whisper to the pack..."
+                placeholder={config.placeholder}
                 placeholderTextColor={t.textMuted}
                 onSubmitEditing={send}
                 returnKeyType="send"
                 blurOnSubmit={false}
               />
-              <TouchableOpacity
-                style={[styles.sendBtn, { backgroundColor: t.primary }]}
-                onPress={send}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.sendText}>↑</Text>
+              <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.8} accessibilityLabel="Send">
+                <Image source={SEND_ICON} style={styles.sendIcon} resizeMode="contain" />
               </TouchableOpacity>
             </View>
           ) : isNarrator ? (
             <View style={[styles.spectatingRow, { borderTopColor: t.border }]}>
               <Text style={[styles.spectatingText, { color: t.textMuted }]}>
-                📖 Narrator — observing the wolf pack
+                {config.narratorNote}
               </Text>
             </View>
           ) : (
             <View style={[styles.spectatingRow, { borderTopColor: t.border }]}>
               <Text style={[styles.spectatingText, { color: t.textMuted }]}>
-                🐺 You are dead — watching from the shadows
+                {config.deadNote}
               </Text>
             </View>
           )}
@@ -198,13 +230,12 @@ const styles = StyleSheet.create({
     ...FONTS.body,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  sendIcon: { width: 52, height: 52 },
   spectatingRow: {
     padding: SPACING.md,
     borderTopWidth: 1,

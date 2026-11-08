@@ -191,31 +191,46 @@ export function subscribeToDayChat(roomId, callback) {
   });
 }
 
-// ─── Werewolf chat ────────────────────────────────────────────────────────────
+// ─── Private night chats (werewolves, sisters) ────────────────────────────────
 
-export async function clearWerewolfChat(roomId) {
-  const chatRef = collection(db, 'rooms', roomId, 'werewolfChat');
-  const snap = await getDocs(chatRef);
+async function clearChat(roomId, chat) {
+  const snap = await getDocs(collection(db, 'rooms', roomId, chat));
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
 }
 
-export async function sendWerewolfMessage(roomId, senderId, senderNickname, text) {
-  const chatRef = collection(db, 'rooms', roomId, 'werewolfChat');
-  await addDoc(chatRef, {
-    senderId,
-    senderNickname,
-    text,
-    createdAt: serverTimestamp(),
+async function sendChatMessage(roomId, chat, senderId, senderNickname, text) {
+  await addDoc(collection(db, 'rooms', roomId, chat), { senderId, senderNickname, text, createdAt: serverTimestamp() });
+}
+
+function subscribeToChat(roomId, chat, callback) {
+  const q = query(collection(db, 'rooms', roomId, chat), orderBy('createdAt', 'asc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   });
 }
 
+export function clearWerewolfChat(roomId) {
+  return clearChat(roomId, 'werewolfChat');
+}
+
+export function sendWerewolfMessage(roomId, senderId, senderNickname, text) {
+  return sendChatMessage(roomId, 'werewolfChat', senderId, senderNickname, text);
+}
+
 export function subscribeToWerewolfChat(roomId, callback) {
-  const chatRef = collection(db, 'rooms', roomId, 'werewolfChat');
-  const q = query(chatRef, orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snap) => {
-    const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback(messages);
-  });
+  return subscribeToChat(roomId, 'werewolfChat', callback);
+}
+
+export function clearSisterChat(roomId) {
+  return clearChat(roomId, 'sisterChat');
+}
+
+export function sendSisterMessage(roomId, senderId, senderNickname, text) {
+  return sendChatMessage(roomId, 'sisterChat', senderId, senderNickname, text);
+}
+
+export function subscribeToSisterChat(roomId, callback) {
+  return subscribeToChat(roomId, 'sisterChat', callback);
 }
 
 // ─── Player notes (stored per-device only via AsyncStorage, not Firestore) ───

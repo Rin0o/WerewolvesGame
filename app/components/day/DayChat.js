@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   FlatList,
@@ -12,6 +13,8 @@ import {
 } from 'react-native';
 import { subscribeToDayChat, sendDayMessage, CHAT_MESSAGE_MAX } from '../../firebase/roomService';
 import { RADIUS, SPACING, FONTS } from '../../constants/theme';
+
+const SEND_ICON = require('../../../assets/send_day.webp');
 
 export default function DayChat({ visible, onClose, theme: t, roomId, playerId, nickname, isAlive }) {
   const [messages, setMessages] = useState([]);
@@ -27,7 +30,11 @@ export default function DayChat({ visible, onClose, theme: t, roomId, playerId, 
     const trimmed = text.trim();
     if (!trimmed || !isAlive) return;
     setText('');
-    await sendDayMessage(roomId, playerId, nickname, trimmed);
+    try {
+      await sendDayMessage(roomId, playerId, nickname, trimmed);
+    } catch {
+      setText(trimmed);
+    }
   }
 
   const reversed = [...messages].reverse();
@@ -92,12 +99,8 @@ export default function DayChat({ visible, onClose, theme: t, roomId, playerId, 
                 returnKeyType="send"
                 blurOnSubmit={false}
               />
-              <TouchableOpacity
-                style={[styles.sendBtn, { backgroundColor: t.primary }]}
-                onPress={send}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.sendText}>↑</Text>
+              <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.8} accessibilityLabel="Send">
+                <Image source={SEND_ICON} style={styles.sendIcon} resizeMode="contain" />
               </TouchableOpacity>
             </View>
           ) : (
@@ -186,13 +189,12 @@ const styles = StyleSheet.create({
     ...FONTS.body,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  sendIcon: { width: 52, height: 52 },
   spectatingRow: {
     padding: SPACING.md,
     borderTopWidth: 1,

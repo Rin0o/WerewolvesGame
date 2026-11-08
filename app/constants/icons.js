@@ -11,6 +11,13 @@ export const ROLE_ICONS = {
   sister:     require('../../assets/role_icons/sisters.webp'),
   white_wolf: require('../../assets/role_icons/white_wolf.webp'),
   wolf_hound: require('../../assets/role_icons/wolf_hound.webp'),
+  fox:        require('../../assets/role_icons/fox.webp'),
+  wild_child: require('../../assets/role_icons/wild_child.webp'),
+  village_idiot: require('../../assets/role_icons/village_idiot.webp'),
+  raven:      require('../../assets/role_icons/raven.webp'),
+  big_bad_wolf: require('../../assets/role_icons/big_bad_wolf.webp'),
+  wolf_father: require('../../assets/role_icons/wolf_father.webp'),
+  elder:      require('../../assets/role_icons/elder.webp'),
 };
 
 export const SUSPICION_ICONS = {

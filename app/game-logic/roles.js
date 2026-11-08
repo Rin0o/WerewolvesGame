@@ -1,4 +1,4 @@
-import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, isWolfRole } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, isWolfRole, isPackWolf } from '../constants/roles';
 
 const ALL_SELECTABLE_ROLES = [
   ROLE.VILLAGER, ROLE.WEREWOLF, ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID,
@@ -76,7 +76,7 @@ export function checkWinCondition(players, roleMap, lovers = null) {
     if (alive.length === 2 && bothLoversAlive) return 'lovers';
   }
 
-  const pack = alive.filter((p) => roleMap[p.id] === ROLE.WEREWOLF).length;
+  const pack = alive.filter((p) => isPackWolf(roleMap[p.id])).length;
   const whiteWolfAlive = alive.some((p) => roleMap[p.id] === ROLE.WHITE_WOLF);
 
   if (whiteWolfAlive && alive.length === 1) return 'white_wolf';
@@ -95,8 +95,26 @@ export function getAvailableRolesForThief(roleMap) {
 }
 
 /**
+ * Returns the roles a player could hold in this game, in ROLE_DEFINITIONS order: everything dealt
+ * (roleComposition), Werewolf and Villager (a Wild Child or Wolf Hound can become them), and, when a
+ * Thief was dealt, every role the Thief could steal. Without a recorded composition, every role.
+ */
+export function rolesInPlay(roleComposition) {
+  const allRoles = Object.keys(ROLE_DEFINITIONS);
+  if (!roleComposition || Object.keys(roleComposition).length === 0) return allRoles;
+  const dealt = Object.keys(roleComposition);
+  const stealable = dealt.includes(ROLE.THIEF) ? ALL_SELECTABLE_ROLES.filter((r) => !dealt.includes(r)) : [];
+  const inPlay = new Set([...dealt, ROLE.WEREWOLF, ROLE.VILLAGER, ...stealable]);
+  return allRoles.filter((r) => inPlay.has(r));
+}
+
+/**
  * Returns the partner ID for a given lover, or null if not a lover.
  */
+export function nicknameOf(players = [], id) {
+  return players.find((p) => p.id === id)?.nickname || '?';
+}
+
 export function getLoversPartner(playerId, lovers) {
   if (!lovers || !lovers.includes(playerId)) return null;
   return lovers.find((id) => id !== playerId) || null;
@@ -135,6 +153,19 @@ export function getLivingNeighbours(players, playerId) {
     return null;
   };
   return [nearest(-1), nearest(1)];
+}
+
+/**
+ * Returns the players the Fox sniffs when pointing at targetId, in seating order:
+ * the target's living neighbour on one side, the target, then the other neighbour (no duplicates).
+ */
+export function getFoxGroup(players, targetId) {
+  const [left, right] = getLivingNeighbours(players, targetId);
+  return [...new Set([left, targetId, right].filter(Boolean))];
+}
+
+export function foxSmellsWolf(players, roleMap, targetId) {
+  return getFoxGroup(players, targetId).some((id) => isWolfRole(roleMap[id]));
 }
 
 export { ROLE };

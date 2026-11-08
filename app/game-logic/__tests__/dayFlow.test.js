@@ -6,7 +6,7 @@ jest.mock('../../firebase/roomService', () => ({
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
-import { resolveLynch, hunterShoot, startNextNight, tiedForRevote, startRevote, TIE_RULE } from '../gameManager';
+import { resolveLynch, hunterShoot, startNextNight, tiedForRevote, startRevote, nextNightSubPhase, TIE_RULE } from '../gameManager';
 import { getRoom, updateRoom, eliminatePlayer, clearNightActions } from '../../firebase/roomService';
 import { makeGame, votesFor, lastUpdate, eventsOf, ROOM_ID } from './helpers';
 
@@ -75,6 +75,12 @@ describe('resolveLynch', () => {
     expect(update.nightSubPhase).toBe('saviour');
     expect(update.votes).toEqual({});
     expect(update.nightActions).toEqual({});
+  });
+
+  it('logs the lynched player\'s role by name, never their infection', async () => {
+    const votes = votesFor({ sam: 'vic', sal: 'vic', will: 'vic' });
+    expect(eventsOf(await lynch(day(VILLAGE, { votes })))[0]).toMatch(/Role: Villager$/);
+    expect(eventsOf(await lynch(day(VILLAGE, { votes, infectedId: 'vic' })))[0]).toMatch(/Role: Villager$/);
   });
 
   it('plans the next night without the lynched player', async () => {
@@ -183,5 +189,121 @@ describe('startNextNight', () => {
     getRoom.mockResolvedValue(overrides && freshRoom(overrides));
     await startNextNight(ROOM_ID);
     expect(updateRoom).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Big Bad Wolf after a wolf is lynched', () => {
+  it('no longer gets its own step the next night', async () => {
+    const roles = { ...VILLAGE, bob: 'big_bad_wolf' };
+    const game = day(roles, { votes: votesFor({ sam: 'will', vic: 'will', vera: 'will', sal: 'will' }) });
+    const update = await lynch(game);
+    const nextNight = {
+      ...game,
+      ...update,
+      players: game.players.map((p) => (p.id === 'will' ? { ...p, isAlive: false } : p)),
+    };
+    expect(update.nightSubPhase).toBe('saviour');
+    expect(nextNightSubPhase(nextNight, 'saviour')).toBe('werewolf');
+    expect(nextNightSubPhase(nextNight, 'werewolf')).not.toBe('big_bad_wolf');
+  });
+});
+
+describe('the Raven\'s mark at the vote', () => {
+  const ROLES = { ...VILLAGE, rae: 'raven' };
+
+  it('the 2 extra votes lynch the marked player', async () => {
+    const game = day(ROLES, { ravenMark: 'vera', votes: votesFor({ will: 'sam', wanda: 'sam', vic: 'vera' }) });
+    await lynch(game);
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+  });
+
+  it('lynches the marked player even when nobody votes', async () => {
+    await lynch(day(ROLES, { ravenMark: 'vera', votes: {} }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'vera');
+  });
+
+  it('can create a tie, which then goes to a revote without the 2 votes', () => {
+    const game = day(ROLES, { tieRule: TIE_RULE.REVOTE, ravenMark: 'vera', votes: votesFor({ will: 'sam', wanda: 'sam' }) });
+    expect(tiedForRevote(game).sort()).toEqual(['sam', 'vera']);
+  });
+
+  it('does not count in the revote', async () => {
+    const game = day(ROLES, { ravenMark: 'vera', revoteTargets: ['sam', 'vera'], votes: votesFor({ will: 'sam' }) });
+    await lynch(game);
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'sam');
+  });
+
+  it('is cleared once the day is resolved', async () => {
+    expect((await lynch(day(ROLES, { ravenMark: 'vera', votes: votesFor({ will: 'vera' }) }))).ravenMark).toBeNull();
+  });
+});
+
+describe('the Village Idiot', () => {
+  const ROLES = { ...VILLAGE, ida: 'village_idiot' };
+  const voteOutIda = votesFor({ will: 'ida', wanda: 'ida', sam: 'ida', vic: 'ida' });
+
+  it('survives the first lynch, is revealed and loses the vote', async () => {
+    const update = await lynch(day(ROLES, { votes: voteOutIda }));
+    expect(update.idiotRevealed).toBe('ida');
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+    expect(eventsOf(update)).toEqual([
+      'Day 2: Ida was voted out, but turned out to be the Village Idiot. The village spared them, but they can no longer vote.',
+    ]);
+    expect(update.status).toBe('night');
+  });
+
+  it('dies when the village votes them out a second time', async () => {
+    const update = await lynch(day(ROLES, { votes: voteOutIda, idiotRevealed: 'ida' }));
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'ida');
+    expect(update.idiotRevealed).toBeUndefined();
+  });
+
+  it('takes no lover down when spared', async () => {
+    await lynch(day(ROLES, { votes: voteOutIda, lovers: ['ida', 'vic'] }));
+    expect(eliminatePlayer).not.toHaveBeenCalled();
+  });
+
+  it('is not saved from the Hunter\'s shot', async () => {
+    const game = day(ROLES, { dead: ['hank'], hunterTriggered: 'hank', hunterDiedDuring: 'day' });
+    await hunterShoot(ROOM_ID, game, 'ida');
+    expect(eliminatePlayer).toHaveBeenCalledWith(ROOM_ID, 'ida');
+  });
+});
+
+describe('the Wild Child by day', () => {
+  const ROLES = { will: 'werewolf', kid: 'wild_child', sam: 'seer', vic: 'villager', vera: 'villager', hank: 'hunter' };
+  const withChild = (roles, overrides = {}) => day(roles, { wildChildId: 'kid', wildChildModel: 'vic', ...overrides });
+
+  it('becomes a werewolf when the village lynches its role model, and wakes with the pack', async () => {
+    const update = await lynch(withChild(ROLES, { votes: votesFor({ will: 'vic', sam: 'vic', vera: 'vic' }) }));
+    expect(update.roles.kid).toBe('werewolf');
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
+    expect(update.status).toBe('night');
+    expect(update.nightSubPhase).toBe('werewolf');
+  });
+
+  it('counts as a wolf in the win check straight away', async () => {
+    const small = { will: 'werewolf', kid: 'wild_child', vic: 'villager', vera: 'villager' };
+    const update = await lynch(withChild(small, { votes: votesFor({ will: 'vic', vera: 'vic' }) }));
+    expect(update.winner).toBe('werewolves');
+  });
+
+  it('stays a villager when someone else is lynched', async () => {
+    const update = await lynch(withChild(ROLES, { votes: votesFor({ will: 'vera', sam: 'vera' }) }));
+    expect(update.roles).toBeUndefined();
+    expect(update.wildChildTurnedAt).toBeUndefined();
+  });
+
+  it('does not turn when it dies with its role model', async () => {
+    const lovers = { lovers: ['vic', 'kid'], votes: votesFor({ will: 'vic', sam: 'vic' }) };
+    expect((await lynch(withChild(ROLES, lovers))).roles).toBeUndefined();
+  });
+
+  it('is turned by the Hunter\'s last shot at its role model', async () => {
+    const game = withChild(ROLES, { dead: ['hank'], hunterTriggered: 'hank', hunterDiedDuring: 'day' });
+    await hunterShoot(ROOM_ID, game, 'vic');
+    const update = lastUpdate(updateRoom);
+    expect(update.roles).toEqual({ ...ROLES, kid: 'werewolf' });
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
   });
 });

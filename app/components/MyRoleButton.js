@@ -54,6 +54,7 @@ export default function MyRoleButton({ theme: t, gs, room }) {
         role={gs.myRole}
         title="Your secret role"
         groups={relatedGroups(gs, room)}
+        infected={!!gs.isInfected}
       >
         {composition && <RolesInGame theme={t} composition={composition} onSelectRole={setInfoRole} />}
         <RoleInfoModal visible={!!infoRole} onClose={() => setInfoRole(null)} theme={t} role={infoRole} />

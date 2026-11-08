@@ -1,16 +1,29 @@
 import {
   assignRoles,
   checkWinCondition,
+  foxSmellsWolf,
   getAvailableRolesForThief,
+  getFoxGroup,
   getLivingNeighbours,
   getLoversPartner,
   getPlayerWithRole,
   getSeating,
   getSisters,
   getWerewolves,
+  nicknameOf,
+  rolesInPlay,
 } from '../roles';
-import { ROLE, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
 import { makeGame, countRoles } from './helpers';
+
+describe('nicknameOf', () => {
+  it('finds a player\'s name, with ? for anyone missing', () => {
+    const { players } = makeGame({ vic: 'villager' });
+    expect(nicknameOf(players, 'vic')).toBe('Vic');
+    expect(nicknameOf(players, 'ghost')).toBe('?');
+    expect(nicknameOf(undefined, 'vic')).toBe('?');
+  });
+});
 
 function players(count) {
   return Array.from({ length: count }, (_, i) => ({ id: `p${i}`, nickname: `P${i}`, isAlive: true }));
@@ -114,6 +127,13 @@ describe('checkWinCondition', () => {
   it('villagers win when no werewolf is alive', () => {
     const game = makeGame({ w: 'werewolf', a: 'villager', b: 'seer' }, { dead: ['w'] });
     expect(checkWinCondition(game.players, game.roles)).toBe('villagers');
+  });
+
+  it('the Big Bad Wolf counts as part of the pack', () => {
+    const alone = makeGame({ bbw: 'big_bad_wolf', a: 'villager', b: 'seer' }, { dead: ['b'] });
+    expect(checkWinCondition(alone.players, alone.roles)).toBe('werewolves');
+    const villagersLeft = makeGame({ bbw: 'big_bad_wolf', a: 'villager', b: 'seer', c: 'villager' });
+    expect(checkWinCondition(villagersLeft.players, villagersLeft.roles)).toBeNull();
   });
 
   it('werewolves win when they are at least as many as everyone else', () => {
@@ -231,5 +251,46 @@ describe('seating', () => {
 
   it('has no neighbours when alone', () => {
     expect(getLivingNeighbours(table(['bo', 'cy', 'dan', 'eve']), 'ana')).toEqual([]);
+  });
+});
+
+describe('rolesInPlay (the Notes role picker)', () => {
+  it('lists only the dealt roles, plus Werewolf and Villager, in the usual order', () => {
+    expect(rolesInPlay({ werewolf: 2, seer: 1, villager: 3 })).toEqual(['villager', 'werewolf', 'seer']);
+    expect(rolesInPlay({ big_bad_wolf: 1, wild_child: 1, hunter: 1, werewolf: 1 }))
+      .toEqual(['villager', 'werewolf', 'hunter', 'wild_child', 'big_bad_wolf']);
+  });
+
+  it('adds every role a Thief could steal', () => {
+    expect(rolesInPlay({ werewolf: 1, thief: 1, seer: 1, villager: 2 }))
+      .toEqual(['villager', 'werewolf', 'seer', 'witch', 'hunter', 'cupid', 'thief']);
+  });
+
+  it('falls back to every role without a recorded composition', () => {
+    expect(rolesInPlay(undefined)).toHaveLength(Object.keys(ROLE_DEFINITIONS).length);
+  });
+});
+
+describe('the Fox', () => {
+  const ROLES = { ana: 'fox', bo: 'villager', cy: 'villager', dan: 'werewolf', eve: 'villager' };
+  const table = (dead = []) => makeGame(ROLES, { dead }).players;
+
+  it('sniffs the target and both living neighbours, in seating order', () => {
+    expect(getFoxGroup(table(), 'cy')).toEqual(['bo', 'cy', 'dan']);
+    expect(getFoxGroup(table(['dan']), 'cy')).toEqual(['bo', 'cy', 'eve']);
+  });
+
+  it('counts each player once when the table is small', () => {
+    expect(getFoxGroup(table(['bo', 'cy', 'dan']), 'eve')).toEqual(['ana', 'eve']);
+  });
+
+  it('smells a wolf when one of the three is a wolf', () => {
+    expect(foxSmellsWolf(table(), ROLES, 'cy')).toBe(true);
+    expect(foxSmellsWolf(table(), ROLES, 'eve')).toBe(true);
+    expect(foxSmellsWolf(table(), ROLES, 'ana')).toBe(false);
+  });
+
+  it('smells the White Wolf too', () => {
+    expect(foxSmellsWolf(table(), { ...ROLES, dan: 'villager', bo: 'white_wolf' }, 'ana')).toBe(true);
   });
 });

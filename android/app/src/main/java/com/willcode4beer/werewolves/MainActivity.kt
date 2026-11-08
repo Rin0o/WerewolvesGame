@@ -1,4 +1,4 @@
-package com.millardshollow.werewolves
+package com.willcode4beer.werewolves
 
 import android.os.Build
 import android.os.Bundle

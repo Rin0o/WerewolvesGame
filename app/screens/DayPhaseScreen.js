@@ -20,15 +20,19 @@ import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { confirmDayVote, closeVoting, disconnectPlayer, reconnectPlayer, sendDayMessage } from '../firebase/roomService';
 import { botVoteTarget, botDayChatter, botVoteLine } from '../game-logic/botChat';
-import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, TIE_RULE } from '../game-logic/gameManager';
-import { allVotesIn, tallyVotes } from '../game-logic/voteManager';
+import { resolveLynch, startNextNight, hunterShoot, tiedForRevote, startRevote, isIdiotSpared, TIE_RULE } from '../game-logic/gameManager';
+import { tallyVotes, ravenVotes, activeRavenMark, RAVEN_VOTES } from '../game-logic/voteManager';
+import { rolesInPlay, nicknameOf } from '../game-logic/roles';
+import {
+  discussionSecondsFor, allDayVotesCast, votingDone, humansAllVoted, botsYetToVote, botMaySpeak, canVote, dayVoters,
+} from '../game-logic/hostDecisions';
 import Timer from '../components/Timer';
 import PlayerCard from '../components/PlayerCard';
 import NotesPanel from '../components/NotesPanel';
 import DayChat from '../components/day/DayChat';
-import WerewolfChat from '../components/WerewolfChat';
+import PrivateChat from '../components/PrivateChat';
 import NarratorDayDashboard from '../components/narrator/NarratorDayDashboard';
-import NightAnnouncement from '../components/day/NightAnnouncement';
+import DawnReport from '../components/day/DawnReport';
 import HunterSection from '../components/day/HunterSection';
 import LynchResultModal from '../components/day/LynchResultModal';
 import SeatingTable, { SeatingTableButton } from '../components/SeatingTable';
@@ -37,9 +41,11 @@ import BarButton from '../components/BarButton';
 import GameOptionsModal from '../components/GameOptionsModal';
 import ConfirmChoiceButton from '../components/ConfirmChoiceButton';
 import useUnreadMessages from '../hooks/useUnreadMessages';
+import useTurnedWolfNotice from '../hooks/useTurnedWolfNotice';
+import TurnedWolfNotice from '../components/TurnedWolfNotice';
 import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { SUSPICION_LABELS, ROLE_ICONS } from '../constants/icons';
-import { ROLE_DEFINITIONS, ROLE } from '../constants/roles';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 
 const DAY_BACKGROUND       = require('../../assets/day_background.webp');
 const NOTES_ICON           = require('../../assets/notes.webp');
@@ -48,16 +54,9 @@ const DAY_CONFIRM_ICON     = require('../../assets/day_confirm.webp');
 const DAY_CHECK_ICON       = require('../../assets/day_check.webp');
 const AVATAR_UNKNOWN       = require('../../assets/role_icons/unknown.webp');
 const AVATAR_DEAD          = require('../../assets/suspicion_level_icons/dead.webp');
-const BEAR_GROWL_ICON      = require('../../assets/bear_growl.webp');
 const OPTIONS_ICON         = require('../../assets/options.webp');
+const SCALE_ICON           = require('../../assets/scale.webp');
 
-const DISCUSSION_SECONDS_PER_PLAYER = 30;
-const DISCUSSION_MIN_SECONDS = 90;
-const DISCUSSION_MAX_SECONDS = 240;
-
-function discussionSecondsFor(livingPlayers) {
-  return Math.min(DISCUSSION_MAX_SECONDS, Math.max(DISCUSSION_MIN_SECONDS, livingPlayers * DISCUSSION_SECONDS_PER_PLAYER));
-}
 const HUNTER_SHOT_SECONDS = 20;
 const REVOTE_SECONDS = 60;
 const BOT_VOTE_THINKING_MS = [30000, 90000];
@@ -84,6 +83,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     isOpen: wolfChatOpen,
     enabled: !!gs.isNarrator,
   });
+  const turnedWolfNotice = useTurnedWolfNotice(room, playerId);
   const [resolving, setResolving] = useState(false);
   const [hunterTarget, setHunterTarget] = useState(null);
   const [showTransition, setShowTransition] = useState(true);
@@ -144,15 +144,11 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   const alivePlayers = room?.players?.filter((p) => p.isAlive && !p.isNarrator) || [];
   const disconnected = room?.disconnectedPlayers || [];
-  const allIn = room
-    ? allVotesIn(room.votes || {}, alivePlayers, disconnected)
-    : false;
+  const allIn = room ? allDayVotesCast(room) : false;
   if (room && discussionSecondsRef.current === null) {
     discussionSecondsRef.current = discussionSecondsFor(alivePlayers.length);
   }
-  const humansAllVoted = alivePlayers
-    .filter((p) => !p.isBot && !disconnected.includes(p.id))
-    .every((p) => room?.votes?.[p.id]);
+  const everyHumanVoted = room ? humansAllVoted(room) : true;
 
   function botTargetFor(current, botId) {
     const key = `${current.phase}:${(current.revoteTargets || []).join(',')}:${botId}`;
@@ -164,39 +160,31 @@ export default function DayPhaseScreen({ route, navigation }) {
     return botTargetsRef.current[key];
   }
 
-  function botStillSpeaks(current, bot) {
-    return current && current.status === 'day' && !current.votesClosed && !current.hunterTriggered
-      && (current.players || []).some((p) => p.id === bot.id && p.isAlive);
-  }
-
   useEffect(() => {
-    if (!room || !gs.isHost || !room.botChat || room.status !== 'day' || room.votesClosed) return;
-    const bots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
-    const timers = bots.flatMap((bot) => {
+    if (!gs.isHost || !room?.botChat) return;
+    const timers = botsYetToVote(room).flatMap((bot) => {
       const lines = botDayChatter(room, bot.id, botTargetFor(room, bot.id));
       const delays = lines.map(() => randomBetween(BOT_CHAT_MS)).sort((a, b) => a - b);
       return lines.map((text, i) => setTimeout(() => {
-        if (botStillSpeaks(roomRef.current, bot)) sendDayMessage(roomId, bot.id, bot.nickname, text).catch(() => {});
+        if (botMaySpeak(roomRef.current, bot.id)) sendDayMessage(roomId, bot.id, bot.nickname, text).catch(() => {});
       }, delays[i]));
     });
     return () => timers.forEach(clearTimeout);
   }, [room?.status, room?.phase, room?.revoteTargets, room?.botChat, gs.isHost]);
 
   useEffect(() => {
-    if (!room || !gs.isHost || room.status !== 'day' || room.votesClosed) return;
-    const pendingBots = (room.players || []).filter((p) => p.isBot && p.isAlive && !room.votes?.[p.id]);
-    if (pendingBots.length === 0) return;
-    const timing = humansAllVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
-    const timers = pendingBots.map((bot) => setTimeout(() => {
+    if (!gs.isHost) return;
+    const timing = everyHumanVoted ? BOT_VOTE_QUICK_MS : BOT_VOTE_THINKING_MS;
+    const timers = botsYetToVote(room).map((bot) => setTimeout(() => {
       const current = roomRef.current;
-      if (!botStillSpeaks(current, bot) || current.votes?.[bot.id]) return;
+      if (!botMaySpeak(current, bot.id) || current.votes?.[bot.id]) return;
       const target = botTargetFor(current, bot.id);
       if (!target) return;
       if (current.botChat) sendDayMessage(roomId, bot.id, bot.nickname, botVoteLine(current, target)).catch(() => {});
       confirmDayVote(roomId, bot.id, target);
     }, randomBetween(timing)));
     return () => timers.forEach(clearTimeout);
-  }, [room?.status, room?.votesClosed, room?.revoteTargets, humansAllVoted, gs.isHost]);
+  }, [room?.status, room?.votesClosed, room?.revoteTargets, everyHumanVoted, gs.isHost]);
 
   useEffect(() => {
     discussionTimerExpiredRef.current = false;
@@ -209,8 +197,11 @@ export default function DayPhaseScreen({ route, navigation }) {
     if (!votesClosed && !allIn) return;
     shownResultRef.current = true;
     const votesCopy = { ...votes };
-    const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy);
-    setLastLynchResult({ tallyMap, eliminatedId, tie, votes: votesCopy });
+    const extraVotes = ravenVotes(room);
+    const { tallyMap, eliminatedId, tie } = tallyVotes(votesCopy, extraVotes);
+    setLastLynchResult({
+      tallyMap, eliminatedId, tie, votes: votesCopy, ravenVotes: extraVotes, sparedIdiot: isIdiotSpared(room, eliminatedId),
+    });
     setResultModalVisible(true);
   }, [room?.votesClosed, allIn]);
 
@@ -235,9 +226,7 @@ export default function DayPhaseScreen({ route, navigation }) {
     const current = roomRef.current;
     if (!gs.isHost || !current || current.status !== 'day') return;
     if (current.hunterTriggered || resultModalVisible || resolvingRef.current) return;
-    const voters = (current.players || []).filter((p) => p.isAlive && !p.isNarrator);
-    const votingDone = current.votesClosed || allVotesIn(current.votes || {}, voters, current.disconnectedPlayers || []);
-    if (votingDone) handleResultExpire();
+    if (votingDone(current)) handleResultExpire();
     else if (discussionTimerExpiredRef.current) handleTimerExpire();
   }, [gs.isHost]);
 
@@ -253,14 +242,12 @@ export default function DayPhaseScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, phase, events = [], eliminatedThisNight, hunterTriggered } = room;
+  const { players = [], roles = {}, phase, events = [], hunterTriggered } = room;
   const votes = room.votes || {};
 
   const myVoteEntry = votes[playerId];
   const myVoteConfirmed = myVoteEntry?.confirmed === true;
 
-  const nightVictimIds = Array.isArray(eliminatedThisNight) ? eliminatedThisNight : (eliminatedThisNight ? [eliminatedThisNight] : []);
-  const nightVictims = nightVictimIds.map((id) => players.find((p) => p.id === id)).filter(Boolean);
 
   function handleSelectVote(targetId) {
     if (myVoteConfirmed) return;
@@ -340,10 +327,14 @@ export default function DayPhaseScreen({ route, navigation }) {
 
   const revoteTargets = room.revoteTargets?.length ? room.revoteTargets : null;
   const canBeVoted = (id) => !revoteTargets || revoteTargets.includes(id);
-  const canConfirmVote = gs.isAlive && !gs.isNarrator && !lastLynchResult && !hunterTriggered
+  const iCanVote = canVote(room, playerId);
+  const iAmRevealedIdiot = gs.isAlive && room.idiotRevealed === playerId;
+  const isRevealedIdiot = (p) => p.isAlive && p.id === room.idiotRevealed;
+  const ravenMarked = players.find((p) => p.id === activeRavenMark(room)) || null;
+  const canConfirmVote = iCanVote && !lastLynchResult && !hunterTriggered
     && !!myVoteTarget && !myVoteConfirmed;
   const confirmedCount = Object.values(votes).filter((v) => v?.confirmed).length;
-  const totalEligible = alivePlayers.filter((p) => !disconnected.includes(p.id)).length;
+  const totalEligible = dayVoters(room).filter((p) => !disconnected.includes(p.id)).length;
 
   return (
     <ImageBackground source={DAY_BACKGROUND} style={styles.safe} resizeMode="cover" imageStyle={styles.backgroundImg}>
@@ -381,42 +372,7 @@ export default function DayPhaseScreen({ route, navigation }) {
       </View>
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        {gs.isLover && gs.myLover && (
-          <View style={[styles.loverAnnouncement, { backgroundColor: 'rgba(255,240,248,0.92)', borderColor: '#E85090' }]}>
-            <Text style={styles.loverEmoji}>💘</Text>
-            <Text style={[styles.loverTitle, { color: '#E85090' }]}>You are in love!</Text>
-            <Text style={[styles.announcementText, { color: t.text }]}>
-              Your lover is {gs.myLover.nickname}. If they die, you die too.
-              {'\n'}If you are the last two alive, you win together.
-            </Text>
-          </View>
-        )}
-
-        <NightAnnouncement theme={t} nightVictims={nightVictims} roles={roles} bearTamerGrowl={room.bearTamerGrowl} />
-
-        {gs.myRole === ROLE.BEAR_TAMER && room.bearTamerGrowl !== null && room.bearTamerGrowl !== undefined && (
-          <View style={[
-            styles.bearGrowlCard,
-            { backgroundColor: room.bearTamerGrowl ? 'rgba(180,40,40,0.18)' : 'rgba(40,120,40,0.15)',
-              borderColor: room.bearTamerGrowl ? '#C0392B' : '#27AE60' },
-          ]}>
-            <Image
-              source={room.bearTamerGrowl ? BEAR_GROWL_ICON : ROLE_ICONS.bear_tamer}
-              style={styles.bearGrowlIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.bearGrowlTextBox}>
-              <Text style={[styles.bearGrowlTitle, { color: room.bearTamerGrowl ? '#C0392B' : '#27AE60' }]}>
-                {room.bearTamerGrowl ? 'The bears are growling!' : 'The bears are silent.'}
-              </Text>
-              <Text style={[styles.bearGrowlSub, { color: t.text }]}>
-                {room.bearTamerGrowl
-                  ? 'At least one of your neighbors is a Werewolf.'
-                  : 'Neither of your neighbors is a Werewolf.'}
-              </Text>
-            </View>
-          </View>
-        )}
+        {!showTransition && <DawnReport key={phase} theme={t} room={room} playerId={playerId} />}
 
         {gs.isNarrator && (
           <NarratorDayDashboard
@@ -424,6 +380,8 @@ export default function DayPhaseScreen({ route, navigation }) {
             players={players}
             roles={roles}
             votes={votes}
+            extraVotes={ravenVotes(room)}
+            voters={dayVoters(room)}
             phase={phase}
             onCloseVotes={() => closeVoting(roomId)}
             lastLynchResult={lastLynchResult}
@@ -449,17 +407,28 @@ export default function DayPhaseScreen({ route, navigation }) {
           <>
             {revoteTargets && (
               <View style={[styles.revoteBanner, { backgroundColor: t.glassCard, borderColor: t.accent }]}>
-                <Text style={styles.revoteIcon}>⚖️</Text>
+                <Image source={SCALE_ICON} style={styles.revoteIcon} resizeMode="contain" />
                 <View style={styles.revoteTextCol}>
                   <Text style={[styles.bannerStateLabel, { color: t.accent }]}>Tie — vote again</Text>
                   <Text style={[styles.revoteText, { color: t.text }]}>
-                    Only {revoteTargets.map((id) => players.find((p) => p.id === id)?.nickname || '?').join(' and ')} can be chosen.
+                    Only {revoteTargets.map((id) => nicknameOf(players, id)).join(' and ')} can be chosen.
                     A second tie spares everyone.
                   </Text>
                 </View>
               </View>
             )}
-            {gs.isAlive && !gs.isNarrator && (
+            {iAmRevealedIdiot && (
+              <View style={[styles.votingForBanner, styles.idiotBanner, { backgroundColor: t.glassCard, borderColor: t.accent }]}>
+                <Image source={ROLE_ICONS.village_idiot} style={styles.idiotBannerIcon} resizeMode="contain" />
+                <View style={styles.idiotBannerText}>
+                  <Text style={[styles.bannerStateLabel, { color: t.accent }]}>You can no longer vote</Text>
+                  <Text style={[styles.revoteText, { color: t.text }]}>
+                    The village knows you are the Village Idiot. You can still talk, but if they vote you out again, you die.
+                  </Text>
+                </View>
+              </View>
+            )}
+            {iCanVote && (
               <View style={[
                 styles.votingForBanner,
                 { backgroundColor: t.glassCard, borderColor: myVoteConfirmed ? t.success : myVoteTarget ? t.primary : t.glassBorder },
@@ -510,7 +479,9 @@ export default function DayPhaseScreen({ route, navigation }) {
             <View style={[styles.playerSection, { backgroundColor: t.glassSection }]}>
               <View style={styles.voteSectionHeader}>
                 <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-                  {gs.isNarrator ? 'Players (narrator view)' : gs.isAlive ? 'Tap a player to vote for them' : 'Players (spectating)'}
+                  {gs.isNarrator
+                    ? 'Players (narrator view)'
+                    : iCanVote ? 'Tap a player to vote for them' : gs.isAlive ? 'Players' : 'Players (spectating)'}
                 </Text>
                 <Text style={[styles.voteProgress, { color: t.textMuted }]}>
                   {confirmedCount}/{totalEligible} confirmed
@@ -546,15 +517,26 @@ export default function DayPhaseScreen({ route, navigation }) {
                             ? { ...t, surface: 'transparent', border: 'transparent' }
                             : { ...t, surface: 'transparent', border: 'transparent', text: '#F0ECFF', textMuted: '#ffffff', textSecondary: '#C0A8E0', primary: '#7050B8', accent: '#ffffff' }
                           }
-                          onPress={() => item.isAlive && item.id !== playerId && gs.isAlive && !gs.isNarrator && canBeVoted(item.id) && handleSelectVote(item.id)}
-                          disabled={gs.isNarrator || !gs.isAlive || item.id === playerId || !item.isAlive || myVoteConfirmed || !canBeVoted(item.id)}
+                          onPress={() => item.isAlive && item.id !== playerId && iCanVote && canBeVoted(item.id) && handleSelectVote(item.id)}
+                          disabled={!iCanVote || item.id === playerId || !item.isAlive || myVoteConfirmed || !canBeVoted(item.id)}
                           selected={false}
-                          roleMap={gs.isNarrator || !item.isAlive ? roles : {}}
-                          showRole={gs.isNarrator || !item.isAlive}
+                          roleMap={gs.isNarrator || !item.isAlive || isRevealedIdiot(item) ? roles : {}}
+                          showRole={gs.isNarrator || !item.isAlive || isRevealedIdiot(item)}
                           noDeadOpacity={!item.isAlive}
-                          avatarIcon={item.isAlive ? AVATAR_UNKNOWN : AVATAR_DEAD}
+                          avatarIcon={!item.isAlive ? AVATAR_DEAD : isRevealedIdiot(item) ? ROLE_ICONS.village_idiot : AVATAR_UNKNOWN}
                           avatarIconSize={56}
                         />
+                        {isRevealedIdiot(item) && (
+                          <Text style={[styles.idiotTag, { color: t.accent }]}>Revealed · cannot vote</Text>
+                        )}
+                        {item.id === ravenMarked?.id && (
+                          <View style={styles.ravenTag}>
+                            <Image source={ROLE_ICONS.raven} style={styles.ravenTagIcon} resizeMode="contain" />
+                            <Text style={[styles.idiotTag, styles.ravenTagText, { color: t.danger }]}>
+                              {revoteTargets ? `+${RAVEN_VOTES} (first vote only)` : `+${RAVEN_VOTES} votes from the raven`}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                       {item.isAlive && theyConfirmed && (
                         <Image source={DAY_CHECK_ICON} style={styles.confirmedBadgeImg} resizeMode="contain" />
@@ -583,6 +565,8 @@ export default function DayPhaseScreen({ route, navigation }) {
       )}
 
       <View style={[styles.bottomBar, { borderTopColor: t.glassBorder, backgroundColor: t.glassToolbar }]}>
+        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
+        <SeatingTableButton onPress={() => setTableOpen(true)} />
         <BarButton source={NOTES_ICON} onPress={() => setNotesOpen(true)} accessibilityLabel="Notes" />
         <BarButton
           source={DAY_CHAT_ICON}
@@ -590,7 +574,6 @@ export default function DayPhaseScreen({ route, navigation }) {
           unread={unreadDayMessages}
           accessibilityLabel="Village chat"
         />
-        <SeatingTableButton onPress={() => setTableOpen(true)} />
         {gs.isNarrator && (
           <BarButton
             source={ROLE_ICONS.werewolf}
@@ -599,7 +582,6 @@ export default function DayPhaseScreen({ route, navigation }) {
             accessibilityLabel="Wolf chat"
           />
         )}
-        <BarButton source={OPTIONS_ICON} onPress={() => setOptionsOpen(true)} accessibilityLabel="Options" />
       </View>
 
       <GameOptionsModal
@@ -609,6 +591,8 @@ export default function DayPhaseScreen({ route, navigation }) {
         room={room}
         onLeave={handleExit}
       />
+
+      <TurnedWolfNotice notice={turnedWolfNotice.notice} onDismiss={turnedWolfNotice.dismiss} />
 
       <LynchResultModal
         visible={resultModalVisible}
@@ -627,6 +611,7 @@ export default function DayPhaseScreen({ route, navigation }) {
         players={players}
         events={events}
         playerHooks={playerHooks}
+        roleOptions={rolesInPlay(room.roleComposition)}
       />
 
       <SeatingTable
@@ -648,7 +633,8 @@ export default function DayPhaseScreen({ route, navigation }) {
       />
 
       {gs.isNarrator && (
-        <WerewolfChat
+        <PrivateChat
+          chat="werewolf"
           visible={wolfChatOpen}
           onClose={() => setWolfChatOpen(false)}
           roomId={roomId}
@@ -692,31 +678,6 @@ const styles = StyleSheet.create({
   phaseNumber: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
   title: { ...FONTS.heading, textAlign: 'center' },
   scroll: { flex: 1 },
-  bearGrowlCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: SPACING.md,
-    marginTop: 0,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    gap: SPACING.md,
-  },
-  bearGrowlIcon: { width: 56, height: 56 },
-  bearGrowlTextBox: { flex: 1 },
-  bearGrowlTitle: { ...FONTS.subheading, fontWeight: '700', marginBottom: 2 },
-  bearGrowlSub: { ...FONTS.body },
-  loverAnnouncement: {
-    margin: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  loverEmoji: { fontSize: 32 },
-  loverTitle: { ...FONTS.subheading, fontWeight: '700' },
-  announcementText: { ...FONTS.body, textAlign: 'center' },
   playerSection: { padding: SPACING.md, borderRadius: RADIUS.lg, margin: SPACING.md, marginTop: SPACING.sm },
   voteSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   sectionTitle: {
@@ -779,6 +740,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   notInRevote: { opacity: 0.45 },
+  idiotBanner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  idiotBannerIcon: { width: 56, height: 56 },
+  idiotBannerText: { flex: 1, gap: 2 },
+  idiotTag: { ...FONTS.caption, fontWeight: '700', marginLeft: SPACING.md, marginBottom: SPACING.xs },
+  ravenTag: { flexDirection: 'row', alignItems: 'center', marginLeft: SPACING.md, marginBottom: SPACING.xs, gap: SPACING.xs },
+  ravenTagIcon: { width: 22, height: 22 },
+  ravenTagText: { marginLeft: 0, marginBottom: 0 },
   revoteBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -789,7 +757,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 2,
   },
-  revoteIcon: { fontSize: 32 },
+  revoteIcon: { width: 48, height: 48 },
   revoteTextCol: { flex: 1, gap: 2 },
   revoteText: { ...FONTS.body },
 });

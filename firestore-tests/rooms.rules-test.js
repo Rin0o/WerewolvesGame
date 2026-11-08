@@ -222,6 +222,55 @@ describe('night actions', () => {
     await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'host' }));
   });
 
+  it('the Fox sniffs or stays hidden, and cannot take away its own power', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'fox' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.fox': 'alice' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.foxSkip': true }));
+    await assertFails(updateDoc(as('bob').room, { foxPowerLost: false }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.fox': 'wendy' }));
+    await assertSucceeds(updateDoc(as('host').room, { foxPowerLost: true }));
+  });
+
+  it('the Wild Child picks its role model, and nobody else can', async () => {
+    await seed({ ...NIGHT, phase: 1, roles: { ...NIGHT.roles, bob: 'wild_child' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wildChild': 'sam' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wildChild': 'wendy' }));
+    await assertFails(updateDoc(as('bob').room, { wildChildModel: 'wendy' }));
+  });
+
+  it('the Big Bad Wolf votes with the pack and hunts alone; nobody else can', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'big_bad_wolf' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfVotes.bob': 'sam' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.bigBadWolf': 'wendy' }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.bigBadWolf': 'sam' }));
+    await assertFails(updateDoc(as('bob').room, { 'nightActions.wolfVotes.alice': 'host' }));
+  });
+
+  it('the Wolf-Father votes with the pack and decides alone whether to infect', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'wolf_father' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfVotes.bob': 'sam' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.wolfFather': true }));
+    await assertFails(updateDoc(as('alice').room, { 'nightActions.wolfFatherSkip': true }));
+    await assertFails(updateDoc(as('bob').room, { infectedId: 'sam' }));
+  });
+
+  it('an infected player votes with the pack and keeps their own action; nobody else gains it', async () => {
+    await seed({ ...NIGHT, infectedId: 'sam' });
+    await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.wolfVotes.sam': 'wendy' }));
+    await assertSucceeds(updateDoc(as('sam').room, { 'nightActions.seer': 'wendy' }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.wolfVotes.alice': 'wendy' }));
+    await assertFails(updateDoc(as('wendy').room, { 'nightActions.wolfVotes.wendy': 'host' }));
+  });
+
+  it('the Raven marks or passes, and only the host publishes the mark', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'raven' } });
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.raven': 'alice' }));
+    await assertSucceeds(updateDoc(as('bob').room, { 'nightActions.ravenSkip': true }));
+    await assertFails(updateDoc(as('sam').room, { 'nightActions.raven': 'wendy' }));
+    await assertFails(updateDoc(as('bob').room, { ravenMark: 'wendy' }));
+    await assertSucceeds(updateDoc(as('host').room, { ravenMark: 'alice' }));
+  });
+
   it('nobody but the host advances the night', async () => {
     await assertFails(updateDoc(as('alice').room, { nightSubPhase: 'seer' }));
     await assertSucceeds(updateDoc(as('host').room, { nightSubPhase: 'seer', 'nightActions.werewolf': 'sam' }));
@@ -263,6 +312,48 @@ describe('day', () => {
     };
     await assertFails(updateDoc(as('sam').room, shot));
     await assertSucceeds(updateDoc(as('bob').room, shot));
+  });
+
+  it('a revealed Village Idiot can no longer vote', async () => {
+    await seed({ ...DAY, roles: { ...DAY.roles, sam: 'village_idiot' }, idiotRevealed: 'sam' });
+    await assertFails(updateDoc(as('sam').room, { 'votes.sam': { target: 'alice', confirmed: true } }));
+    await assertSucceeds(updateDoc(as('wendy').room, { 'votes.wendy': { target: 'sam', confirmed: true } }));
+  });
+
+  it('the Hunter\'s shot may turn the Wild Child into a werewolf, and change no other role', async () => {
+    const roles = { ...DAY.roles, wendy: 'wild_child' };
+    await seed({ ...DAY, roles, hunterTriggered: 'bob', wildChildId: 'wendy', wildChildModel: 'sam' });
+    const shot = (newRoles) => ({
+      players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+      winner: null,
+      hunterTriggered: null,
+      events: arrayUnion('The Hunter\'s last shot took down sam.'),
+      roles: newRoles,
+      wildChildTurnedAt: '2026-10-28T20:00:00.000Z',
+    });
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, bob: 'werewolf' })));
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, wendy: 'seer' })));
+    await assertFails(updateDoc(as('bob').room, shot({ ...roles, wendy: 'werewolf', host: 'werewolf' })));
+    await assertSucceeds(updateDoc(as('bob').room, shot({ ...roles, wendy: 'werewolf' })));
+  });
+
+  it('the Hunter who shoots the Elder takes away the village\'s powers, and cannot give them back', async () => {
+    await seed({ ...DAY, roles: { ...DAY.roles, sam: 'elder' }, hunterTriggered: 'bob', villagePowersLost: false });
+    const shot = (villagePowersLost) => ({
+      players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+      hunterTriggered: null,
+      events: arrayUnion('The Hunter\'s last shot took down sam.'),
+      villagePowersLost,
+    });
+    await assertFails(updateDoc(as('bob').room, { ...shot(true), hunterTriggered: 'bob', villagePowersLost: 'yes' }));
+    await assertSucceeds(updateDoc(as('bob').room, shot(true)));
+    await seed({ ...DAY, hunterTriggered: 'bob', villagePowersLost: true });
+    await assertFails(updateDoc(as('bob').room, shot(false)));
+  });
+
+  it('without a Wild Child, the Hunter cannot touch the roles', async () => {
+    await seed({ ...DAY, hunterTriggered: 'bob' });
+    await assertFails(updateDoc(as('bob').room, { hunterTriggered: null, roles: { ...DAY.roles, bob: 'werewolf' } }));
   });
 });
 
@@ -316,9 +407,10 @@ describe('chats', () => {
     await assertFails(addDoc(wolfChat(as('sam').db), message('sam')));
   });
 
-  it('the White Wolf posts in the wolf chat too', async () => {
-    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf' } });
+  it('the White Wolf and the Big Bad Wolf post in the wolf chat too', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'white_wolf', sam: 'big_bad_wolf' } });
     await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
+    await assertSucceeds(addDoc(wolfChat(as('sam').db), message('sam')));
   });
 
   it('the host posts for the bots in the day chat, nobody else does', async () => {
@@ -327,6 +419,13 @@ describe('chats', () => {
     await assertFails(addDoc(dayChat(as('alice').db), message('bot-0')));
     await assertFails(addDoc(dayChat(as('host').db), message('bot-9')));
     await assertFails(addDoc(dayChat(as('host').db), message('bot-0', 'x'.repeat(501))));
+  });
+
+  it('the Wolf-Father and an infected player post in the wolf chat, other villagers don\'t', async () => {
+    await seed({ ...NIGHT, roles: { ...NIGHT.roles, bob: 'wolf_father' }, infectedId: 'sam' });
+    await assertSucceeds(addDoc(wolfChat(as('bob').db), message('bob')));
+    await assertSucceeds(addDoc(wolfChat(as('sam').db), message('sam')));
+    await assertFails(addDoc(wolfChat(as('wendy').db), message('wendy')));
   });
 
   it('only wolf bots post in the wolf chat, through the host', async () => {
@@ -339,5 +438,37 @@ describe('chats', () => {
   it('only the host clears chats', async () => {
     await assertFails(deleteDoc(doc(as('alice').db, 'rooms', ROOM, 'dayChat', 'm1')));
     await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'dayChat', 'm1')));
+  });
+});
+
+describe('sisters chat', () => {
+  const sisterChat = (db) => collection(db, 'rooms', ROOM, 'sisterChat');
+  const SISTERS_NIGHT = { ...NIGHT, roles: { ...NIGHT.roles, bob: 'sister', sam: 'sister' } };
+
+  beforeEach(() => seed(SISTERS_NIGHT, { sisterChat: { m1: { senderId: 'bob', senderNickname: 'bob', text: 'hi', createdAt: new Date() } } }));
+
+  it('only sisters post, and only at night', async () => {
+    await assertSucceeds(addDoc(sisterChat(as('bob').db), message('bob')));
+    await assertFails(addDoc(sisterChat(as('alice').db), message('alice')));
+    await assertFails(addDoc(sisterChat(as('bob').db), message('sam')));
+    await seed({ ...SISTERS_NIGHT, status: 'day' });
+    await assertFails(addDoc(sisterChat(as('bob').db), message('bob')));
+  });
+
+  it('members read it, strangers cannot', async () => {
+    await assertSucceeds(getDocs(sisterChat(as('host').db)));
+    await assertFails(getDocs(sisterChat(as('stranger').db)));
+  });
+
+  it('only sister bots post, through the host', async () => {
+    await seed({ ...SISTERS_NIGHT, roles: { ...SISTERS_NIGHT.roles, 'bot-0': 'sister', 'bot-1': 'villager' } });
+    await assertSucceeds(addDoc(sisterChat(as('host').db), message('bot-0')));
+    await assertFails(addDoc(sisterChat(as('host').db), message('bot-1')));
+    await assertFails(addDoc(sisterChat(as('bob').db), message('bot-0')));
+  });
+
+  it('only the host clears it', async () => {
+    await assertFails(deleteDoc(doc(as('bob').db, 'rooms', ROOM, 'sisterChat', 'm1')));
+    await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'sisterChat', 'm1')));
   });
 });

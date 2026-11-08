@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ROLE, isWolfRole } from '../constants/roles';
+import { ROLE, isWolfRole, teamRoles } from '../constants/roles';
 import { getWerewolves, getLoversPartner, getAvailableRolesForThief, getSisters } from '../game-logic/roles';
 
 export function deriveGameState(room, currentPlayerId) {
@@ -13,8 +13,10 @@ export function deriveGameState(room, currentPlayerId) {
   const isHost = myPlayer?.isHost ?? false;
   const isNarrator = myPlayer?.isNarrator ?? false;
 
-  const fellowWolves = isWolfRole(myRole)
-    ? getWerewolves(roles).filter((id) => id !== currentPlayerId)
+  const team = teamRoles(roles, room.infectedId);
+  const isWolf = isWolfRole(team[currentPlayerId]);
+  const fellowWolves = isWolf
+    ? getWerewolves(team).filter((id) => id !== currentPlayerId)
     : [];
   const fellowSisters = myRole === ROLE.SISTER
     ? getSisters(roles).filter((id) => id !== currentPlayerId)
@@ -27,6 +29,8 @@ export function deriveGameState(room, currentPlayerId) {
 
   return {
     myRole,
+    isWolf,
+    isInfected: !!room.infectedId && room.infectedId === currentPlayerId,
     isAlive,
     isHost,
     isNarrator,

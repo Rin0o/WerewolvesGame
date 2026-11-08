@@ -1,13 +1,14 @@
 jest.mock('../../firebase/roomService', () => ({
   updateRoom: jest.fn(() => Promise.resolve()),
   clearWerewolfChat: jest.fn(() => Promise.resolve()),
+  clearSisterChat: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import {
   startGame, computeNightSequence, nextNightSubPhase, isSubPhaseDone, playersStillReading, ROLE_REVEAL_STEP,
 } from '../gameManager';
-import { updateRoom, clearWerewolfChat } from '../../firebase/roomService';
+import { updateRoom, clearWerewolfChat, clearSisterChat } from '../../firebase/roomService';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
 import { BOT_MARK } from '../../constants/botNames';
 import { lastUpdate, countRoles, ROOM_ID } from './helpers';
@@ -31,6 +32,7 @@ describe('startGame', () => {
     expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(8)));
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
+    expect(clearSisterChat).toHaveBeenCalledWith(ROOM_ID);
   });
 
   it('records the dealt composition so players can see which roles are in the game', async () => {
@@ -76,8 +78,17 @@ describe('startGame', () => {
     expect(update.players.map((p) => p.id)).toContain('nar');
   });
 
-  it('still starts when clearing the old wolf chat fails', async () => {
+  it('deals the narrator\'s chosen roles to the players, none to the narrator', async () => {
+    const players = [...humans(5), { id: 'nar', nickname: 'Nar', isAlive: true, isNarrator: true }];
+    const composition = [ROLE.WEREWOLF, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.VILLAGER];
+    const update = await start(players, { composition });
+    expect(update.roles.nar).toBeUndefined();
+    expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+  });
+
+  it('still starts when clearing the old chats fails', async () => {
     clearWerewolfChat.mockRejectedValueOnce(new Error('offline'));
+    clearSisterChat.mockRejectedValueOnce(new Error('offline'));
     await expect(startGame(ROOM_ID, humans(6))).resolves.toBeUndefined();
     expect(updateRoom).toHaveBeenCalled();
   });
@@ -112,6 +123,37 @@ describe('startGame with bots', () => {
       ['bot-0', 'bot-1', 'bot-2'].forEach((id) =>
         expect([ROLE.WEREWOLF, ROLE.VILLAGER, ROLE.SISTER]).toContain(update.roles[id]));
     }
+  });
+
+  it('a bot can be the Village Idiot, which has no night action', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.VILLAGE_IDIOT, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+    }
+  });
+
+  it('a wolf role no human can take still goes to a bot, as a plain werewolf', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.BIG_BAD_WOLF, ROLE.SEER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      const wolves = Object.values(update.roles).filter((r) => [ROLE.WEREWOLF, ROLE.BIG_BAD_WOLF].includes(r));
+      expect(wolves).toHaveLength(2);
+    }
+  });
+
+  it('a bot can be the Elder, which has no night action', async () => {
+    const composition = [ROLE.WEREWOLF, ROLE.SEER, ROLE.ELDER, ROLE.VILLAGER, ROLE.VILLAGER];
+    for (let i = 0; i < 50; i++) {
+      const update = await start(humans(1), { botCount: 4, composition });
+      expect(countRoles(Object.values(update.roles))).toEqual(countRoles(composition));
+    }
+  });
+
+  it('starts every game with the Elder unhurt and the village\'s powers intact', async () => {
+    const update = await start(humans(5), { composition: [ROLE.WEREWOLF, ROLE.ELDER, ROLE.SEER, ROLE.VILLAGER, ROLE.VILLAGER] });
+    expect(update.elderWoundedNight).toBeNull();
+    expect(update.villagePowersLost).toBe(false);
   });
 
   it('the sisters are always dealt as a pair, a bot taking the second one when needed', async () => {

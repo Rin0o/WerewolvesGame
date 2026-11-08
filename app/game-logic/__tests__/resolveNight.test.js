@@ -239,3 +239,187 @@ describe('resolveNight — Bear Tamer', () => {
     expect((await resolve(village({}))).bearTamerGrowl).toBeNull();
   });
 });
+
+describe('resolveNight — Fox', () => {
+  const foxGame = (nightActions, overrides = {}) => makeGame({ ...VILLAGE, fox: 'fox' }, { nightActions, ...overrides });
+
+  it('keeps the power when a wolf was among the three', async () => {
+    expect((await resolve(foxGame({ fox: 'sam' }))).foxPowerLost).toBe(false);
+  });
+
+  it('loses the power when none of the three is a wolf', async () => {
+    expect((await resolve(foxGame({ fox: 'hank' }))).foxPowerLost).toBe(true);
+  });
+
+  it('sniffs the table as it was before tonight\'s deaths', async () => {
+    const game = makeGame(
+      { fox: 'fox', vic: 'villager', will: 'werewolf', vera: 'villager', sam: 'seer', wendy: 'witch' },
+      { witchPotions: { wendy: { save: true, poison: true } }, nightActions: { fox: 'vic', witchPoison: 'will' } }
+    );
+    const update = await resolve(game);
+    expect(update.eliminatedThisNight).toEqual(['will']);
+    expect(update.foxPowerLost).toBe(false);
+  });
+
+  it('keeps the power when the Fox stayed hidden', async () => {
+    expect((await resolve(foxGame({ foxSkip: true }))).foxPowerLost).toBe(false);
+  });
+
+  it('never gets the power back', async () => {
+    expect((await resolve(foxGame({}, { foxPowerLost: true }))).foxPowerLost).toBe(true);
+  });
+});
+
+describe('resolveNight — Accursed Wolf-Father', () => {
+  const ROLES = { ...VILLAGE, wfa: 'wolf_father' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('infects the pack\'s victim instead of killing them, silently', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true }));
+    expect(update.eliminatedThisNight).toEqual([]);
+    expect(update.infectedId).toBe('vic');
+    expect(update.infectedAt).toEqual(expect.any(String));
+    expect(update.roles.vic).toBe('villager');
+    expect(eventsOf(update)).toEqual(['Night 2: The village was peaceful — no one was eliminated.']);
+  });
+
+  it('fails if the Saviour protected the victim, and stays available', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true, saviour: 'vic' }));
+    expect(update.infectedId).toBeUndefined();
+    expect(update.eliminatedThisNight).toEqual([]);
+  });
+
+  it('does not use up the Witch\'s healing potion', async () => {
+    const update = await resolve(night({ werewolf: 'vic', wolfFather: true, witchSave: 'vic' }));
+    expect(update.witchPotions.wendy).toEqual({ save: true, poison: true });
+  });
+
+  it('an infected Witch keeps exactly the potions she had', async () => {
+    const update = await resolve(night(
+      { werewolf: 'wendy', wolfFather: true },
+      { witchPotions: { wendy: { save: false, poison: true } } },
+    ));
+    expect(update.infectedId).toBe('wendy');
+    expect(update.roles.wendy).toBe('witch');
+    expect(update.witchPotions.wendy).toEqual({ save: false, poison: true });
+  });
+
+  it('works only once per game', async () => {
+    const update = await resolve(night({ werewolf: 'vera', wolfFather: true }, { infectedId: 'vic' }));
+    expect(update.eliminatedThisNight).toEqual(['vera']);
+    expect(update.infectedId).toBeUndefined();
+  });
+
+  it('counts the infected player as a wolf for the win', async () => {
+    const small = { will: 'werewolf', vic: 'villager', vera: 'villager', sam: 'seer' };
+    const game = makeGame(small, { phase: 2, infectedId: 'vic', nightActions: { werewolf: 'vera' } });
+    expect((await resolve(game)).winner).toBe('werewolves');
+  });
+
+  it('lets the Bear Tamer and the Fox sense an infected neighbour', async () => {
+    const roles = { bea: 'bear_tamer', vic: 'villager', fox: 'fox', will: 'werewolf', vera: 'villager', sam: 'villager' };
+    const game = makeGame(roles, { phase: 2, infectedId: 'vic', nightActions: { fox: 'bea' } });
+    const update = await resolve(game);
+    expect(update.bearTamerGrowl).toBe(true);
+    expect(update.foxPowerLost).toBe(false);
+  });
+});
+
+describe('resolveNight — Big Bad Wolf', () => {
+  const ROLES = { ...VILLAGE, bob: 'big_bad_wolf' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('kills a second victim after the pack\'s', async () => {
+    const update = await resolve(night({ werewolf: 'vic', bigBadWolf: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vic', 'vera']);
+    expect(update.nightDeathCauses).toEqual({ vic: 'werewolves', vera: 'big_bad_wolf' });
+    expect(eventsOf(update)).toContain('Night 2: Vera was dragged away by the Big Bad Wolf.');
+  });
+
+  it('is blocked by the Saviour', async () => {
+    const update = await resolve(night({ werewolf: 'vic', bigBadWolf: 'vera', saviour: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vic']);
+    expect(eventsOf(update)).toContain('Night 2: The saviour shielded someone from the Big Bad Wolf.');
+  });
+
+  it('cannot be undone by the Witch, whose potion saves only the pack\'s victim', async () => {
+    const update = await resolve(night({ werewolf: 'vic', witchSave: 'vic', bigBadWolf: 'vera' }));
+    expect(update.eliminatedThisNight).toEqual(['vera']);
+  });
+
+  it('takes the victim\'s lover too', async () => {
+    const update = await resolve(night({ bigBadWolf: 'vera' }, { lovers: ['vera', 'sam'] }));
+    expect(update.eliminatedThisNight).toEqual(['vera', 'sam']);
+  });
+
+  it('is no peaceful night when only the Big Bad Wolf strikes', async () => {
+    const update = await resolve(night({ wolfNoKill: true, bigBadWolf: 'vera' }));
+    expect(eventsOf(update).join(' ')).not.toMatch(/peaceful/);
+  });
+});
+
+describe('resolveNight — Raven', () => {
+  const ROLES = { ...VILLAGE, rae: 'raven' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, players: makeGame(ROLES).players, ...overrides });
+
+  it('publishes the mark at dawn, without naming the Raven', async () => {
+    const update = await resolve(night({ raven: 'vera' }));
+    expect(update.ravenMark).toBe('vera');
+    expect(eventsOf(update)).toContain('Night 2: The raven marked Vera, who starts today\'s vote with 2 votes against them.');
+    expect(eventsOf(update).join(' ')).not.toMatch(/Rae/);
+  });
+
+  it('loses the mark when the marked player dies that night', async () => {
+    const update = await resolve(night({ raven: 'vera', werewolf: 'vera' }));
+    expect(update.ravenMark).toBeNull();
+    expect(eventsOf(update).join(' ')).not.toMatch(/raven/);
+  });
+
+  it('keeps the mark when the Raven itself dies that night', async () => {
+    expect((await resolve(night({ raven: 'vera', werewolf: 'rae' }))).ravenMark).toBe('vera');
+  });
+
+  it('clears any old mark when the Raven passes', async () => {
+    expect((await resolve(night({ ravenSkip: true }, { ravenMark: 'vic' }))).ravenMark).toBeNull();
+  });
+});
+
+describe('resolveNight — Wild Child', () => {
+  const ROLES = { ...VILLAGE, kid: 'wild_child' };
+  const night = (nightActions, overrides = {}) => village(nightActions, { roles: ROLES, ...overrides });
+  const withKid = makeGame(ROLES).players;
+
+  it('remembers who the Wild Child chose on night 1', async () => {
+    const update = await resolve(night({ wildChild: 'vic' }, { phase: 1, players: withKid }));
+    expect(update).toMatchObject({ wildChildId: 'kid', wildChildModel: 'vic' });
+    expect(update.roles.kid).toBe('wild_child');
+    expect(update.wildChildTurnedAt).toBeUndefined();
+  });
+
+  it('becomes a werewolf when the wolves kill its role model', async () => {
+    const update = await resolve(night({ werewolf: 'vic' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' }));
+    expect(update.roles.kid).toBe('werewolf');
+    expect(update.wildChildTurnedAt).toEqual(expect.any(String));
+    expect(update.eliminatedThisNight).toEqual(['vic']);
+  });
+
+  it('turns on a classic night 1 when the model it just chose is killed', async () => {
+    const game = night({ wildChild: 'vic', werewolf: 'vic' }, { phase: 1, classicFirstNight: true, players: withKid });
+    expect((await resolve(game)).roles.kid).toBe('werewolf');
+  });
+
+  it('turns when its role model dies of heartbreak', async () => {
+    const game = night({ werewolf: 'vera' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic', lovers: ['vera', 'vic'] });
+    expect((await resolve(game)).roles.kid).toBe('werewolf');
+  });
+
+  it('stays a villager while its role model lives', async () => {
+    const update = await resolve(night({ werewolf: 'vera' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' }));
+    expect(update.roles.kid).toBe('wild_child');
+  });
+
+  it('does not turn when it dies the same night as its role model', async () => {
+    const game = night({ werewolf: 'vic', witchPoison: 'kid' }, { players: withKid, wildChildId: 'kid', wildChildModel: 'vic' });
+    expect((await resolve(game)).roles.kid).toBe('wild_child');
+  });
+});

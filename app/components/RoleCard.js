@@ -17,6 +17,13 @@ const ROLE_IMAGES = {
   sister:     require('../../assets/roles/sisters.webp'),
   white_wolf: require('../../assets/roles/white_wolf.webp'),
   wolf_hound: require('../../assets/roles/wolf_hound.webp'),
+  fox:        require('../../assets/roles/fox.webp'),
+  wild_child: require('../../assets/roles/wild_child.webp'),
+  village_idiot: require('../../assets/roles/village_idiot.webp'),
+  raven:      require('../../assets/roles/raven.webp'),
+  big_bad_wolf: require('../../assets/roles/big_bad_wolf.webp'),
+  wolf_father: require('../../assets/roles/wolf_father.webp'),
+  elder:      require('../../assets/roles/elder.webp'),
 };
 
 export default function RoleCard({ role, fellowWolves = [], fellowSisters = [], players = [] }) {

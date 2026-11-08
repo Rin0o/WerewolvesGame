@@ -1,20 +1,29 @@
 import { arrayUnion } from 'firebase/firestore';
-import { ROLE, getCompositionForCount, isWolfRole } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours } from './roles';
-import { tallyVotes } from './voteManager';
+import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower, ROLE_DEFINITIONS } from '../constants/roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf } from './roles';
+import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
   getRoom,
   updateRoom,
   eliminatePlayer,
   clearNightActions,
   clearWerewolfChat,
+  clearSisterChat,
 } from '../firebase/roomService';
 import { pickBotNames } from './bots';
 
-function computeBearTamerGrowl(players, roles) {
+export const ELDER_KILLED_EVENT = 'The village killed its Elder. Every villager has lost their powers.';
+
+function computeBearTamerGrowl(players, roles, infectedId = null, villagePowersLost = false) {
+  if (villagePowersLost) return null;
   const bearTamer = getSeating(players).find((p) => p.isAlive && roles[p.id] === ROLE.BEAR_TAMER);
   if (!bearTamer) return null;
-  return getLivingNeighbours(players, bearTamer.id).some((id) => isWolfRole(roles[id]));
+  const team = teamRoles(roles, infectedId);
+  return getLivingNeighbours(players, bearTamer.id).some((id) => isWolfRole(team[id]));
+}
+
+function roomTeams(room) {
+  return teamRoles(room.roles || {}, room.infectedId);
 }
 
 function shuffleArr(arr) {
@@ -28,32 +37,44 @@ function shuffleArr(arr) {
 
 export function computeNightSequence(room) {
   const { players = [], roles = {}, phase, disconnectedPlayers = [], witchPotions = {} } = room;
-  const isActive = (role) =>
-    players.some((p) => p.isAlive && roles[p.id] === role && !disconnectedPlayers.includes(p.id));
+  const isActive = (role) => hasVillagePower(room, role)
+    && players.some((p) => p.isAlive && roles[p.id] === role && !disconnectedPlayers.includes(p.id));
   const witchPlayer = players.find(
     (p) => p.isAlive && roles[p.id] === ROLE.WITCH && !disconnectedPlayers.includes(p.id)
   );
   const potions = witchPlayer ? witchPotions[witchPlayer.id] : null;
   const witchHasPotions = potions ? (potions.save === true || potions.poison === true) : false;
 
-  const packWolfAlive = players.some((p) => p.isAlive && roles[p.id] === ROLE.WEREWOLF);
+  const team = roomTeams(room);
+  const packWolfAlive = players.some((p) => p.isAlive && isPackWolf(team[p.id]));
+  const anyWolfActive = players.some((p) => p.isAlive && isWolfRole(team[p.id]) && !disconnectedPlayers.includes(p.id));
 
   const wakes = {
     thief: isActive(ROLE.THIEF) && getAvailableRolesForThief(roles).length > 0,
     cupid: isActive(ROLE.CUPID),
+    wild_child: isActive(ROLE.WILD_CHILD),
     wolf_hound: isActive(ROLE.WOLF_HOUND),
     saviour: isActive(ROLE.SAVIOUR),
-    werewolf: isActive(ROLE.WEREWOLF) || isActive(ROLE.WHITE_WOLF),
+    fox: isActive(ROLE.FOX) && !room.foxPowerLost,
+    werewolf: anyWolfActive,
+    wolf_father: isActive(ROLE.WOLF_FATHER) && !room.infectedId && !!room.nightActions?.werewolf,
+    big_bad_wolf: isActive(ROLE.BIG_BAD_WOLF) && !wolfHasDied(room),
     white_wolf: phase % 2 === 0 && isActive(ROLE.WHITE_WOLF) && packWolfAlive,
-    witch: witchHasPotions,
+    witch: witchHasPotions && hasVillagePower(room, ROLE.WITCH),
     seer: isActive(ROLE.SEER),
+    raven: isActive(ROLE.RAVEN),
   };
   return nightOrder(room).filter((step) => wakes[step]);
 }
 
-const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'werewolf'];
-const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wolf_hound', 'saviour', 'werewolf', 'witch', 'seer'];
-const LATER_NIGHT_ORDER = ['saviour', 'werewolf', 'white_wolf', 'witch', 'seer'];
+const QUIET_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'werewolf'];
+const CLASSIC_FIRST_NIGHT_ORDER = ['thief', 'cupid', 'wild_child', 'wolf_hound', 'saviour', 'fox', 'werewolf', 'wolf_father', 'big_bad_wolf', 'witch', 'seer', 'raven'];
+const LATER_NIGHT_ORDER = ['saviour', 'fox', 'werewolf', 'wolf_father', 'big_bad_wolf', 'white_wolf', 'witch', 'seer', 'raven'];
+
+export function wolfHasDied(room) {
+  const team = roomTeams(room);
+  return (room.players || []).some((p) => !p.isAlive && isWolfRole(team[p.id]));
+}
 
 export const ROLE_REVEAL_STEP = 'reveal';
 
@@ -119,8 +140,9 @@ export function advanceNightUpdate(room, next) {
 }
 
 export function livingWolves(room) {
-  const { players = [], roles = {}, disconnectedPlayers = [] } = room;
-  return players.filter((p) => p.isAlive && isWolfRole(roles[p.id]) && !disconnectedPlayers.includes(p.id));
+  const { players = [], disconnectedPlayers = [] } = room;
+  const team = roomTeams(room);
+  return players.filter((p) => p.isAlive && isWolfRole(team[p.id]) && !disconnectedPlayers.includes(p.id));
 }
 
 export const WOLF_OUTCOME = { WAIT: 'wait', KILL: 'kill', REVOTE: 'revote', NO_KILL: 'no_kill' };
@@ -130,8 +152,8 @@ function randomOf(items) {
 }
 
 export function wolfPrey(room) {
-  const { players = [], roles = {} } = room;
-  return players.filter((p) => p.isAlive && !isWolfRole(roles[p.id]) && !p.isNarrator);
+  const team = roomTeams(room);
+  return (room.players || []).filter((p) => p.isAlive && !isWolfRole(team[p.id]) && !p.isNarrator);
 }
 
 function castWolfVotes(room) {
@@ -169,6 +191,21 @@ export function wolfVoteOutcome(room, { force = false } = {}) {
   return revoteTargets ? { type: WOLF_OUTCOME.NO_KILL } : { type: WOLF_OUTCOME.REVOTE, targets: tied };
 }
 
+export function packHuntResult(room) {
+  const { nightActions = {}, players = [] } = room;
+  const { werewolf: victimId, wolfNoKill, wolfVotes = {} } = nightActions;
+  if (!victimId && !wolfNoKill) return null;
+  const votersByTarget = Object.entries(wolfVotes).reduce((acc, [wolfId, targetId]) => (
+    { ...acc, [targetId]: [...(acc[targetId] || []), wolfId] }
+  ), {});
+  return {
+    victimId: victimId || null,
+    drawnByFate: !!victimId && !votersByTarget[victimId],
+    votes: Object.entries(votersByTarget).map(([targetId, wolfIds]) => ({ targetId, wolfIds })),
+    names: Object.fromEntries(players.map((p) => [p.id, p.nickname])),
+  };
+}
+
 export function wolfOutcomeUpdate(outcome) {
   switch (outcome.type) {
     case WOLF_OUTCOME.KILL: return { 'nightActions.werewolf': outcome.target };
@@ -178,20 +215,50 @@ export function wolfOutcomeUpdate(outcome) {
   }
 }
 
+const STEP_ROLE = {
+  thief: ROLE.THIEF,
+  cupid: ROLE.CUPID,
+  wild_child: ROLE.WILD_CHILD,
+  wolf_hound: ROLE.WOLF_HOUND,
+  saviour: ROLE.SAVIOUR,
+  fox: ROLE.FOX,
+  wolf_father: ROLE.WOLF_FATHER,
+  big_bad_wolf: ROLE.BIG_BAD_WOLF,
+  white_wolf: ROLE.WHITE_WOLF,
+  witch: ROLE.WITCH,
+  seer: ROLE.SEER,
+  raven: ROLE.RAVEN,
+};
+
+export function isMyNightTurn(room, playerId) {
+  if (!room || room.status !== 'night') return false;
+  const me = (room.players || []).find((p) => p.id === playerId);
+  if (!me || !me.isAlive || me.isNarrator) return false;
+  const myRole = room.roles?.[playerId];
+  const step = room.nightSubPhase;
+  const myStep = step === 'werewolf' ? isWolfRole(roomTeams(room)[playerId]) : STEP_ROLE[step] === myRole;
+  return myStep && !isSubPhaseDone(step, room);
+}
+
 export function isSubPhaseDone(subPhase, room) {
   const { nightActions = {} } = room;
   switch (subPhase) {
     case ROLE_REVEAL_STEP: return playersStillReading(room).length === 0;
     case 'thief':    return !!nightActions.thief;
     case 'cupid':    return Array.isArray(nightActions.cupid) && nightActions.cupid.length === 2;
+    case 'wild_child': return !!nightActions.wildChild;
     case 'wolf_hound': return !!nightActions.wolfHound;
     case 'werewolf': return isQuietFirstNight(room)
       ? nightActions.werewolfObserved === true
       : !!nightActions.werewolf || nightActions.wolfNoKill === true;
     case 'white_wolf': return !!nightActions.whiteWolf || nightActions.whiteWolfSkip === true;
+    case 'big_bad_wolf': return !!nightActions.bigBadWolf || nightActions.bigBadWolfSkip === true;
+    case 'wolf_father': return nightActions.wolfFather === true || nightActions.wolfFatherSkip === true;
     case 'witch':    return nightActions.witchSave !== undefined || !!nightActions.witchPoison || nightActions.witchSkip === true;
     case 'seer':     return !!nightActions.seer;
     case 'saviour':  return !!nightActions.saviour;
+    case 'fox':      return !!nightActions.fox || nightActions.foxSkip === true;
+    case 'raven':    return !!nightActions.raven || nightActions.ravenSkip === true;
     default:         return false;
   }
 }
@@ -200,7 +267,7 @@ function countRoles(roleMap) {
   return Object.values(roleMap).reduce((acc, role) => ({ ...acc, [role]: (acc[role] || 0) + 1 }), {});
 }
 
-const BOT_PLAYABLE_SPECIALS = [ROLE.SISTER];
+const BOT_PLAYABLE_SPECIALS = [ROLE.SISTER, ROLE.VILLAGE_IDIOT, ROLE.ELDER];
 
 function dealWithBots(humanPlayers, botPlayers, composition) {
   const wolfCount = composition.filter((r) => r === ROLE.WEREWOLF).length;
@@ -219,7 +286,9 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
   const freeHumans = shuffleArr(humanPlayers.filter((p) => !wolfIds.has(p.id)));
   const forHumans = [...humanOnly, ...shuffleArr(botPlayable)];
   const humanRoles = forHumans.slice(0, freeHumans.length);
-  const leftForBots = forHumans.slice(freeHumans.length).filter((r) => BOT_PLAYABLE_SPECIALS.includes(r));
+  const leftForBots = forHumans.slice(freeHumans.length)
+    .map((r) => (isWolfRole(r) ? ROLE.WEREWOLF : r))
+    .filter((r) => r === ROLE.WEREWOLF || BOT_PLAYABLE_SPECIALS.includes(r));
 
   const roleMap = {};
   const witchPotions = {};
@@ -238,7 +307,7 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
 }
 
 export async function startGame(roomId, players, { composition: customComposition = null, classicFirstNight = false, botCount = 0 } = {}) {
-  const clearingChat = clearWerewolfChat(roomId).catch(() => {});
+  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId)]).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
@@ -289,8 +358,26 @@ export async function startGame(roomId, players, { composition: customCompositio
     disconnectedPlayers: [],
     saviourLastProtected: null,
     bearTamerGrowl: null,
+    foxPowerLost: false,
+    wildChildId: null,
+    wildChildModel: null,
+    wildChildTurnedAt: null,
+    idiotRevealed: null,
+    ravenMark: null,
+    infectedId: null,
+    infectedAt: null,
+    elderWoundedNight: null,
+    villagePowersLost: false,
   });
-  await clearingChat;
+  await clearingChats;
+}
+
+export function wildChildTurn(room, roles, playersAfter, eliminatedIds) {
+  const { wildChildId, wildChildModel } = room;
+  if (!wildChildId || !wildChildModel || roles[wildChildId] !== ROLE.WILD_CHILD) return null;
+  if (!eliminatedIds.includes(wildChildModel)) return null;
+  if (!playersAfter.some((p) => p.id === wildChildId && p.isAlive)) return null;
+  return { roles: { ...roles, [wildChildId]: ROLE.WEREWOLF }, wildChildTurnedAt: new Date().toISOString() };
 }
 
 // Eliminates a player and their lover if applicable. Returns list of all eliminated IDs.
@@ -326,9 +413,14 @@ export async function resolveNight(roomId, roomData) {
   }
 
   const quiet = isQuietFirstNight(roomData);
+  const foxPowerLost = !!roomData.foxPowerLost
+    || (!!nightActions.fox && !foxSmellsWolf(players, teamRoles(updatedRoles, roomData.infectedId), nightActions.fox));
   const saviourProtected = nightActions.saviour || null;
   let eliminatedId = quiet ? null : (nightActions.werewolf || null);
-  const witchSaved = nightActions.witchSave === eliminatedId;
+  const newlyInfectedId = !quiet && nightActions.wolfFather === true && !roomData.infectedId
+    && eliminatedId && eliminatedId !== saviourProtected ? eliminatedId : null;
+  const infectedId = roomData.infectedId || newlyInfectedId;
+  const witchSaved = !newlyInfectedId && nightActions.witchSave === eliminatedId;
   const witchKilled = quiet ? null : (nightActions.witchPoison || null);
   const newLovers = nightActions.cupid || lovers || null;
 
@@ -339,10 +431,22 @@ export async function resolveNight(roomId, roomData) {
     saviourBlocked = true;
   }
 
+  if (newlyInfectedId) eliminatedId = null;
+
   if (witchSaved && eliminatedId) {
     events.push(`Night ${phase}: The witch saved the werewolves' victim.`);
     eliminatedId = null;
   }
+
+  const elderId = players.find((p) => p.isAlive && updatedRoles[p.id] === ROLE.ELDER)?.id || null;
+  let elderSurvivedTonight = false;
+  const elderShrugsOff = (id) => {
+    if (!id || id !== elderId || roomData.elderWoundedNight || elderSurvivedTonight) return false;
+    elderSurvivedTonight = true;
+    return true;
+  };
+
+  if (elderShrugsOff(eliminatedId)) eliminatedId = null;
 
   const allEliminated = new Set();
   const nightDeathCauses = {};
@@ -360,8 +464,17 @@ export async function resolveNight(roomId, roomData) {
     recordDeaths(ids, 'werewolves');
   } else if (quiet) {
     events.push(`Night 1: The werewolves lurked in the shadows, but did not strike.`);
-  } else if (!witchSaved && !saviourBlocked && !witchKilled && !nightActions.whiteWolf) {
+  } else if (!witchSaved && !saviourBlocked && !witchKilled && !nightActions.whiteWolf && !nightActions.bigBadWolf) {
     events.push(`Night ${phase}: The village was peaceful — no one was eliminated.`);
+  }
+
+  const bigBadWolfPrey = quiet ? null : players.find((p) => p.id === nightActions.bigBadWolf && p.isAlive);
+  if (bigBadWolfPrey && bigBadWolfPrey.id === saviourProtected) {
+    events.push(`Night ${phase}: The saviour shielded someone from the Big Bad Wolf.`);
+  } else if (bigBadWolfPrey && !allEliminated.has(bigBadWolfPrey.id) && !elderShrugsOff(bigBadWolfPrey.id)) {
+    events.push(`Night ${phase}: ${bigBadWolfPrey.nickname} was dragged away by the Big Bad Wolf.`);
+    const ids = await eliminateWithLoverChain(roomId, bigBadWolfPrey.id, players, newLovers, events, `Night ${phase}`);
+    recordDeaths(ids, 'big_bad_wolf');
   }
 
   if (witchKilled && !allEliminated.has(witchKilled)) {
@@ -372,7 +485,7 @@ export async function resolveNight(roomId, roomData) {
   }
 
   const whiteWolfPrey = phase === 1 ? null : players.find((p) => p.id === nightActions.whiteWolf && p.isAlive);
-  if (whiteWolfPrey && !allEliminated.has(whiteWolfPrey.id)) {
+  if (whiteWolfPrey && !allEliminated.has(whiteWolfPrey.id) && !elderShrugsOff(whiteWolfPrey.id)) {
     events.push(`Night ${phase}: ${whiteWolfPrey.nickname} was torn apart in the night.`);
     const ids = await eliminateWithLoverChain(roomId, whiteWolfPrey.id, players, newLovers, events, `Night ${phase}`);
     recordDeaths(ids, 'white_wolf');
@@ -401,9 +514,26 @@ export async function resolveNight(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
-  const hunterTriggered = [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
-  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, updatedRoles, newLovers);
-  const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers, updatedRoles);
+  const wildChild = {
+    wildChildId: roomData.wildChildId || (nightActions.wildChild ? getPlayerWithRole(updatedRoles, ROLE.WILD_CHILD) : null),
+    wildChildModel: roomData.wildChildModel || nightActions.wildChild || null,
+  };
+  const turn = wildChildTurn(wildChild, updatedRoles, updatedPlayers, [...allEliminated]);
+  if (turn) updatedRoles = turn.roles;
+
+  const elderPoisoned = !!elderId && nightDeathCauses[elderId] === 'poison';
+  if (elderPoisoned) events.push(`Night ${phase}: ${ELDER_KILLED_EVENT}`);
+  const villagePowersLost = !!roomData.villagePowersLost || elderPoisoned;
+
+  const markedPlayer = villagePowersLost ? null : updatedPlayers.find((p) => p.id === nightActions.raven && p.isAlive);
+  if (markedPlayer) {
+    events.push(`Night ${phase}: The raven marked ${markedPlayer.nickname}, who starts today's vote with ${RAVEN_VOTES} votes against them.`);
+  }
+
+  const hunterTriggered = villagePowersLost ? null
+    : [...allEliminated].find((id) => updatedRoles[id] === ROLE.HUNTER) || null;
+  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, teamRoles(updatedRoles, infectedId), newLovers);
+  const bearTamerGrowl = computeBearTamerGrowl(updatedPlayers, updatedRoles, infectedId, villagePowersLost);
 
   await updateRoom(roomId, {
     status: winner ? 'ended' : 'day',
@@ -420,6 +550,13 @@ export async function resolveNight(roomId, roomData) {
     disconnectedPlayers: [],
     saviourLastProtected: saviourProtected,
     bearTamerGrowl,
+    foxPowerLost,
+    ravenMark: markedPlayer ? markedPlayer.id : null,
+    ...wildChild,
+    ...(turn && { wildChildTurnedAt: turn.wildChildTurnedAt }),
+    ...(newlyInfectedId && { infectedId: newlyInfectedId, infectedAt: new Date().toISOString() }),
+    ...(elderSurvivedTonight && { elderWoundedNight: phase }),
+    ...(elderPoisoned && { villagePowersLost: true }),
     revoteTargets: null,
     events: arrayUnion(...events),
   });
@@ -427,15 +564,11 @@ export async function resolveNight(roomId, roomData) {
   return { winner, eliminatedId };
 }
 
-function nicknames(players, ids) {
-  return ids.map((id) => players.find((p) => p.id === id)?.nickname || '?');
-}
-
 export const TIE_RULE = { NO_LYNCH: 'no_lynch', REVOTE: 'revote' };
 
 export function tiedForRevote(room) {
   if (room.tieRule !== TIE_RULE.REVOTE || room.revoteTargets?.length) return null;
-  const { tied } = tallyVotes(room.votes || {});
+  const { tied } = tallyVotes(room.votes || {}, ravenVotes(room));
   return tied.length > 1 ? tied : null;
 }
 
@@ -445,7 +578,7 @@ export async function startRevote(roomId, room, tied) {
     votesClosed: false,
     revoteTargets: tied,
     phaseStartedAt: new Date().toISOString(),
-    events: arrayUnion(`Day ${room.phase}: The vote was tied between ${nicknames(room.players || [], tied).join(' and ')}. The village votes again.`),
+    events: arrayUnion(`Day ${room.phase}: The vote was tied between ${tied.map((id) => nicknameOf(room.players || [], id)).join(' and ')}. The village votes again.`),
   });
 }
 
@@ -469,22 +602,33 @@ export async function startNextNight(roomId) {
   });
 }
 
+export function isIdiotSpared(room, lynchedId) {
+  return !!lynchedId && room.roles?.[lynchedId] === ROLE.VILLAGE_IDIOT && room.idiotRevealed !== lynchedId
+    && hasVillagePower(room, ROLE.VILLAGE_IDIOT);
+}
+
 export async function resolveLynch(roomId, roomData) {
   const { votes, players, roles, phase, lovers, disconnectedPlayers = [] } = roomData;
   const events = [];
 
-  const { tallyMap, eliminatedId, tie, tied } = tallyVotes(votes);
+  const { tallyMap, eliminatedId: votedOutId, tie, tied } = tallyVotes(votes, ravenVotes(roomData));
+  const sparedIdiot = isIdiotSpared(roomData, votedOutId) ? votedOutId : null;
+  const eliminatedId = sparedIdiot ? null : votedOutId;
 
   const allEliminated = new Set();
 
-  if (eliminatedId) {
+  if (sparedIdiot) {
+    const idiot = players.find((p) => p.id === sparedIdiot);
+    events.push(`Day ${phase}: ${idiot?.nickname || 'Someone'} was voted out, but turned out to be the Village Idiot. The village spared them, but they can no longer vote.`);
+  } else if (eliminatedId) {
     const victim = players.find((p) => p.id === eliminatedId);
     const voteCount = tallyMap[eliminatedId];
-    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roles[eliminatedId] || '?'}`);
+    const roleText = ROLE_DEFINITIONS[roles[eliminatedId]]?.name || '?';
+    events.push(`Day ${phase}: ${victim?.nickname || 'Someone'} was lynched by village vote (${voteCount} vote${voteCount !== 1 ? 's' : ''}). Role: ${roleText}`);
     const ids = await eliminateWithLoverChain(roomId, eliminatedId, players, lovers, events, `Day ${phase}`);
     ids.forEach((id) => allEliminated.add(id));
   } else if (tie) {
-    const tiedNames = nicknames(players, tied).join(', ');
+    const tiedNames = tied.map((id) => nicknameOf(players, id)).join(', ');
     events.push(`Day ${phase}: The vote ended in a tie (${tiedNames}) — no one was eliminated.`);
   } else {
     events.push(`Day ${phase}: No votes were confirmed — the village remains divided.`);
@@ -503,13 +647,23 @@ export async function resolveLynch(roomId, roomData) {
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
 
-  const hunterTriggered = [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
-  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, roles, lovers);
+  const turn = wildChildTurn(roomData, roles, updatedPlayers, [...allEliminated]);
+  const rolesAfter = turn ? turn.roles : roles;
+
+  const elderLynched = !!eliminatedId && roles[eliminatedId] === ROLE.ELDER;
+  if (elderLynched) events.push(`Day ${phase}: ${ELDER_KILLED_EVENT}`);
+  const villagePowersLost = !!roomData.villagePowersLost || elderLynched;
+
+  const hunterTriggered = villagePowersLost ? null
+    : [...allEliminated].find((id) => roles[id] === ROLE.HUNTER) || null;
+  const winner = hunterTriggered ? null : checkWinCondition(updatedPlayers, teamRoles(rolesAfter, roomData.infectedId), lovers);
   const advanceToNight = !winner && !hunterTriggered;
 
   let nightSubPhase;
   if (advanceToNight) {
-    const nextRoom = { ...roomData, players: updatedPlayers, phase: phase + 1, nightActions: {}, disconnectedPlayers: [] };
+    const nextRoom = {
+      ...roomData, roles: rolesAfter, players: updatedPlayers, phase: phase + 1, nightActions: {}, disconnectedPlayers: [], villagePowersLost,
+    };
     const seq = computeNightSequence(nextRoom);
     nightSubPhase = seq[0] || 'done';
   }
@@ -522,9 +676,13 @@ export async function resolveLynch(roomId, roomData) {
     votes: {},
     votesClosed: false,
     revoteTargets: null,
+    ravenMark: null,
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
+    ...turn,
+    ...(sparedIdiot && { idiotRevealed: sparedIdiot }),
+    ...(elderLynched && { villagePowersLost: true }),
     ...(advanceToNight && { phase: phase + 1, nightActions: {}, eliminatedThisNight: null, nightSubPhase, bearTamerGrowl: null }),
   });
 
@@ -544,13 +702,18 @@ export async function hunterShoot(roomId, roomData, targetId) {
   const updatedPlayers = players.map((p) =>
     allEliminated.has(p.id) ? { ...p, isAlive: false } : p
   );
-  const winner = checkWinCondition(updatedPlayers, roles, lovers);
+  const turn = wildChildTurn(roomData, roles, updatedPlayers, [...allEliminated]);
+  const winner = checkWinCondition(updatedPlayers, teamRoles(turn ? turn.roles : roles, roomData.infectedId), lovers);
+  const elderShot = !!target?.isAlive && roles[targetId] === ROLE.ELDER;
+  if (elderShot) events.push(ELDER_KILLED_EVENT);
 
   await updateRoom(roomId, {
     winner: winner || null,
     status: winner ? 'ended' : roomData.status,
     hunterTriggered: null,
     events: arrayUnion(...events),
+    ...turn,
+    ...(elderShot && { villagePowersLost: true }),
   });
 
   return { winner };

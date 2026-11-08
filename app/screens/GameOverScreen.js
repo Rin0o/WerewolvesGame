@@ -16,14 +16,16 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat } from '../firebase/roomService';
-import { ROLE, ROLE_DEFINITIONS } from '../constants/roles';
+import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
+import { gameOverSound } from '../utils/gameOverSound';
 import { DAY, NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const VILLAGERS_WIN_BANNER = require('../../assets/villagers_win.webp');
 const WEREWOLVES_WIN_BANNER = require('../../assets/werewolves_win.webp');
 const LOVERS_WIN_BANNER = require('../../assets/lovers_win.webp');
+const WHITE_WOLF_WIN_BANNER = require('../../assets/white_wolf_win.webp');
 const LEAVE_ICON = require('../../assets/exit_game.webp');
 const PLAY_AGAIN_ICON = require('../../assets/play_again.webp');
 
@@ -36,7 +38,7 @@ export default function GameOverScreen({ route, navigation }) {
   const winner = room?.winner;
   const isVillagers = winner === 'villagers';
   const isLovers = winner === 'lovers';
-  useSoundEffect(room ? (isVillagers || isLovers ? 'villagersWin' : 'wolvesWin') : null);
+  useSoundEffect(gameOverSound(room));
 
   useEffect(() => {
     if (!room) return;
@@ -93,13 +95,15 @@ export default function GameOverScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Winner banner */}
         <Image
-          source={isLovers ? LOVERS_WIN_BANNER : isVillagers ? VILLAGERS_WIN_BANNER : WEREWOLVES_WIN_BANNER}
+          source={
+            isLovers ? LOVERS_WIN_BANNER
+              : isVillagers ? VILLAGERS_WIN_BANNER
+              : winner === 'white_wolf' ? WHITE_WOLF_WIN_BANNER
+              : WEREWOLVES_WIN_BANNER
+          }
           style={styles.winnerBanner}
           resizeMode="contain"
         />
-        {winner === 'white_wolf' && (
-          <Text style={[styles.soloWinner, { color: t.accent }]}>The White Wolf stands alone. They win!</Text>
-        )}
 
         {/* Player roles reveal */}
         <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>All Roles Revealed</Text>
@@ -110,9 +114,11 @@ export default function GameOverScreen({ route, navigation }) {
           renderItem={({ item }) => {
             const role = roles[item.id];
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
+            const infected = item.id === room.infectedId;
+            const teamRole = infected ? ROLE.WEREWOLF : role;
             const isWinner =
-              (winner === 'villagers' && roleDef.team === 'villagers') ||
-              (winner === 'werewolves' && role === ROLE.WEREWOLF) ||
+              (winner === 'villagers' && (ROLE_DEFINITIONS[teamRole] || roleDef).team === 'villagers') ||
+              (winner === 'werewolves' && isPackWolf(teamRole)) ||
               (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
               (winner === 'lovers' && room.lovers?.includes(item.id));
             return (
@@ -129,7 +135,9 @@ export default function GameOverScreen({ route, navigation }) {
                   <Text style={[styles.revealName, { color: t.text }]}>
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
                   </Text>
-                  <Text style={[styles.revealRole, { color: t.textMuted }]}>{roleDef.name}</Text>
+                  <Text style={[styles.revealRole, { color: t.textMuted }]}>
+                    {roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
+                  </Text>
                   {!item.isAlive && (
                     <View style={styles.revealDeadRow}>
                       <Image source={DEAD_ICON} style={styles.revealDeadIcon} resizeMode="contain" />
@@ -177,7 +185,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: SPACING.md, paddingBottom: SPACING.xxl },
-  soloWinner: { ...FONTS.heading, textAlign: 'center', marginBottom: SPACING.md },
   winnerBanner: {
     width: '100%',
     height: 220,

@@ -17,5 +17,9 @@ export function relatedGroups(gs, room) {
   if (gs.myRole === ROLE.CUPID && room?.lovers) {
     groups.push({ label: 'The lovers you bound', names: namesOf(room.lovers, players) });
   }
+  const roleModel = room?.wildChildModel || room?.nightActions?.wildChild;
+  if (gs.myRole === ROLE.WILD_CHILD && roleModel) {
+    groups.push({ label: 'Your role model', names: namesOf([roleModel], players) });
+  }
   return groups;
 }

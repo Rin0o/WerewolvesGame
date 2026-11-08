@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Image,
+  ImageBackground,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -19,7 +20,7 @@ import { saveSession, clearSession } from '../utils/session';
 import { setPlayerReady, leaveRoom, updateRoom } from '../firebase/roomService';
 import { startGame, TIE_RULE } from '../game-logic/gameManager';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../constants/roles';
-import { DAY, FONTS, RADIUS, SPACING } from '../constants/theme';
+import { FONTS, RADIUS, SPACING } from '../constants/theme';
 import { botSeats } from '../game-logic/bots';
 import { ROLE_ICONS } from '../constants/icons';
 import RoomQrCode from '../components/RoomQrCode';
@@ -27,7 +28,29 @@ import RoleInfoModal from '../components/RoleInfoModal';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
-const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
+const SCALE_ICON = require('../../assets/scale.webp');
+const LOBBY_BACKGROUND = require('../../assets/lobby_room_background.webp');
+const CANDLE_GOLD = '#FFD27A';
+const AMBER = '#C8862A';
+const WINE_RED = '#8E2328';
+const SIGN_WOOD = '#2A1709';
+const INN = {
+  background: '#1E120A',
+  surface: 'rgba(36,22,12,0.88)',
+  surfaceAlt: 'rgba(58,36,20,0.9)',
+  primary: '#3B3FA8',
+  accent: CANDLE_GOLD,
+  text: '#FCEBD0',
+  textSecondary: '#E8B060',
+  textMuted: '#BFA283',
+  border: 'rgba(200,134,42,0.55)',
+  danger: '#E8685F',
+  success: '#3E9E5C',
+  overlay: 'rgba(30,18,10,0.97)',
+  glassBorder: AMBER,
+  modalOverlay: 'rgba(0,0,0,0.6)',
+};
+const SPECIAL_ROLES = [ROLE.SEER, ROLE.WITCH, ROLE.HUNTER, ROLE.CUPID, ROLE.THIEF, ROLE.SAVIOUR, ROLE.BEAR_TAMER, ROLE.SISTER, ROLE.FOX, ROLE.WILD_CHILD, ROLE.VILLAGE_IDIOT, ROLE.RAVEN, ROLE.ELDER, ROLE.BIG_BAD_WOLF, ROLE.WOLF_FATHER, ROLE.WHITE_WOLF, ROLE.WOLF_HOUND];
 
 export default function LobbyScreen({ route, navigation }) {
   const { roomId, playerId, nickname } = route.params;
@@ -42,7 +65,7 @@ export default function LobbyScreen({ route, navigation }) {
     saveSession({ roomId, playerId, nickname });
   }, [roomId, playerId, nickname]);
 
-  const t = DAY;
+  const t = INN;
 
   React.useEffect(() => {
     if (room && room.status === 'night') {
@@ -55,29 +78,31 @@ export default function LobbyScreen({ route, navigation }) {
     }
   }, [room?.status]);
 
-  // When host switches to custom mode, write default customRoles once
+  // When host switches to custom or narrator mode, write default customRoles once
   React.useEffect(() => {
     if (!room || customInitDone.current || room.customRoles) return;
     if (playerId !== room.hostId) return;
-    if ((room.gameMode || 'normal') !== 'custom') return;
+    const mode = room.gameMode || 'normal';
+    if (mode === 'normal') return;
     customInitDone.current = true;
-    const humanCount = room.players.filter((p) => !p.isBot).length;
+    const humanCount = room.players.filter((p) => !p.isBot).length - (mode === 'narrator' ? 1 : 0);
     const total = Math.max(MIN_PLAYERS, humanCount);
     updateRoom(roomId, {
-      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false },
+      customRoles: { playerCount: total, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, raven: false, elder: false, big_bad_wolf: false, wolf_father: false, white_wolf: false, wolf_hound: false },
     });
   }, [room?.gameMode, room?.customRoles]);
 
   if (loading || !room) {
     return (
       <View style={[styles.center, { backgroundColor: t.background }]}>
-        <ActivityIndicator size="large" color={t.primary} />
+        <ActivityIndicator size="large" color={t.accent} />
       </View>
     );
   }
 
   const { players = [], code, hostId, customRoles, gameMode: rawMode, classicFirstNight = false, fillWithBots = false, botChat = false } = room;
   const gameMode = rawMode || 'normal';
+  const choosesRoles = gameMode === 'custom' || gameMode === 'narrator';
   const revoteOnTie = room.tieRule === TIE_RULE.REVOTE;
   const isHost = playerId === hostId;
   const myPlayer = players.find((p) => p.id === playerId);
@@ -87,10 +112,10 @@ export default function LobbyScreen({ route, navigation }) {
   const narratorOffset = gameMode === 'narrator' ? 1 : 0;
   const playingHumans = humanPlayers.length - narratorOffset;
 
-  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, white_wolf: false, wolf_hound: false };
+  const cfg = customRoles || { playerCount: MIN_PLAYERS, werewolf: 1, seer: true, witch: false, hunter: false, cupid: false, thief: false, saviour: false, bear_tamer: false, sister: false, fox: false, wild_child: false, village_idiot: false, raven: false, elder: false, big_bad_wolf: false, wolf_father: false, white_wolf: false, wolf_hound: false };
 
   const botsAvailable = gameMode !== 'narrator';
-  const botTarget = gameMode === 'custom' ? cfg.playerCount : MIN_PLAYERS;
+  const botTarget = choosesRoles ? cfg.playerCount : MIN_PLAYERS;
   const botCount = botsAvailable && fillWithBots ? botSeats(playingHumans, botTarget) : 0;
   const effectiveCount = playingHumans + botCount;
 
@@ -107,12 +132,13 @@ export default function LobbyScreen({ route, navigation }) {
   const customComposition = isValidConfig ? buildCustomComposition(cfg) : [];
   const customRoleCounts = customComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
 
-  const canStart = gameMode === 'normal' || gameMode === 'narrator' ? normalCanStart : customCanStart;
+  const canStart = choosesRoles ? customCanStart : normalCanStart;
+  const showCast = choosesRoles ? (isHost || isValidConfig) : effectiveCount >= MIN_PLAYERS;
 
   async function setMode(mode) {
     await updateRoom(roomId, { gameMode: mode });
-    // Reset customInitDone so defaults get written on first switch to custom
-    if (mode === 'custom') customInitDone.current = false;
+    // Reset customInitDone so defaults get written on first switch to custom or narrator
+    if (mode !== 'normal') customInitDone.current = false;
   }
 
   function setClassicFirstNight(classic) {
@@ -150,7 +176,7 @@ export default function LobbyScreen({ route, navigation }) {
       const gamePlayers = players.map(({ isNarrator, ...p }) =>
         (gameMode === 'narrator' && p.id === playerId ? { ...p, isNarrator: true } : p)
       );
-      const composition = gameMode === 'custom' ? buildCustomComposition(cfg) : null;
+      const composition = choosesRoles ? buildCustomComposition(cfg) : null;
       await startGame(roomId, gamePlayers, { composition, classicFirstNight, botCount });
     } catch (e) {
       setStarting(false);
@@ -190,22 +216,19 @@ export default function LobbyScreen({ route, navigation }) {
 
   function startBtnLabel() {
     if (starting) return 'Starting...';
-    if (gameMode === 'narrator') {
-      return normalCanStart ? '🐺 Start Game (Narrator)' : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
-    }
     if (gameMode === 'normal') {
       return normalCanStart ? startLabelWithBots() : `Need ${MIN_PLAYERS - effectiveCount} more player(s)`;
     }
     if (!isValidConfig) return 'Invalid composition';
     if (effectiveCount < cfg.playerCount) return `Waiting for ${cfg.playerCount - effectiveCount} more player(s)`;
     if (effectiveCount > cfg.playerCount) return `${effectiveCount - cfg.playerCount} too many players`;
-    return startLabelWithBots();
+    return gameMode === 'narrator' ? '🐺 Start Game (Narrator)' : startLabelWithBots();
   }
 
   function botHint() {
     if (!fillWithBots) return 'Off — the game waits for real players.';
     if (botCount > 0) {
-      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager or Sister.`;
+      return `${botCount} bot${botCount !== 1 ? 's' : ''} will join. Bots only play Werewolf, Villager, Sister, Village Idiot or Elder.`;
     }
     return 'The table is full — no bots needed.';
   }
@@ -230,15 +253,15 @@ export default function LobbyScreen({ route, navigation }) {
   const header = (
     <>
       {/* Room Code */}
-      <View style={[styles.codeBox, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <View style={styles.codeBox}>
         <Text style={[styles.codeLabel, { color: t.textSecondary }]}>Room Code</Text>
-        <Text style={[styles.code, { color: t.primary }]}>{code}</Text>
+        <Text style={[styles.code, styles.candlelit, { color: CANDLE_GOLD }]}>{code}</Text>
         <View style={styles.codeActions}>
-          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: t.primary }]} onPress={shareCode}>
-            <Text style={[styles.codeActionText, { color: t.primary }]}>📤 Share</Text>
+          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: AMBER }]} onPress={shareCode}>
+            <Text style={[styles.codeActionText, { color: CANDLE_GOLD }]}>📤 Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: t.primary }]} onPress={() => setQrOpen(true)}>
-            <Text style={[styles.codeActionText, { color: t.primary }]}>🔳 Show QR</Text>
+          <TouchableOpacity style={[styles.codeActionBtn, { borderColor: AMBER }]} onPress={() => setQrOpen(true)}>
+            <Text style={[styles.codeActionText, { color: CANDLE_GOLD }]}>🔳 Show QR</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -281,6 +304,8 @@ export default function LobbyScreen({ route, navigation }) {
           </Text>
         </View>
       )}
+
+      <Text style={styles.sectionHeading}>House rules</Text>
 
       {/* First night rule — host picks, everyone sees */}
       <View style={[styles.firstNightBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
@@ -325,11 +350,19 @@ export default function LobbyScreen({ route, navigation }) {
               style={[styles.modeTab, revoteOnTie && { backgroundColor: t.primary }]}
               onPress={() => setTieRule(TIE_RULE.REVOTE)}
             >
-              <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>⚖️ Vote again</Text>
+              <View style={styles.tabWithIcon}>
+                <Image source={SCALE_ICON} style={styles.tabIcon} resizeMode="contain" />
+                <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>Vote again</Text>
+              </View>
             </TouchableOpacity>
           </View>
+        ) : revoteOnTie ? (
+          <View style={styles.tabWithIcon}>
+            <Image source={SCALE_ICON} style={styles.tabIcon} resizeMode="contain" />
+            <Text style={[styles.modeBadgeText, { color: t.text }]}>Vote again</Text>
+          </View>
         ) : (
-          <Text style={[styles.modeBadgeText, { color: t.text }]}>{revoteOnTie ? '⚖️ Vote again' : '🕊️ No lynch'}</Text>
+          <Text style={[styles.modeBadgeText, { color: t.text }]}>🕊️ No lynch</Text>
         )}
         <Text style={[styles.firstNightHint, { color: t.textMuted }]}>
           {revoteOnTie
@@ -338,11 +371,13 @@ export default function LobbyScreen({ route, navigation }) {
         </Text>
       </View>
 
-      {/* Normal / Narrator mode — auto composition preview */}
-      {(gameMode === 'normal' || gameMode === 'narrator') && effectiveCount >= MIN_PLAYERS && (
+      {showCast && <Text style={styles.sectionHeading}>Tonight's cast</Text>}
+
+      {/* Normal mode — auto composition preview */}
+      {gameMode === 'normal' && effectiveCount >= MIN_PLAYERS && (
         <View style={[styles.compBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
-            Roles for {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}{gameMode === 'narrator' ? ' (host is narrator)' : ''}
+            For {effectiveCount} player{effectiveCount !== 1 ? 's' : ''}
           </Text>
           <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
@@ -351,18 +386,20 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Custom mode — host config panel */}
-      {gameMode === 'custom' && isHost && (
+      {/* Custom / Narrator mode — host config panel */}
+      {choosesRoles && isHost && (
         <View style={[styles.configBox, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <Text style={[styles.configTitle, { color: t.text }]}>Role Configuration</Text>
+          <Text style={[styles.configTitle, { color: t.text }]}>Choose the roles</Text>
 
           <View style={styles.configRow}>
-            <Text style={[styles.configLabel, { color: t.text }]}>Players</Text>
+            <Text style={[styles.configLabel, { color: t.text }]}>
+              {gameMode === 'narrator' ? 'Players (not counting you)' : 'Players'}
+            </Text>
             <View style={styles.stepper}>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changePlayerCount(-1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>−</Text>
               </TouchableOpacity>
-              <Text style={[styles.stepValue, { color: t.primary }]}>{cfg.playerCount}</Text>
+              <Text style={[styles.stepValue, { color: t.accent }]}>{cfg.playerCount}</Text>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changePlayerCount(1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>+</Text>
               </TouchableOpacity>
@@ -383,7 +420,7 @@ export default function LobbyScreen({ route, navigation }) {
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changeWerewolves(-1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>−</Text>
               </TouchableOpacity>
-              <Text style={[styles.stepValue, { color: t.primary }]}>{cfg.werewolf}</Text>
+              <Text style={[styles.stepValue, { color: t.accent }]}>{cfg.werewolf}</Text>
               <TouchableOpacity style={[styles.stepBtn, { borderColor: t.border }]} onPress={() => changeWerewolves(1)}>
                 <Text style={[styles.stepBtnText, { color: t.text }]}>+</Text>
               </TouchableOpacity>
@@ -452,11 +489,11 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Custom mode — non-host read-only summary */}
-      {gameMode === 'custom' && !isHost && isValidConfig && (
+      {/* Custom / Narrator mode — non-host read-only summary */}
+      {choosesRoles && !isHost && isValidConfig && (
         <View style={[styles.compBox, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
           <Text style={[styles.compTitle, { color: t.textSecondary }]}>
-            Roles for {cfg.playerCount} players
+            For {cfg.playerCount} players{gameMode === 'narrator' ? ' (the host narrates)' : ''}
           </Text>
           <Text style={[styles.firstNightHint, { color: t.textMuted }]}>Tap a role to see what it does.</Text>
           <View style={styles.compRow}>
@@ -513,14 +550,18 @@ export default function LobbyScreen({ route, navigation }) {
         </View>
       )}
 
-      <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>
-        Players ({humanPlayers.length}{gameMode === 'custom' ? `/${cfg.playerCount}` : ''})
+      <Text style={styles.sectionHeading}>
+        {gameMode === 'narrator'
+          ? `Around the table (${playingHumans}/${cfg.playerCount}, plus the narrator)`
+          : `Around the table (${humanPlayers.length}${gameMode === 'custom' ? `/${cfg.playerCount}` : ''})`}
       </Text>
     </>
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]}>
+    <ImageBackground source={LOBBY_BACKGROUND} style={[styles.safe, { backgroundColor: t.background }]} resizeMode="cover">
+    <View style={styles.wash} />
+    <SafeAreaView style={styles.safe}>
       <FlatList
         data={humanPlayers}
         keyExtractor={(p) => p.id}
@@ -535,8 +576,11 @@ export default function LobbyScreen({ route, navigation }) {
             {item.isHost && <Text style={[styles.badge, { color: t.accent }]}>{gameMode === 'narrator' ? 'NARRATOR' : 'HOST'}</Text>}
             {item.id === playerId && <Text style={[styles.badge, { color: t.textMuted }]}>YOU</Text>}
             {!item.isHost && (
-              <Text style={{ marginLeft: 'auto', fontSize: 18 }}>
-                {item.isReady ? '✅' : '⏳'}
+              <Text
+                style={[styles.candle, !item.isReady && styles.candleUnlit]}
+                accessibilityLabel={item.isReady ? 'Ready' : 'Not ready yet'}
+              >
+                🕯️
               </Text>
             )}
           </View>
@@ -547,22 +591,22 @@ export default function LobbyScreen({ route, navigation }) {
       <View style={[styles.footer, { borderTopColor: t.border }]}>
         {!isHost && (
           <TouchableOpacity
-            style={[styles.btn, { backgroundColor: myPlayer?.isReady ? t.success : t.primary }]}
+            style={[styles.btn, styles.goldEdge, { backgroundColor: myPlayer?.isReady ? t.success : t.primary }]}
             onPress={handleReady}
           >
-            <Text style={styles.btnText}>{myPlayer?.isReady ? '✅ Ready!' : '⏳ Mark Ready'}</Text>
+            <Text style={styles.btnText}>{myPlayer?.isReady ? '🕯️ Ready! Your candle is lit' : '🕯️ Mark Ready'}</Text>
           </TouchableOpacity>
         )}
         {isHost && (
           <TouchableOpacity
-            style={[styles.btn, { backgroundColor: canStart ? t.primary : t.border, opacity: canStart ? 1 : 0.6 }]}
+            style={[styles.btn, styles.goldEdge, { backgroundColor: canStart ? WINE_RED : t.surfaceAlt, opacity: canStart ? 1 : 0.6 }]}
             onPress={handleStart}
             disabled={!canStart || starting}
           >
             <Text style={styles.btnText}>{startBtnLabel()}</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.leaveBtn, { borderColor: t.danger }]} onPress={handleLeave}>
+        <TouchableOpacity style={[styles.leaveBtn, { borderColor: t.danger, backgroundColor: t.surface }]} onPress={handleLeave}>
           <Text style={[styles.leaveText, { color: t.danger }]}>Leave Room</Text>
         </TouchableOpacity>
       </View>
@@ -580,15 +624,16 @@ export default function LobbyScreen({ route, navigation }) {
               Scan with 📷 Scan QR Code on the Home screen
             </Text>
             <TouchableOpacity
-              style={[styles.codeActionBtn, styles.qrCloseBtn, { borderColor: t.primary }]}
+              style={[styles.codeActionBtn, styles.qrCloseBtn, { borderColor: AMBER }]}
               onPress={() => setQrOpen(false)}
             >
-              <Text style={[styles.codeActionText, { color: t.primary }]}>Close</Text>
+              <Text style={[styles.codeActionText, { color: CANDLE_GOLD }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
     </SafeAreaView>
+    </ImageBackground>
   );
 }
 
@@ -598,11 +643,34 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: SPACING.md },
   codeBox: {
     marginTop: SPACING.md,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 1,
-    marginBottom: SPACING.sm,
+    borderWidth: 3,
+    borderColor: AMBER,
+    backgroundColor: SIGN_WOOD,
+    marginBottom: SPACING.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
+  candlelit: {
+    textShadowColor: 'rgba(255,170,60,0.75)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,6,2,0.38)' },
+  sectionHeading: {
+    ...FONTS.subheading,
+    color: CANDLE_GOLD,
+    fontWeight: '800',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   codeLabel: { ...FONTS.caption, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
   code: { ...FONTS.code, fontSize: 40, marginVertical: SPACING.xs },
@@ -634,6 +702,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   modeTabText: { ...FONTS.button },
+  tabWithIcon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs },
+  tabIcon: { width: 24, height: 24 },
   modeBadge: {
     borderRadius: RADIUS.md,
     borderWidth: 1,
@@ -708,14 +778,6 @@ const styles = StyleSheet.create({
   configLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   configLabelIcon: { width: 28, height: 28 },
   infoHint: { fontSize: 14, marginLeft: 2 },
-  sectionTitle: {
-    ...FONTS.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: '700',
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -735,10 +797,14 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   playerName: { ...FONTS.body, flex: 1 },
   badge: { ...FONTS.caption, fontWeight: '700', letterSpacing: 1 },
+  candle: { marginLeft: 'auto', fontSize: 22 },
+  candleUnlit: { opacity: 0.25 },
+  goldEdge: { borderWidth: 1.5, borderColor: AMBER },
   footer: {
     padding: SPACING.md,
     gap: SPACING.sm,
     borderTopWidth: 1,
+    backgroundColor: 'rgba(20,12,6,0.92)',
   },
   btn: {
     borderRadius: RADIUS.md,

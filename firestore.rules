@@ -108,22 +108,29 @@ service cloud.firestore {
         let allowed = {
           'werewolf': ['wolfVotes', 'werewolfObserved'],
           'white_wolf': ['wolfVotes', 'werewolfObserved', 'whiteWolf', 'whiteWolfSkip'],
+          'big_bad_wolf': ['wolfVotes', 'werewolfObserved', 'bigBadWolf', 'bigBadWolfSkip'],
+          'wolf_father': ['wolfVotes', 'werewolfObserved', 'wolfFather', 'wolfFatherSkip'],
           'wolf_hound': ['wolfHound'],
           'seer': ['seer'],
           'witch': ['witchSave', 'witchPoison', 'witchSkip'],
           'cupid': ['cupid'],
           'thief': ['thief'],
-          'saviour': ['saviour']
+          'saviour': ['saviour'],
+          'fox': ['fox', 'foxSkip'],
+          'wild_child': ['wildChild'],
+          'raven': ['raven', 'ravenSkip']
         };
+        let packKeys = before().get('infectedId', null) == uid() ? ['wolfVotes', 'werewolfObserved'] : [];
         let changed = after().nightActions.diff(before().get('nightActions', {})).affectedKeys();
         return before().status == 'night'
           && changedOnly(['nightActions'])
-          && changed.hasOnly(allowed.get(myRole(), []))
+          && changed.hasOnly(allowed.get(myRole(), []).concat(packKeys))
           && (!changed.hasAny(['wolfVotes']) || ownWolfVoteOnly());
       }
 
       function voting() {
         return before().status == 'day'
+          && before().get('idiotRevealed', null) != uid()
           && changedOnly(['votes'])
           && after().votes.diff(before().get('votes', {})).affectedKeys().hasOnly([uid()])
           && after().votes[uid()].target is string;
@@ -148,10 +155,20 @@ service cloud.firestore {
           && after().players.size() == before().players.size();
       }
 
+      function wildChildTurning() {
+        let childId = before().get('wildChildId', '');
+        return childId is string && childId != ''
+          && after().roles.diff(before().roles).affectedKeys().hasOnly([childId])
+          && before().roles[childId] == 'wild_child'
+          && after().roles[childId] == 'werewolf';
+      }
+
       function huntersShot() {
         return before().get('hunterTriggered', null) == uid()
-          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events'])
-          && after().players.size() == before().players.size();
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost'])
+          && after().players.size() == before().players.size()
+          && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning())
+          && (!after().diff(before()).affectedKeys().hasAny(['villagePowersLost']) || after().villagePowersLost == true);
       }
 
       allow read: if signedIn();
@@ -207,8 +224,19 @@ service cloud.firestore {
     match /rooms/{roomId}/werewolfChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
       allow create: if memberOf(roomAt(roomId)) && (
-        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf'] && validMessage())
-        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) in ['werewolf', 'white_wolf'])
+        ((roomAt(roomId).get('roles', {}).get(request.auth.uid, '') in ['werewolf', 'white_wolf', 'big_bad_wolf', 'wolf_father']
+          || roomAt(roomId).get('infectedId', null) == request.auth.uid) && validMessage())
+        || (validBotMessage(roomAt(roomId)) && (botRole(roomAt(roomId)) in ['werewolf', 'white_wolf', 'big_bad_wolf', 'wolf_father']
+          || roomAt(roomId).get('infectedId', null) == request.resource.data.senderId))
+      );
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+
+    match /rooms/{roomId}/sisterChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId));
+      allow create: if memberOf(roomAt(roomId)) && roomAt(roomId).status == 'night' && (
+        (roomAt(roomId).get('roles', {}).get(request.auth.uid, '') == 'sister' && validMessage())
+        || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) == 'sister')
       );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }

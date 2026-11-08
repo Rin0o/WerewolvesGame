@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Image, Modal, StyleSheet, ScrollView } from 'react-native';
 import { FONTS, RADIUS, SPACING } from '../../constants/theme';
-import { ROLE_DEFINITIONS } from '../../constants/roles';
+import { ROLE, ROLE_DEFINITIONS } from '../../constants/roles';
 import { ROLE_ICONS } from '../../constants/icons';
+import { nicknameOf } from '../../game-logic/roles';
 
 const DISPLAY_SECONDS = 8;
+const SCALE_ICON = require('../../../assets/scale.webp');
 
 export default function LynchResultModal({ visible, onExpire, theme: t, result, players, roles, willRevote = false }) {
   const [countdown, setCountdown] = useState(DISPLAY_SECONDS);
@@ -32,7 +34,7 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
   }, [visible]);
 
   if (!result) return null;
-  const { tallyMap, eliminatedId, tie, votes } = result;
+  const { tallyMap, eliminatedId, tie, votes, sparedIdiot = false, ravenVotes = {} } = result;
 
   const sortedEntries = Object.entries(tallyMap).sort(([, a], [, b]) => b - a);
   const totalVotes = sortedEntries.reduce((sum, [, c]) => sum + c, 0);
@@ -63,8 +65,16 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                 ) : roleInfo ? (
                   <Text style={styles.roleEmoji}>{roleInfo.emoji}</Text>
                 ) : null}
-                <Text style={[styles.victimName, { color: t.danger }]}>{eliminatedPlayer.nickname}</Text>
-                <Text style={[styles.verdictChip, { color: t.danger }]}>⚔️ LYNCHED</Text>
+                <Text style={[styles.victimName, { color: sparedIdiot ? t.accent : t.danger }]}>{eliminatedPlayer.nickname}</Text>
+                <Text style={[styles.verdictChip, { color: sparedIdiot ? t.accent : t.danger }]}>
+                  {sparedIdiot ? '🤪 SPARED — THE VILLAGE IDIOT' : '⚔️ LYNCHED'}
+                </Text>
+
+                {sparedIdiot && (
+                  <Text style={[styles.noVictimText, { color: t.text }]}>
+                    The village can't bring itself to hang a fool. {eliminatedPlayer.nickname} survives, but can no longer vote.
+                  </Text>
+                )}
 
                 {roleInfo && (
                   <View style={[styles.roleRevealCard, { borderColor: teamColor, backgroundColor: `${teamColor}18` }]}>
@@ -79,10 +89,20 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                     </Text>
                   </View>
                 )}
+
+                {roleKey === ROLE.ELDER && (
+                  <Text style={[styles.noVictimText, { color: t.danger, fontWeight: '700' }]}>
+                    The village killed its Elder. Every villager has lost their power for the rest of the game.
+                  </Text>
+                )}
               </>
             ) : (
               <>
-                <Text style={styles.noVictimEmoji}>{isTie ? '⚖️' : '🌫️'}</Text>
+                {isTie ? (
+                  <Image source={SCALE_ICON} style={styles.tieIcon} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.noVictimEmoji}>🌫️</Text>
+                )}
                 <Text style={[styles.noVictimText, { color: t.textMuted }]}>
                   {isTie && willRevote
                     ? 'The vote is tied. The village will vote again between the tied players.'
@@ -97,13 +117,13 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
               <View style={[styles.tallyBox, { borderTopColor: t.border }]}>
                 <Text style={[styles.tallyTitle, { color: t.textSecondary }]}>VOTE BREAKDOWN</Text>
                 {sortedEntries.map(([targetId, count]) => {
-                  const targetName = players.find((p) => p.id === targetId)?.nickname || '?';
+                  const targetName = nicknameOf(players, targetId);
                   const isEliminated = targetId === eliminatedId;
                   const barColor = isEliminated ? t.danger : t.accent;
                   const barPct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
                   const voters = Object.entries(votes)
                     .filter(([, v]) => v?.confirmed && v?.target === targetId)
-                    .map(([vid]) => ({ id: vid, nickname: players.find((p) => p.id === vid)?.nickname || '?' }));
+                    .map(([vid]) => ({ id: vid, nickname: nicknameOf(players, vid) }));
 
                   return (
                     <View key={targetId} style={[styles.tallyRow, { borderColor: isEliminated ? `${t.danger}40` : `${t.border}80` }]}>
@@ -118,8 +138,13 @@ export default function LynchResultModal({ visible, onExpire, theme: t, result, 
                       <View style={[styles.voteBarBg, { backgroundColor: t.border }]}>
                         <View style={[styles.voteBarFill, { width: `${barPct}%`, backgroundColor: barColor }]} />
                       </View>
-                      {voters.length > 0 && (
+                      {(voters.length > 0 || ravenVotes[targetId]) && (
                         <View style={styles.voterChipRow}>
+                          {ravenVotes[targetId] > 0 && (
+                            <View style={[styles.voterChip, { borderColor: t.danger, backgroundColor: `${t.danger}12` }]}>
+                              <Text style={[styles.voterChipText, { color: t.danger }]}>🐦‍⬛ Raven +{ravenVotes[targetId]}</Text>
+                            </View>
+                          )}
                           {voters.map(({ id, nickname }) => (
                             <View key={id} style={[styles.voterChip, { borderColor: isEliminated ? `${t.danger}60` : t.border, backgroundColor: isEliminated ? `${t.danger}12` : t.glassBg }]}>
                               <Text style={[styles.voterChipText, { color: isEliminated ? t.danger : t.textMuted }]}>
@@ -207,6 +232,7 @@ const styles = StyleSheet.create({
   roleRevealName: { ...FONTS.body, textAlign: 'center' },
   roleDescription: { ...FONTS.caption, textAlign: 'center', fontStyle: 'italic', lineHeight: 18 },
   noVictimEmoji: { fontSize: 64 },
+  tieIcon: { width: 96, height: 96 },
   noVictimText: { ...FONTS.body, textAlign: 'center' },
   tallyBox: {
     width: '100%',
