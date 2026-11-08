@@ -4,7 +4,7 @@ A mobile app for playing the social deduction game *The Werewolves of Miller's H
 
 Built with React Native (Expo) and Firebase. There is no backend server: all game logic runs on the players' phones and is coordinated through a single Firestore document per room.
 
-**Current version: 1.0.0** (Android)
+**Current version: 1.2.0** (Android)
 
 > Unofficial fan project. *The Werewolves of Miller's Hollow* was designed by Philippe des Pallières and Hervé Marly and is published by Asmodee / Lui-même.
 
@@ -326,6 +326,7 @@ cd android
 The APK is written to `android/app/build/outputs/apk/release/app-release.apk`. With the WebP images it's expected to be around 25–35 MB; before the image conversion it was about 150 MB.
 - `arm64-v8a` covers practically every phone from the last 6–7 years and builds about four times faster. Leave the flag off to also support old 32-bit phones.
 - To install on a phone, copy the APK over and open it, allowing installs from unknown sources. Or, with the phone connected over USB, run `adb install <path to apk>`.
+- The app ID is `com.willcode4beer.werewolves` since 1.2.0. Builds up to 1.1.3 used `com.millardshollow.werewolves`, so Android installs 1.2.0 as a separate app next to the old one.
 
 ### After changing `app.json` or native dependencies
 Regenerate the native project:

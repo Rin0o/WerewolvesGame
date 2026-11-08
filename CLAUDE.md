@@ -504,6 +504,7 @@ cd android
 ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
 ```
 - Output: `android/app/build/outputs/apk/release/app-release.apk`
+- App ID: `com.willcode4beer.werewolves` (Android package and iOS bundle ID) since 1.2.0; up to 1.1.3 it was `com.millardshollow.werewolves`, so 1.2.0 installs as a separate app
 - **CMake**: the default CMake 3.22.1 fails with `ninja: error: manifest 'build.ninja' still dirty after 100 tries`. Install CMake 3.31.6 via sdkmanager and pin it in `android/local.properties` (`cmake.dir=...\\cmake\\3.31.6`, plus `sdk.dir`). That file is per-machine and git-ignored, and `expo prebuild` deletes it — re-create it after every prebuild.
 - **Release signing**: `plugins/withReleaseSigning.js` injects a `release` signingConfig on every prebuild. It reads `WEREWOLVES_UPLOAD_STORE_FILE`, `WEREWOLVES_UPLOAD_KEY_ALIAS`, `WEREWOLVES_UPLOAD_STORE_PASSWORD`, `WEREWOLVES_UPLOAD_KEY_PASSWORD` from `~/.gradle/gradle.properties` (outside the repo) and falls back to the debug key if they're missing. Never commit the keystore or its passwords.
 - **Versioning**: bump `expo.version` and `expo.android.versionCode` in `app.json`, add the version's section to `CHANGELOG.md` (Added / Changed / Fixed, newest first, written for players), run prebuild, build, then tag `vX.Y.Z` (annotated) and push the tag. `v1.0.0` is the first tag; 1.1.0 and 1.1.1 were never tagged.

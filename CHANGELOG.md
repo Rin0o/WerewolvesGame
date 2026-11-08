@@ -28,6 +28,7 @@ All notable changes to Werewolves of Miller's Hollow (Android). Newest version f
   - New icons for the chat send buttons and tied votes.
 - **The bottom bar keeps the same order by day and night:** Options, Table, Notes, then the chats.
 - **The Notes role picker** scrolls and only lists the roles in this game.
+- **A new app ID:** 1.2.0 installs as a separate app instead of updating the old one. Uninstall the old version afterwards; you'll choose your name again on first launch.
 - **Updated to Expo SDK 58.**
 - **The event log** now names a lynched player's role properly ("Villager", not "villager").
 
