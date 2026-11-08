@@ -72,7 +72,7 @@ export default function DayPhaseScreen({ route, navigation }) {
   const { room, loading } = useRoom(roomId);
   useHostFailover(roomId, playerId, room);
   const gs = useGameState(room, playerId);
-  const playerHooks = usePlayer(roomId);
+  const playerHooks = usePlayer(roomId, room, playerId);
   const [notesOpen, setNotesOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [wolfChatOpen, setWolfChatOpen] = useState(false);

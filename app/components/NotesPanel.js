@@ -177,7 +177,7 @@ export default function NotesPanel({ visible, onClose, theme, players, events, p
             />
 
             <Text style={[styles.section, { color: theme.textSecondary }]}>Game Events</Text>
-            <ClueLog events={events} theme={theme} />
+            <ClueLog events={events} clues={playerHooks.clues} theme={theme} />
             <View style={{ height: SPACING.xl }} />
           </ScrollView>
         </View>

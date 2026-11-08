@@ -124,7 +124,7 @@ export default function NightPhaseScreen({ route, navigation }) {
   const { room, loading } = useRoom(roomId);
   useHostFailover(roomId, playerId, room);
   const gs = useGameState(room, playerId);
-  const playerHooks = usePlayer(roomId);
+  const playerHooks = usePlayer(roomId, room, playerId);
   const [myActionDone, setMyActionDone] = useState(false);
   const [wolfTarget, setWolfTarget] = useState(null);
   const [seerTarget, setSeerTarget] = useState(null);

@@ -9,7 +9,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 - **React Navigation 7** — Native Stack (`createNativeStackNavigator`). In v7 `navigate()` never goes back to a screen already in the stack (it pushes a new one); every Leave button uses `navigation.popTo('Home')`
 - **react-native-reanimated 4** — PhaseTransition animation
 - **expo-audio** — sound effects (`useSoundEffect`); replaced `expo-av`, which was removed in SDK 55
-- **AsyncStorage** — the player profile (name + sound setting, `utils/profile.js`), per-player notes/suspicions (`usePlayer`) and the active-game session for Rejoin (`utils/session.js`)
+- **AsyncStorage** — the player profile (name + sound setting, `utils/profile.js`), per-player notes/suspicions/private clues (`usePlayer`) and the active-game session for Rejoin (`utils/session.js`)
 - **expo-constants** — reads the app version from `app.json` for the settings panel
 - **qrcode** (JS only, `qrcode/lib/core/qrcode`) — builds the lobby QR matrix, drawn with plain Views (no react-native-svg)
 - **expo-navigation-bar** — `<NavigationBar hidden />` in App.js hides the Android navigation bar (swipe up shows it briefly) so the game's bottom bar and chat inputs aren't covered
@@ -54,7 +54,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                onExpire through a ref
     RoleCard.js              — Role card with WebP image (assets/roles/), description,
                                goal, ability; falls back to emoji if no image
-    ClueLog.js               — Scrollable event history list (used inside NotesPanel)
+    ClueLog.js               — Inside NotesPanel: a dashed violet "Your clues · only you can see this" block (the
+                               player's private clues from usePlayer, newest first) above the event history
     PhaseTransition.js       — Animated day/night transition overlay + sound
     SettingsPanel.js         — Settings modal on Home (NIGHT theme): edit name (Save/Cancel), sound on/off (saved
                                immediately), app version
@@ -151,9 +152,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                (from teamRoles), isAlive, isHost,
                                isNarrator, fellowWolves, fellowSisters, myLover, isLover,
                                availableThiefRoles (add fields here only when a screen reads them)
-    usePlayer.js             — AsyncStorage: notes, suspicions, suspected roles;
-                               exposes cycleSuspicion (cycle through levels) and
-                               setSuspicion(playerId, level) (direct level set)
+    usePlayer.js             — usePlayer(roomId, room?, playerId?): AsyncStorage notes, suspicions, suspected roles
+                               and private clues; exposes cycleSuspicion (cycle through levels) and
+                               setSuspicion(playerId, level) (direct level set). With a room (Night and Day screens)
+                               it records each new privateClues() entry once (addClues) and sets the suspicion it
+                               suggests only for players without one yet. Every change goes through update() on a
+                               ref, so two quick changes never overwrite each other
     useHostFailover.js       — Host heartbeat + automatic host takeover (used on every room screen)
     useUnreadMessages.js     — useUnreadMessages(roomId, 'day'|'werewolf'|'sister', playerId, { isOpen, enabled }) →
                                count of other players' messages not yet seen; seen ids live in a module-level
@@ -174,6 +178,12 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     dawnReport.js            — publicDawnNews(room), privateDawnNews(room, playerId) (living, non-narrator only),
                                dawnSummary(publicNews, privateCount): the DawnReport rows;
                                nightReminder(room, myRole, { wolfHasDied }) for the night moon screen (same texts), tested as a privacy check
+    privateClues.js          — privateClues(room, playerId): what only this player learned, keyed per night/day — the
+                               Seer's vision, the Fox's group (never suspecting the Fox), the Raven's mark, the Bear
+                               Tamer's bears (by day, living neighbours), the lover, Cupid's lovers, the Wild Child's
+                               model; each may carry suggested suspicions. Night actions are read only while status is
+                               'night' (resolveNight clears them). addClues(notes, clues) merges new ones; tested as a
+                               privacy check
     roomQr.js                — roomJoinLink(code) → "werewolves://join/CODE"; roomCodeFromScan(data)
                                → code or null
   /constants/
@@ -501,7 +511,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.

@@ -43,6 +43,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
+- **Your clues in the notes:** what only you learned is written down for you: the Seer's visions, the Fox's sniffs, the Bear Tamer's bears, the Raven's marks, your lover, Cupid's couple and the Wild Child's role model. A clue also sets the suspicion icon of the players it names (a werewolf seen becomes Very suspicious, a cleared player Innocent), but never changes an icon you already chose.
 - **Game log:** an event history, plus a full role reveal at the end.
 - **Resilience:**
   - If the host's phone disappears, another player automatically becomes host.
@@ -242,7 +243,7 @@ app/
   hooks/
     useRoom.js             Live room subscription (with last-snapshot cache)
     useGameState.js        Values derived from the room for the current player
-    usePlayer.js           Personal notes and suspicions (AsyncStorage)
+    usePlayer.js           Personal notes, suspicions and private clues (AsyncStorage)
     useHostFailover.js     Host heartbeat and automatic takeover
     useUnreadMessages.js   Unread badges for the day, wolf and sisters chats
     useTurnedWolfNotice.js The private notice for a Wild Child who turned or a player the Wolf-Father infected
@@ -382,6 +383,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `privateClues.test.js` | The clues each role writes into their own notes (Seer, Fox, Raven, Bear Tamer, lovers, Cupid, Wild Child), the suspicions they suggest, never overriding the player's own; nothing for other players or the narrator |
 | `dawnReport.test.js` | What the dawn report tells everyone (deaths with role and team, peaceful night, growl, Raven's mark, dead Elder) and what only one player sees (lover, Bear Tamer, surviving Elder, lost power); nothing private for the dead or the narrator |
 | `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
 | `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model, an infected player) — nobody else's role leaks; the turned Wild Child's and the infected player's notices |
