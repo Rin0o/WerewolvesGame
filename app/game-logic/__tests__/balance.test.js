@@ -7,6 +7,14 @@ const withRole = (composition, role) => {
 };
 
 describe('estimateVillageWin', () => {
+  it('rates every Normal preset as balanced or close to it', () => {
+    for (let n = 5; n <= 20; n++) {
+      const estimate = estimateVillageWin(getCompositionForCount(n));
+      expect(estimate).toBeGreaterThan(0.4);
+      expect(estimate).toBeLessThan(0.6);
+    }
+  });
+
   it('moves the right way for each change', () => {
     const base = getCompositionForCount(11);
     const p = estimateVillageWin(base);

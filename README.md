@@ -129,18 +129,18 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Players | Wolves | Other roles |
 |---|---|---|
 | 5 | 1 | Hunter, 3 Villagers |
-| 6 | 1 | Seer, 4 Villagers |
-| 7 | 2 | Seer, Witch, Hunter, 2 Villagers |
+| 6 | 1 | Witch, 4 Villagers |
+| 7 | 2 | Seer, Witch, Saviour, Bear Tamer, 1 Villager |
 | 8 | 2 | Seer, Witch, Hunter, 3 Villagers |
 | 9 | 2 | Seer, Witch, Hunter, Cupid, 3 Villagers |
-| 10 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 2 Villagers |
+| 10 | 3 | Seer, Witch, Hunter, Saviour, Bear Tamer, 2 Sisters |
 | 11 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 3 Villagers |
 | 12 | 3 | Seer, Witch, Hunter, Saviour, Cupid, 2 Sisters, 2 Villagers |
 | 13 | 4 | Seer, Witch, Hunter, Saviour, Cupid, Bear Tamer, 2 Sisters, 1 Villager |
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom and Narrator modes. Roles are shuffled and dealt at random at the start of every game. In **Custom** and **Narrator** modes the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are only available in Custom and Narrator modes for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night. In 1.3.0 the 6, 7 and 10-player tables were adjusted with the balance meter's model, so every table from 5 to 20 players now estimates 40–60% village wins (a Classic first night lowers that by about 6 points). The Thief isn't in Normal games, so it only appears in Custom and Narrator modes. Roles are shuffled and dealt at random at the start of every game. In **Custom** and **Narrator** modes the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are only available in Custom and Narrator modes for now.
 
 ---
 

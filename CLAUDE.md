@@ -410,18 +410,18 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 | Players | Wolves | Seer | Witch | Hunter | Cupid | Saviour | Bear Tamer | Sisters | Villagers |
 |---------|--------|------|-------|--------|-------|---------|------------|---------|-----------|
 | 5       | 1      | -    | -     | 1      | -     | -       | -          | -       | 3         |
-| 6       | 1      | 1    | -     | -      | -     | -       | -          | -       | 4         |
-| 7       | 2      | 1    | 1     | 1      | -     | -       | -          | -       | 2         |
+| 6       | 1      | -    | 1     | -      | -     | -       | -          | -       | 4         |
+| 7       | 2      | 1    | 1     | -      | -     | 1       | 1          | -       | 1         |
 | 8       | 2      | 1    | 1     | 1      | -     | -       | -          | -       | 3         |
 | 9       | 2      | 1    | 1     | 1      | 1     | -       | -          | -       | 3         |
-| 10      | 3      | 1    | 1     | 1      | 1     | -       | 1          | -       | 2         |
+| 10      | 3      | 1    | 1     | 1      | -     | 1       | 1          | 2       | -         |
 | 11      | 3      | 1    | 1     | 1      | 1     | -       | 1          | -       | 3         |
 | 12      | 3      | 1    | 1     | 1      | 1     | 1       | -          | 2       | 2         |
 | 13      | 4      | 1    | 1     | 1      | 1     | 1       | 1          | 2       | 1         |
 | 14–17   | as 13, plus one Villager per player above 13 (`LARGEST_COMPOSITION`) |
 | 18+     | a fifth Werewolf (`FIFTH_WOLF_AT`), the rest Villagers |
 
-The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (narrator excluded, bots included). Roles are shuffled and dealt randomly every game (`assignRoles`). The rows were balanced with a Monte Carlo simulation (random lynches, Seer reveals a found wolf, Witch saves the first victim, Quiet first night) to land at about 45–56% village wins. The Thief is left out of Normal mode: `getAvailableRolesForThief` only offers undealt roles from villager/werewolf/seer/witch/hunter/cupid, which these tables always deal, so the Thief step would be skipped.
+The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (narrator excluded, bots included). Roles are shuffled and dealt randomly every game (`assignRoles`). The rows were balanced with a Monte Carlo simulation (random lynches, Seer reveals a found wolf, Witch saves the first victim, Quiet first night) to land at about 45–56% village wins. In 1.3.0 rows 6, 7 and 10 were changed with the balance meter's model (`estimateVillageWin`): `balance.test.js` checks that every Normal table from 5 to 20 players estimates 40–60%, so a change to the table or to `constants/balance.js` that breaks this fails the tests. The Thief is left out of Normal mode.
 
 ### Win Conditions (`checkWinCondition`, narrator excluded)
 - **Lovers win**: the two lovers are the last two players alive (checked first; overrides team allegiance)
