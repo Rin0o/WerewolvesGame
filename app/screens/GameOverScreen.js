@@ -16,6 +16,7 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat, clearGhostChat } from '../firebase/roomService';
+import GameReplay from '../components/GameReplay';
 import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
@@ -57,7 +58,7 @@ export default function GameOverScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, events = [], hostId } = room;
+  const { players = [], roles = {}, hostId } = room;
   const isHost = playerId === hostId;
   const t = isVillagers || isLovers ? DAY : NIGHT;
 
@@ -70,6 +71,7 @@ export default function GameOverScreen({ route, navigation }) {
     await clearGhostChat(roomId).catch(() => {});
     await updateRoom(roomId, {
       ghostIds: [],
+      history: [],
       status: 'lobby',
       phase: 0,
       roles: {},
@@ -153,19 +155,8 @@ export default function GameOverScreen({ route, navigation }) {
           }}
         />
 
-        {/* Event log */}
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>Game Summary</Text>
-        <View style={[styles.eventLog, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
-          {events.length === 0 ? (
-            <Text style={[styles.noEvents, { color: t.textMuted }]}>No events recorded.</Text>
-          ) : (
-            events.map((e, i) => (
-              <View key={i} style={[styles.eventEntry, { borderLeftColor: t.primary }]}>
-                <Text style={[styles.eventText, { color: t.text }]}>{e}</Text>
-              </View>
-            ))
-          )}
-        </View>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>What really happened</Text>
+        <GameReplay room={room} theme={t} />
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -219,18 +210,6 @@ const styles = StyleSheet.create({
   revealDeadIcon: { width: 18, height: 18 },
   revealDead: { ...FONTS.body, fontWeight: '600' },
   winBadge: { fontSize: 26 },
-  eventLog: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-  },
-  noEvents: { ...FONTS.caption, fontStyle: 'italic' },
-  eventEntry: {
-    borderLeftWidth: 2,
-    paddingLeft: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  eventText: { ...FONTS.caption, lineHeight: 18 },
   actions: { gap: SPACING.md, marginTop: SPACING.xs, alignItems: 'center', flexDirection: 'row' },
   playAgainBtn: { alignItems: 'center' },
   playAgainIcon: { width: 160, height: 80, marginLeft: 20 },

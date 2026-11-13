@@ -35,7 +35,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                narrator dashboard, notes, wolf chat, sisters chat, "You were eliminated" overlay
     DayPhaseScreen.js        — Dawn announcement, discussion, voting, lynch result, Hunter shot,
                                day chat, wolf chat (for wolves), notes
-    GameOverScreen.js        — Winner reveal, full role dump, event log, Play Again (host); end sound from
+    GameOverScreen.js        — Winner reveal, full role dump, "What really happened" (GameReplay, replaces the plain
+                               event log), Play Again (host); end sound from
                                gameOverSound(room) (utils/gameOverSound.js: only while status is 'ended' with a
                                known winner, so the Play Again reset never plays the wolves' sound)
   /components/
@@ -140,6 +141,11 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                discussionSecondsFor().
                                A plan is { update?, resolveNight?: room }; screens apply it with runPlan()
     voteManager.js           — allVotesIn(), tallyVotes(votes, extraVotes), ravenVotes(room), RAVEN_VOTES
+    history.js               — room.history entries: nightActs(room, roles) (resolveNight: wolf votes, pack, Wolf-Father,
+                               Cupid, Wild Child, Saviour, Witch, Seer and Fox with results, Big Bad / White Wolf, Raven;
+                               `by` from the roles after the Thief/Hound choice, null when nobody holds the role — never
+                               undefined), dayVoteActs(room) (resolveLynch and startRevote; ballot 2 during a revote),
+                               thiefAct/wolfHoundAct (written by advanceNightUpdate or the resolveNight fallback)
     botChat.js               — botVoteTarget() (never self/dead; wolf bots spare the pack; revote-aware),
                                botDayChatter(), botVoteLine(), botWolfLine(); phrases in constants/botLines.js
     bots.js                  — botSeats(humans, target) → number of bots to fill every empty seat (no cap
@@ -185,6 +191,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     dawnReport.js            — publicDawnNews(room), privateDawnNews(room, playerId) (living, non-narrator only),
                                dawnSummary(publicNews, privateCount): the DawnReport rows;
                                nightReminder(room, myRole, { wolfHasDied }) for the night moon screen (same texts), tested as a privacy check
+    replay.js                — replayRounds(room) → { intro, rounds: [{ key, title, lines: [{ text, secret }] }] }: groups the
+                               event log by its "Night N:" / "Day N:" prefixes (unprefixed lines join the round before)
+                               and puts that round's history first (votes as one "Votes:" / "Revote:" / "The pack voted:"
+                               line). Works without history (games from older versions)
     privateClues.js          — privateClues(room, playerId): what only this player learned, keyed per night/day — the
                                Seer's vision, the Fox's group (never suspecting the Fox), the Raven's mark, the Bear
                                Tamer's bears (by day, living neighbours), the lover, Cupid's lovers, the Wild Child's
@@ -337,6 +347,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                   // Why each player died last night; drives the "You were eliminated" message
   bearTamerGrowl: bool|null       // Set at dawn: true if a living neighbour of the Bear Tamer is a wolf; null if no Bear Tamer alive
   events: string[]                // Append-only game event log (written with arrayUnion)
+  history: object[]               // Append-only hidden actions for Game Over's replay (game-logic/history.js), written with
+                                  // arrayUnion in the same update as the events: { time: 'night'|'day', round, act, by?,
+                                  // target?, targets?, role?, wolf?, ballot? }. [] at start and on Play Again. Readable by
+                                  // anyone, like the rest of the room, so it adds no new leak; only Game Over shows it
   votes: { [voterId]: { target: playerId, confirmed: true } }
   votesClosed: bool               // Set by timer expiry (host) or the narrator's Close Votes
   winner: "villagers"|"werewolves"|"lovers"|"white_wolf"|null
@@ -526,12 +540,11 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
 - **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/rooms.rules-test.js` (named `*.rules-test.js` so `npm test` skips it; config `jest.rules.config.js`, node environment) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
-
 ## Building an Android APK (local, Windows)
 ```bash
 cd android

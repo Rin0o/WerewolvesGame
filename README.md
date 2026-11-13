@@ -46,7 +46,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
 - **Your clues in the notes:** what only you learned is written down for you: the Seer's visions, the Fox's sniffs, the Bear Tamer's bears, the Raven's marks, your lover, Cupid's couple and the Wild Child's role model. A clue also sets the suspicion icon of the players it names (a werewolf seen becomes Very suspicious, a cleared player Innocent), but never changes an icon you already chose.
-- **Game log:** an event history, plus a full role reveal at the end.
+- **What really happened:** at the end, every role is revealed and the game is replayed night by night and day by day: each round shows what was hidden (how each wolf voted, who the Seer, Fox, Saviour, Witch and Raven chose, the Thief's steal, Cupid's couple, every day vote) above what the village was told. Tap a round to open it.
 - **Resilience:**
   - If the host's phone disappears, another player automatically becomes host.
   - A player who closes the app can rejoin the game in progress.
@@ -385,6 +385,8 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `history.test.js` | The hidden actions recorded for the replay (who did what each night, the day's ballots, the Thief's steal), never undefined |
+| `replay.test.js` | How Game Over's replay groups secrets and public lines by round, votes and revotes, older games without history |
 | `privateClues.test.js` | The clues each role writes into their own notes (Seer, Fox, Raven, Bear Tamer, lovers, Cupid, Wild Child), the suspicions they suggest, never overriding the player's own; nothing for other players or the narrator |
 | `dawnReport.test.js` | What the dawn report tells everyone (deaths with role and team, peaceful night, growl, Raven's mark, dead Elder) and what only one player sees (lover, Bear Tamer, surviving Elder, lost power); nothing private for the dead or the narrator |
 | `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
