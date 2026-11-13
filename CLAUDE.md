@@ -545,6 +545,8 @@ npm test
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
 - **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/rooms.rules-test.js` (named `*.rules-test.js` so `npm test` skips it; config `jest.rules.config.js`, node environment) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
+- **CI**: `.github/workflows/ci.yml` (GitHub Actions) runs `npm test` and `npm run test:rules` (Java 21, `firebase-tools` from devDependencies) as two parallel jobs on every PR to `main` and every push to `main`. Both are required checks on `main` (ruleset). No APK builds and no rules deploys in CI.
+
 ## Building an Android APK (local, Windows)
 ```bash
 cd android
