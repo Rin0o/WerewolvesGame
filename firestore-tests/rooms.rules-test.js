@@ -205,6 +205,8 @@ describe('lobby', () => {
   it('only the host changes game settings and starts the game', async () => {
     await assertSucceeds(updateDoc(as('host').room, { gameMode: 'custom' }));
     await assertFails(updateDoc(as('alice').room, { gameMode: 'normal' }));
+    await assertSucceeds(updateDoc(as('host').room, { showBalance: true }));
+    await assertFails(updateDoc(as('alice').room, { showBalance: false }));
     await assertFails(updateDoc(as('alice').room, { status: 'night', roles: { alice: 'seer' } }));
     await assertSucceeds(updateDoc(as('host').room, { status: 'night', roles: { host: 'villager', alice: 'werewolf', bob: 'seer' } }));
   });

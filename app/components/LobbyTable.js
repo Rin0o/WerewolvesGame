@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { tableLayout, TABLE_IMAGE } from './SeatingTable';
+import CollapseHeader from './CollapseHeader';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const TABLE_MAX_SIZE = 380;
@@ -20,11 +21,22 @@ export default function LobbyTable({ theme: t, chart, standing, playerId, isHost
   const size = Math.min(width - SPACING.md * 2, TABLE_MAX_SIZE);
   const layout = tableLayout(chart.length, size);
   const { avatar } = layout;
+  const [collapsed, setCollapsed] = useState(false);
   const mySeat = chart.findIndex((p) => p?.id === playerId);
   const bottomSeat = Math.max(0, mySeat);
+  const seated = chart.filter(Boolean).length;
+  const summary = mySeat === -1 && canSit
+    ? `${seated}/${chart.length} seated · you're standing`
+    : `${seated}/${chart.length} seated${mySeat === -1 ? '' : ` · you're in seat ${mySeat + 1}`}`;
 
   return (
     <View style={[styles.box, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <CollapseHeader collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} theme={t} label="The table">
+        <Text style={[styles.headerText, { color: t.textSecondary }]}>{summary}</Text>
+      </CollapseHeader>
+
+      {!collapsed && (
+      <>
       <Text style={[styles.hint, { color: t.text }]}>{hintFor({ canSit, isHost, selectedId, mySeat })}</Text>
 
       <View style={{ width: size, height: size }}>
@@ -84,6 +96,8 @@ export default function LobbyTable({ theme: t, chart, standing, playerId, isHost
           ? 'At the start, anyone still standing and the bots take the free seats at random.'
           : 'At the start, anyone still standing takes a free seat at random.'}
       </Text>
+      </>
+      )}
     </View>
   );
 }
@@ -97,6 +111,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     gap: SPACING.xs,
   },
+  headerText: { ...FONTS.body, fontWeight: '700' },
   hint: { ...FONTS.body, textAlign: 'center' },
   avatar: { borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
   freeSeat: { borderWidth: 2, borderStyle: 'dashed', backgroundColor: 'rgba(0,0,0,0.35)' },

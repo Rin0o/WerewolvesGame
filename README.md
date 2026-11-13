@@ -38,6 +38,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. They choose the roles as in Custom mode (the player count doesn't include them), then run the game from dashboards that show every role and every action.
 - **19 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Accursed Wolf-Father, White Wolf and Wolf Hound.
+- **Balance meter (Custom and Narrator):** while choosing the roles, the host sees a bar from "Favours the wolves" to "Favours the village", with the estimated share of village wins. It counts the roles, the first-night and tied-vote rules and the bots. The host can show it to the other players. The numbers come from simulated games (`tools/balance-sim/`) and are kept in `app/constants/balance.js`.
 - **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
@@ -385,6 +386,7 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `balance.test.js` | The balance meter's estimate: Normal presets near balanced, each role and rule moving it the right way, the verdict bands |
 | `history.test.js` | The hidden actions recorded for the replay (who did what each night, the day's ballots, the Thief's steal), never undefined |
 | `replay.test.js` | How Game Over's replay groups secrets and public lines by round, votes and revotes, older games without history |
 | `privateClues.test.js` | The clues each role writes into their own notes (Seer, Fox, Raven, Bear Tamer, lovers, Cupid, Wild Child), the suspicions they suggest, never overriding the player's own; nothing for other players or the narrator |

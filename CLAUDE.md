@@ -66,6 +66,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                grouped The Village / The Werewolves / Alone (White Wolf) / Either side
                                (SIDE_CHANGING_ROLES: Thief, Wolf Hound, Wild Child), icon + name + description;
                                a tap opens RoleInfoModal with showCard (the big role card image instead of the icon)
+    BalanceMeter.js          — Custom/Narrator lobby only: a wolves ← balanced → village bar with a needle at the
+                               estimated village win %, the verdict, "About N% of games won by the village" and an
+                               "estimate" footnote. The host sees it in the role config with a "Show to players" toggle
+                               (room.showBalance); other players see it in the role summary only when that is on
     QrScannerModal.js        — Full-screen camera scanner: permission prompt, accepts only join links,
                                calls onCodeScanned(code) once per opening
     SeatingTable.js          — Round-table modal (table.webp in the middle, seats on a circle, viewer at the bottom, own living
@@ -75,7 +79,13 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     LobbyTable.js            — Lobby seat picker on the same round table: seatChart(seats) with free seats
                                ("+"), a candle per player, "Still standing" for players without a seat. A
                                player taps a free seat (takeSeat); the host taps a player, then any seat, to
-                               move or swap (takeSeat with swap). Seat 0 or the viewer's seat at the bottom
+                               move or swap (takeSeat with swap). Seat 0 or the viewer's seat at the bottom.
+                               A header ("N/M seated · you're in seat K") folds it, like the host's "Choose the roles"
+                               panel (which keeps the role pills and the balance meter visible when folded); both
+                               folds are local state, start open and use CollapseHeader
+    CollapseHeader.js        — Fold/unfold header: the whole row is the button (compact, with a 12px vertical hitSlop
+                               so the touch area stays ~48px), title on the left,
+                               optional summary + ▲/▼ on the right
     RoleInfoModal.js         — Role pop-up (backdrop Pressable behind the card, so the card's ScrollView scrolls):
                                icon (or the card image with `showCard`, ROLE_IMAGES from RoleCard), name, team (a
                                SIDE_CHANGING_ROLES role reads "Village at first (can join the wolves)"), description, goal, ability, `infected` (team Werewolves,
@@ -141,6 +151,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                discussionSecondsFor().
                                A plan is { update?, resolveNight?: room }; screens apply it with runPlan()
     voteManager.js           — allVotesIn(), tallyVotes(votes, extraVotes), ravenVotes(room), RAVEN_VOTES
+    balance.js               — estimateVillageWin(composition, { bots, classicFirstNight, revote }) → share of village
+                               wins (logistic model on constants/balance.js), balanceVerdict(p) → { side, label }
     history.js               — room.history entries: nightActs(room, roles) (resolveNight: wolf votes, pack, Wolf-Father,
                                Cupid, Wild Child, Saviour, Witch, Seer and Fox with results, Big Bad / White Wolf, Raven;
                                `by` from the roles after the Thief/Hound choice, null when nobody holds the role — never
@@ -206,10 +218,17 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   /constants/
     roles.js                 — ROLE enum, ROLE_DEFINITIONS, ROLE_COMPOSITIONS,
                                getCompositionForCount(), buildCustomComposition()
+    balance.js               — The balance meter's tunable weights, in "points" (≈ percentage points of village wins
+                               around a balanced game; 25 points = 1 logit): BALANCE_ROLE_POINTS per role (relative to a
+                               Villager; wolf roles on top of the wolf share), base, wolf share, per player, bot share,
+                               Classic first night, revote, and BALANCE_BANDS. Fitted with tools/balance-sim (see its README);
+                               Bear Tamer, Fox and White Wolf are damped by hand. Adjust here, not in the logic
     icons.js                 — ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS, DEAD_ICON
     theme.js                 — DAY, NIGHT theme objects + FONTS, RADIUS, SPACING
     botNames.js              — BOT_NAMES (themed villager names), BOT_MARK (🤖 appended to bot nicknames)
     botLines.js              — BOT_LINES phrase bank for bot chat ({name} placeholders)
+/tools/balance-sim/          — Node Monte Carlo simulator + logistic fit behind the balance meter (not bundled; its
+                               README explains how to recalibrate constants/balance.js)
 /plugins/
   withReleaseSigning.js      — Config plugin: signs release builds with the upload key from
                                ~/.gradle/gradle.properties (falls back to the debug key)
@@ -365,6 +384,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). Absent = Quiet
   fillWithBots: bool              // Host's lobby choice (Normal/Custom only): pad empty seats with bots at start
   botChat: bool                   // Host's lobby choice (shown when fillWithBots is on): bots post in the day/wolf chats. Absent = off
+  showBalance: bool               // Host's lobby choice (Custom/Narrator): other players see the balance meter. Absent = host only
   customRoles: {                  // Used when gameMode is "custom" or "narrator" (shared config)
     playerCount: number           // Target total players, narrator excluded (must equal effectiveCount to start)
     werewolf: number              // Count (min 1)

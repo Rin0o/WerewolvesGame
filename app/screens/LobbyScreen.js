@@ -27,6 +27,9 @@ import { ROLE_ICONS } from '../constants/icons';
 import RoomQrCode from '../components/RoomQrCode';
 import RoleInfoModal from '../components/RoleInfoModal';
 import LobbyTable from '../components/LobbyTable';
+import BalanceMeter from '../components/BalanceMeter';
+import CollapseHeader from '../components/CollapseHeader';
+import { estimateVillageWin } from '../game-logic/balance';
 import { roomJoinLink } from '../utils/roomQr';
 
 const MIN_PLAYERS = 5;
@@ -63,6 +66,7 @@ export default function LobbyScreen({ route, navigation }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [infoRole, setInfoRole] = useState(null);
   const [selectedSeatPlayer, setSelectedSeatPlayer] = useState(null);
+  const [rolesCollapsed, setRolesCollapsed] = useState(false);
 
   React.useEffect(() => {
     saveSession({ roomId, playerId, nickname });
@@ -134,6 +138,10 @@ export default function LobbyScreen({ route, navigation }) {
   const customCanStart = isValidConfig && effectiveCount === cfg.playerCount;
   const customComposition = isValidConfig ? buildCustomComposition(cfg) : [];
   const customRoleCounts = customComposition.reduce((acc, r) => { acc[r] = (acc[r] || 0) + 1; return acc; }, {});
+  const showBalance = !!room.showBalance;
+  const villageWin = isValidConfig
+    ? estimateVillageWin(customComposition, { bots: botCount, classicFirstNight, revote: revoteOnTie })
+    : null;
 
   const seatedHumans = humanPlayers.filter((p) => !(gameMode === 'narrator' && p.id === hostId));
   const tableSize = Math.max(choosesRoles ? cfg.playerCount : MIN_PLAYERS, seatedHumans.length);
@@ -413,8 +421,18 @@ export default function LobbyScreen({ route, navigation }) {
       {/* Custom / Narrator mode — host config panel */}
       {choosesRoles && isHost && (
         <View style={[styles.configBox, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <Text style={[styles.configTitle, { color: t.text }]}>Choose the roles</Text>
+          <CollapseHeader
+            collapsed={rolesCollapsed}
+            onToggle={() => setRolesCollapsed((collapsed) => !collapsed)}
+            theme={t}
+            summary={rolesCollapsed ? `${cfg.playerCount} players` : null}
+            label="Role settings"
+          >
+            <Text style={[styles.configTitle, { color: t.text }]}>Choose the roles</Text>
+          </CollapseHeader>
 
+          {!rolesCollapsed && (
+          <>
           <View style={styles.configRow}>
             <Text style={[styles.configLabel, { color: t.text }]}>
               {gameMode === 'narrator' ? 'Players (not counting you)' : 'Players'}
@@ -504,11 +522,23 @@ export default function LobbyScreen({ route, navigation }) {
                 : `${effectiveCount - cfg.playerCount} too many players in room.`}
             </Text>
           )}
+          </>
+          )}
 
           {isValidConfig && (
             <View style={styles.previewRow}>
               {Object.entries(customRoleCounts).map(([role, count]) => renderRolePill(role, count, t.surfaceAlt))}
             </View>
+          )}
+
+          {isValidConfig && (
+            <BalanceMeter
+              villageWin={villageWin}
+              theme={t}
+              isHost
+              shared={showBalance}
+              onToggleShared={(shared) => updateRoom(roomId, { showBalance: shared })}
+            />
           )}
         </View>
       )}
@@ -523,6 +553,7 @@ export default function LobbyScreen({ route, navigation }) {
           <View style={styles.compRow}>
             {Object.entries(customRoleCounts).map(([role, count]) => renderRolePill(role, count, t.surface))}
           </View>
+          {showBalance && <BalanceMeter villageWin={villageWin} theme={t} />}
         </View>
       )}
 
@@ -762,7 +793,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: SPACING.sm,
   },
-  configTitle: { ...FONTS.subheading, marginBottom: SPACING.sm },
+  configTitle: { ...FONTS.subheading },
   botChatRow: { marginTop: SPACING.md },
   configRow: {
     flexDirection: 'row',
