@@ -18,7 +18,7 @@ import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat, clearGhostChat } from '../firebase/roomService';
 import { saveMatchRecord } from '../firebase/historyService';
 import GameReplay from '../components/GameReplay';
-import { didWin, canRecordMatch, matchRecordId, buildMatchRecord } from '../game-logic/matchRecord';
+import { didWin, matchToRecord, buildMatchRecord } from '../game-logic/matchRecord';
 import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
@@ -46,9 +46,8 @@ export default function GameOverScreen({ route, navigation }) {
   const isHostNow = !!room && room.hostId === playerId;
 
   useEffect(() => {
-    if (!isHostNow || !canRecordMatch(room)) return;
-    const id = matchRecordId(roomId, room.gameStartedAt);
-    if (recordedGameRef.current === id) return;
+    const id = matchToRecord(roomId, room, playerId, recordedGameRef.current);
+    if (!id) return;
     recordedGameRef.current = id;
     saveMatchRecord(id, buildMatchRecord(roomId, room)).catch(() => {});
   }, [isHostNow, room?.status, room?.winner, room?.gameStartedAt]);

@@ -47,6 +47,8 @@ export async function createRoom(hostId, hostNickname) {
     createdAt: serverTimestamp(),
     phaseStartedAt: null,
     witchPotions: {},
+    classicFirstNight: true,
+    tieRule: 'revote',
   });
 
   return { roomId: roomRef.id, code };

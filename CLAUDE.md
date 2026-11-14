@@ -169,7 +169,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                undefined), dayVoteActs(room) (resolveLynch and startRevote; ballot 2 during a revote),
                                thiefAct/wolfHoundAct (written by advanceNightUpdate or the resolveNight fallback)
     matchRecord.js           — didWin(room, id) / winnersOf(room) (Game Over's trophies and the history; the narrator never
-                               wins), canRecordMatch(room), matchRecordId(roomId, gameStartedAt), buildMatchRecord(roomId,
+                               wins), canRecordMatch(room), matchRecordId(roomId, gameStartedAt), matchToRecord(roomId, room,
+                               playerId, lastSavedId) → the id GameOverScreen saves now, or null; buildMatchRecord(roomId,
                                room) → the games/{id} doc without endedAt
     botChat.js               — botVoteTarget() (never self/dead; wolf bots spare the pack; revote-aware),
                                botDayChatter(), botVoteLine(), botWolfLine(); phrases in constants/botLines.js
@@ -345,7 +346,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   nightSubPhase: "reveal"|"thief"|"cupid"|"wild_child"|"wolf_hound"|"saviour"|"fox"|"werewolf"|"wolf_father"|"big_bad_wolf"|"white_wolf"|"witch"|"seer"|"raven"|"done"
   roleAcknowledged: playerId[]    // Night 1 "reveal" step: players who tapped "I understand my role"
   roleComposition: { [role]: count }  // Roles as dealt by startGame (before the Thief/Wolf Hound change anything)
-  tieRule: "no_lynch"|"revote"    // Host's lobby choice (TIE_RULE); absent = no_lynch
+  tieRule: "no_lynch"|"revote"    // Host's lobby choice (TIE_RULE); createRoom sets "revote"; absent (older rooms) = no_lynch
   revoteTargets: playerId[]|null  // Set by startRevote during a tie revote; cleared by resolveLynch/resolveNight
   nightActions: {
     wolfVotes: { [wolfId]: playerId }  // Each living wolf's vote (White Wolf, Big Bad Wolf included); a wolf writes only their own
@@ -409,7 +410,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                   // dead player (eliminatePlayer adds them with arrayUnion in the same write that marks
                                   // them dead). Rules can't search `players`, so this list is what they check. [] on Play Again
   gameMode: "normal"|"custom"|"narrator"  // Set by host in lobby; defaults to "normal" if absent
-  classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). Absent = Quiet
+  classicFirstNight: bool         // Host's lobby choice; true = official night 1 (wolves kill; Seer/Witch/Saviour wake). createRoom sets true; absent (older rooms) = Quiet
   fillWithBots: bool              // Host's lobby choice (Normal/Custom only): pad empty seats with bots at start
   botChat: bool                   // Host's lobby choice (shown when fillWithBots is on): bots post in the day/wolf chats. Absent = off
   showBalance: bool               // Host's lobby choice (Custom/Narrator): other players see the balance meter. Absent = host only
@@ -485,8 +486,8 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 ### Night Order (`computeNightSequence`)
 - **Role reveal gate**: `startGame` opens night 1 on `nightSubPhase: 'reveal'` (`ROLE_REVEAL_STEP`) with `roleAcknowledged: []`. RoleRevealScreen's button calls `acknowledgeRole()` and moves on once Firestore shows it. The step is done when `playersStillReading(room)` is empty (living, non-bot, non-narrator, not disconnected); the host then advances with `nextNightSubPhase(room, 'reveal')` (also in narrator games). No timer runs; after 60s (`FORCE_START_AFTER_MS`) the host gets a "Start anyway" button. A player who reaches NightPhase during `reveal` without having acknowledged is sent back to RoleReveal.
-- **Night 1, Quiet** (default, `classicFirstNight` false): Thief (if alive and roles are available) → Cupid → Wild Child → Wolf Hound → Werewolves (observe only: `werewolfObserved`, no kill). Seer, Witch and Saviour don't wake.
-- **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby): Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (kill) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven — the official rules.
+- **Night 1, Quiet** (`classicFirstNight` false; the default before 1.3.0, still what an absent flag means): Thief (if alive and roles are available) → Cupid → Wild Child → Wolf Hound → Werewolves (observe only: `werewolfObserved`, no kill). Seer, Witch and Saviour don't wake.
+- **Night 1, Classic** (`room.classicFirstNight` true, host toggle in the lobby; new rooms start with it): Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (kill) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven — the official rules.
 - Use `isQuietFirstNight(room)` (gameManager) for anything that differs on night 1 — the observe-only wolf panel (`WerewolfAction observeOnly`), its 15s timer, `isSubPhaseDone('werewolf')`, bots, timeout defaults, and `resolveNight` ignoring the wolf kill/poison. Never test `phase === 1` for that. `startGame(roomId, players, { composition, classicFirstNight, botCount })` needs the flag to pick the first step.
 - **Night 2+**: Saviour → Fox (until `foxPowerLost`) → Werewolves (pick victim) → Wolf-Father (only with a pack victim, until `infectedId`) → Big Bad Wolf (until `wolfHasDied`) → White Wolf (even nights, only while a pack wolf is alive) → Witch (only if she has a potion left) → Seer → Raven
 - Once `villagePowersLost` is set, `computeNightSequence` skips every role in `ELDER_SILENCED_ROLES` (`isActive` checks `hasVillagePower`), so only the wolf steps remain.
@@ -624,7 +625,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`, `matchRecord.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `account`, `matchHistory`, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`, `matchRecord.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `account`, `matchHistory`, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`), and `app/firebase/__tests__/` (`accountService` with `firebase/auth`, `firebase/firestore` and the Google sign-in module mocked — the delete order is checked with `mock.invocationCallOrder`; `historyService` with a fake `writeBatch`; `roomService`'s `createRoom` defaults). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
@@ -652,3 +653,8 @@ cd android
 - If the host's phone dies mid-`resolveNight`, the new host re-runs it, which can duplicate some event-log lines
 - **Bot cap lifted until 2.0**: bots may fill the whole table (for solo testing). For 2.0, decide whether to bring back the half-table cap (`botSeats` returned `{ bots, missing }` with `bots = min(empty, humans)`)
 - Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are Custom/Narrator-mode only (not in `ROLE_COMPOSITIONS`)
+- Game history is tied to the Firebase UID: an anonymous player loses it on a new phone or a reinstall (unless Android
+  Auto Backup restores the auth state); only games finished on 1.3.0+ are recorded; a game is saved only when Game Over
+  runs on the host's (or a new host's) phone, so a game everyone abandons isn't; `games` docs are never deleted
+  (deleting an account only removes the player's ids, their nickname stays in `players`)
+- My Games' "Your roles" counts only the pages loaded so far; bot games are marked but can't be filtered out

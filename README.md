@@ -32,7 +32,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## Features
 
 - **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in the settings on the Home screen, which also has a sound on/off switch and shows the app version.
-- **Optional Google sign-in:** everyone plays anonymously by default. Signing in with Google in the settings keeps your player (and your name) on any phone; you can sign out or delete the account there too. Without it, your player lives on this phone only (Android's own backup may bring it back on a new phone).
+- **Optional Google sign-in:** everyone plays anonymously by default. Signing in with Google in the settings keeps your player (your name and your game history) on any phone; you can sign out or delete the account there too. Without it, your player lives on this phone only (Android's own backup may bring it back on a new phone).
 - **Rooms with a 5-letter code:** one player creates a room and the others join by typing the code or scanning a QR code the lobby can show. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
@@ -42,7 +42,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **Balance meter (Custom and Narrator):** while choosing the roles, the host sees a bar from "Favours the wolves" to "Favours the village", with the estimated share of village wins. It counts the roles, the first-night and tied-vote rules and the bots. The host can show it to the other players. The numbers come from simulated games (`tools/balance-sim/`) and are kept in `app/constants/balance.js`.
 - **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
 - **My Games:** the Home screen keeps a history of every game you finished: your role, the mode, the date, whether you won (or narrated), and games with bots marked 🤖. On top: games played, wins, win rate and your record with each role. Tap a game to see the whole cast and replay what really happened, night by night. The history belongs to your player, so it follows you to a new phone only if you signed in with Google.
-- **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
+- **Lobby options:** a Classic (the default) or Quiet first night, what happens on a tied vote (one revote between the tied players by default, or no lynch), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Death Chat:** once eliminated, players talk with each other and with the narrator, by day and by night. The living never see it, and the Firestore rules don't let them read it.
 - **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
@@ -73,8 +73,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 | Night | Order |
 |---|---|
-| **Night 1 — Quiet** (default) | Thief → Cupid → Wild Child (picks a role model) → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
-| **Night 1 — Classic** | Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven |
+| **Night 1 — Quiet** | Thief → Cupid → Wild Child (picks a role model) → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
+| **Night 1 — Classic** (default) | Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven |
 | **Later nights** | Saviour → Fox (until it loses its power) → Werewolves (choose a victim) → Wolf-Father (until he infects someone) → Big Bad Wolf (until a wolf dies) → White Wolf (even nights only) → Witch (if she has potions left) → Seer → Raven |
 
 The host picks **Quiet** or **Classic** for the first night in the lobby; everyone sees the choice. Classic follows the official rules. Roles that aren't in the game, or whose player is dead, are skipped.
@@ -182,6 +182,11 @@ The host's phone increments a `hostHeartbeat` counter every 8 seconds.
 
 ### Rejoining after closing the app
 Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase user ID, which stays the same across app restarts and when the player links a Google account.
+
+### Game history
+When Game Over shows, the host's phone saves one summary of the game to `games/{roomId}_{gameStartedAt}`: the mode and rules, the winner, every player with their role and result, and the event log and hidden actions for the replay. `startGame` writes `gameStartedAt`, so the same room gives each game its own ID, and a second save of the same game (a host takeover, a retry) is refused by the rules instead of making a duplicate. My Games lists the player's games 20 at a time (`playerIds` contains them, newest first, with a composite index in `firestore.indexes.json`), and counts games played, won and narrated with count queries, so the numbers cover the whole history without reading every game.
+
+*Why the host:* only the host's phone is sure to be running when the game ends, and one write covers every player, including those who left mid-game. *Why a separate collection:* rooms are reused by Play Again, and they're readable by anyone signed in; a game summary is readable only by its own players.
 
 ### Joining by QR code
 The lobby shows the letter code with two buttons, **Share** and **Show QR**. Show QR opens a pop-up with a QR code containing `werewolves://join/<CODE>`; it's hidden by default to keep the lobby short. **Scan QR Code** on the Home screen opens the camera, accepts only codes in that format, and then runs the same join as typing the code (name check included). The QR code is built from the `qrcode` library's matrix and drawn with plain Views, so displaying it needs no extra native module. Scanning uses expo-camera, which asks for the camera permission only (no microphone).
@@ -379,7 +384,7 @@ Prebuild **deletes and recreates `android/`**. Afterwards, re-create `android/lo
 npm test
 ```
 
-Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/), plus helpers in [`app/utils/__tests__/`](app/utils/__tests__/) and [`app/hooks/__tests__/`](app/hooks/__tests__/):
+Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/), plus helpers in [`app/utils/__tests__/`](app/utils/__tests__/) and [`app/hooks/__tests__/`](app/hooks/__tests__/), and the account and history services in [`app/firebase/__tests__/`](app/firebase/__tests__/):
 
 | File | Covers |
 |---|---|
@@ -404,8 +409,14 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
 | `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model, an infected player) — nobody else's role leaks; the turned Wild Child's and the infected player's notices |
 | `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
+| `matchRecord.test.js` | Who won (village, pack, White Wolf, lovers, an infected player; never the narrator), when and on whose phone a game is saved (host only, once, a new host after a takeover, never after Play Again), the saved record |
+| `matchHistory.test.js` | My Games: won, lost or narrator, the win rate without narrated games, the record per role, the game's date |
+| `account.test.js` | The settings' account line, which name wins after signing in, the error messages |
+| `accountService.test.js` | Google sign-in: linking keeps the player, an account that already has one, cancelling, each error; deleting the account only after a fresh sign-in, in order (history, name, user), and nothing deleted when a step fails |
+| `historyService.test.js` | Saving a game with the server's end time, paging My Games, the three counts, leaving every game when deleting an account (in batches) |
+| `roomService.test.js` | A new room: the host alone in the lobby, Classic first night and a revote on ties |
 
-Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
+Firestore is mocked (`roomService` and `arrayUnion` in the game-logic tests; the Firestore and sign-in modules in [`app/firebase/__tests__/`](app/firebase/__tests__/)), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
 
 ### Firestore rules tests
 
@@ -462,6 +473,11 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Leaving mid-game:** *Leave game* sits in the Options pop-up (the first button on the left of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
+- **Game history:**
+  - It belongs to the player ID. A player who stays anonymous loses it when they change phones or reinstall, unless Android's backup restores the app's data. Signing in with Google keeps it.
+  - Only games finished on 1.3.0 or later are in it; games before that can't be recovered.
+  - A game is saved only when Game Over shows on the host's phone (or on a new host's). A game everyone leaves before the end isn't saved.
+  - Game summaries are never deleted. Deleting an account removes the player from their games, but the other players keep those games, with the name the player used.
 
 ---
 

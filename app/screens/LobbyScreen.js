@@ -345,16 +345,16 @@ export default function LobbyScreen({ route, navigation }) {
         {isHost ? (
           <View style={styles.firstNightTabs}>
             <TouchableOpacity
-              style={[styles.modeTab, !classicFirstNight && { backgroundColor: t.primary }]}
-              onPress={() => setClassicFirstNight(false)}
-            >
-              <Text style={[styles.modeTabText, { color: !classicFirstNight ? '#fff' : t.textMuted }]}>🌙 Quiet</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.modeTab, classicFirstNight && { backgroundColor: t.primary }]}
               onPress={() => setClassicFirstNight(true)}
             >
               <Text style={[styles.modeTabText, { color: classicFirstNight ? '#fff' : t.textMuted }]}>🩸 Classic</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, !classicFirstNight && { backgroundColor: t.primary }]}
+              onPress={() => setClassicFirstNight(false)}
+            >
+              <Text style={[styles.modeTabText, { color: !classicFirstNight ? '#fff' : t.textMuted }]}>🌙 Quiet</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -373,12 +373,6 @@ export default function LobbyScreen({ route, navigation }) {
         {isHost ? (
           <View style={styles.firstNightTabs}>
             <TouchableOpacity
-              style={[styles.modeTab, !revoteOnTie && { backgroundColor: t.primary }]}
-              onPress={() => setTieRule(TIE_RULE.NO_LYNCH)}
-            >
-              <Text style={[styles.modeTabText, { color: !revoteOnTie ? '#fff' : t.textMuted }]}>🕊️ No lynch</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.modeTab, revoteOnTie && { backgroundColor: t.primary }]}
               onPress={() => setTieRule(TIE_RULE.REVOTE)}
             >
@@ -386,6 +380,12 @@ export default function LobbyScreen({ route, navigation }) {
                 <Image source={SCALE_ICON} style={styles.tabIcon} resizeMode="contain" />
                 <Text style={[styles.modeTabText, { color: revoteOnTie ? '#fff' : t.textMuted }]}>Vote again</Text>
               </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, !revoteOnTie && { backgroundColor: t.primary }]}
+              onPress={() => setTieRule(TIE_RULE.NO_LYNCH)}
+            >
+              <Text style={[styles.modeTabText, { color: !revoteOnTie ? '#fff' : t.textMuted }]}>🕊️ No lynch</Text>
             </TouchableOpacity>
           </View>
         ) : revoteOnTie ? (

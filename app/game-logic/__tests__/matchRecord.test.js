@@ -1,4 +1,4 @@
-import { didWin, winnersOf, canRecordMatch, matchRecordId, buildMatchRecord } from '../matchRecord';
+import { didWin, winnersOf, canRecordMatch, matchRecordId, matchToRecord, buildMatchRecord } from '../matchRecord';
 import { makeGame } from './helpers';
 
 function ended(roles, winner, overrides = {}) {
@@ -44,6 +44,36 @@ describe('canRecordMatch', () => {
     expect(canRecordMatch(ended({ anna: 'villager' }, 'villagers', { status: 'day' }))).toBe(false);
     expect(canRecordMatch(ended({ anna: 'villager' }, 'villagers', { gameStartedAt: undefined }))).toBe(false);
     expect(canRecordMatch(null)).toBe(false);
+  });
+});
+
+describe('matchToRecord', () => {
+  const room = ended({ anna: 'villager' }, 'villagers', { hostId: 'anna' });
+
+  it('the host saves an ended game under its id', () => {
+    expect(matchToRecord('r', room, 'anna', null)).toBe('r_1000');
+  });
+
+  it('other players never save it', () => {
+    expect(matchToRecord('r', room, 'bob', null)).toBeNull();
+  });
+
+  it('saves each game only once per phone', () => {
+    expect(matchToRecord('r', room, 'anna', 'r_1000')).toBeNull();
+  });
+
+  it('a new host after a takeover saves it too', () => {
+    expect(matchToRecord('r', { ...room, hostId: 'bob' }, 'bob', null)).toBe('r_1000');
+  });
+
+  it('the next game in the same room gets its own record', () => {
+    expect(matchToRecord('r', { ...room, gameStartedAt: 2000 }, 'anna', 'r_1000')).toBe('r_2000');
+  });
+
+  it('waits for the game to end, and never saves after Play Again', () => {
+    expect(matchToRecord('r', { ...room, status: 'day', winner: null }, 'anna', null)).toBeNull();
+    expect(matchToRecord('r', { ...room, status: 'lobby', winner: null }, 'anna', null)).toBeNull();
+    expect(matchToRecord('r', null, 'anna', null)).toBeNull();
   });
 });
 

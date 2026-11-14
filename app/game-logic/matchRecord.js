@@ -31,6 +31,12 @@ export function matchRecordId(roomId, gameStartedAt) {
   return `${roomId}_${gameStartedAt}`;
 }
 
+export function matchToRecord(roomId, room, playerId, lastSavedId) {
+  if (!room || room.hostId !== playerId || !canRecordMatch(room)) return null;
+  const id = matchRecordId(roomId, room.gameStartedAt);
+  return id === lastSavedId ? null : id;
+}
+
 export function buildMatchRecord(roomId, room) {
   const players = room.players || [];
   const roles = room.roles || {};
