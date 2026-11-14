@@ -4,7 +4,7 @@ A mobile app for playing the social deduction game *The Werewolves of Miller's H
 
 Built with React Native (Expo) and Firebase. There is no backend server: all game logic runs on the players' phones and is coordinated through a single Firestore document per room.
 
-**Current version: 1.2.0** (Android)
+**Current version: 1.3.0** (Android)
 
 > Unofficial fan project. *The Werewolves of Miller's Hollow* was designed by Philippe des Pallières and Hervé Marly and is published by Asmodee / Lui-même.
 

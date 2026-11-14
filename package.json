@@ -1,6 +1,6 @@
 {
   "name": "werewolves-of-millers-hollow",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "WillCode4Beer",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
