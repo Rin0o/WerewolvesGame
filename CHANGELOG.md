@@ -2,7 +2,7 @@
 
 All notable changes to Werewolves of Miller's Hollow (Android). Newest version first.
 
-## [1.3.0] — Unreleased
+## [1.3.0] — 2026-11-14
 
 ### Added
 - **My Games:** a history of every game you finish, from the new My Games tile on the Home screen. Each game shows your role, the date, the mode and whether you won (or narrated). At the top: games played, wins, win rate and your record with each role. Tap a game to see the whole cast and replay what really happened.
