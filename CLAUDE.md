@@ -26,8 +26,14 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                if no name is saved, otherwise Home
     WelcomeScreen.js         — One-time "choose your name" screen; saves it to the profile
     HomeScreen.js            — "Playing as <name>", settings (home_settings.webp gear), NIGHT theme, create/join room (saved name),
-                               Scan QR Code (QrScannerModal), Role Guide (RoleGuide), Rejoin card for a saved session, and a
-                               "Close the app" link (Android only, `BackHandler.exitApp()`; iOS forbids it)
+                               Scan QR Code (QrScannerModal); below a thin divider two compact tiles (violet edge, not the
+                               room buttons' gold) for Roles (RoleGuide) and My Games; Rejoin card
+                               for a saved session, and a "Close the app" link (Android only, `BackHandler.exitApp()`; iOS
+                               forbids it)
+    MyGamesScreen.js         — Match history (SETTINGS_THEME): stats (games, wins, win rate, narrated) from count queries,
+                               "Your roles" (won/played per role, from the games loaded), one row per game (role, date,
+                               mode, players, 🤖 with bots, Won/Lost/Narrator), 20 at a time with Load more; a tap opens
+                               the cast like Game Over and the saved game's GameReplay
     LobbyScreen.js           — Room code with Share and Show QR buttons (QR in a pop-up), game mode
                                selector, role config, LobbyTable (seat choice), player list; saves session
     RoleRevealScreen.js      — Private role card shown to each player (narrator skips it)
@@ -37,7 +43,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     DayPhaseScreen.js        — Dawn announcement, discussion, voting, lynch result, Hunter shot,
                                day chat, wolf chat (for wolves), notes
     GameOverScreen.js        — Winner reveal, full role dump, "What really happened" (GameReplay, replaces the plain
-                               event log), Play Again (host); end sound from
+                               event log), Play Again (host); the host saves the game to games/{id} once
+                               (buildMatchRecord, `isHostNow` in the deps so a new host still saves it); end sound from
                                gameOverSound(room) (utils/gameOverSound.js: only while status is 'ended' with a
                                known winner, so the Play Again reset never plays the wolves' sound)
   /components/
@@ -161,6 +168,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                `by` from the roles after the Thief/Hound choice, null when nobody holds the role — never
                                undefined), dayVoteActs(room) (resolveLynch and startRevote; ballot 2 during a revote),
                                thiefAct/wolfHoundAct (written by advanceNightUpdate or the resolveNight fallback)
+    matchRecord.js           — didWin(room, id) / winnersOf(room) (Game Over's trophies and the history; the narrator never
+                               wins), canRecordMatch(room), matchRecordId(roomId, gameStartedAt), buildMatchRecord(roomId,
+                               room) → the games/{id} doc without endedAt
     botChat.js               — botVoteTarget() (never self/dead; wolf bots spare the pack; revote-aware),
                                botDayChatter(), botVoteLine(), botWolfLine(); phrases in constants/botLines.js
     bots.js                  — botSeats(humans, target) → number of bots to fill every empty seat (no cap
@@ -171,8 +181,11 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     authService.js           — ensureSignedIn() (anonymous sign-in, one at a time), subscribeToAuth()
     accountService.js        — Optional Google account: linkGoogleAccount() → linked | already_linked (+ credential) |
                                cancelled, switchToGoogleAccount(), cancelGoogleSwitch(), signOutToAnonymous(),
-                               deleteAccount() (fresh Google sign-in first, then users/{uid}, then the Firebase user),
-                               loadSavedNickname(), saveNickname(); throws AccountError with a `kind`
+                               deleteAccount() (fresh Google sign-in first, then forgetMyGames, users/{uid}, then the
+                               Firebase user), loadSavedNickname(), saveNickname(); throws AccountError with a `kind`
+    historyService.js        — games/{id}: saveMatchRecord(id, record) (adds endedAt), loadMyGames(uid, after?) → { games,
+                               last, hasMore } (GAMES_PAGE_SIZE 20), countMyGames(uid) → { played, won, narrated },
+                               forgetMyGames(uid) (removes the player from playerIds / winnerIds / narratorId)
     roomService.js           — All Firestore reads/writes: rooms (create/find/get/join/leave),
                                night actions, votes, chats, disconnect/reconnect,
                                beatHost(), takeOverHost(); setPlayerReady() and takeSeat() change the
@@ -210,6 +223,9 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                sameNickname(), NICKNAME_MAX
     account.js               — accountStatus(user) → { signedIn, email }, nicknameAfterSignIn(local, saved) (a valid
                                saved name wins, else the phone name is saved), accountErrorMessage(kind)
+    matchHistory.js          — My Games helpers: MODE_LABELS, WINNER_LABELS, myEntry(), myOutcome(game, uid) → won | lost |
+                               narrator, winRate(stats) (narrated games left out; null without any), roleRecord(games,
+                               uid), gameDate(game)
     dawnReport.js            — publicDawnNews(room), privateDawnNews(room, playerId) (living, non-narrator only),
                                dawnSummary(publicNews, privateCount): the DawnReport rows;
                                nightReminder(room, myRole, { wolfHasDied }) for the night moon screen (same texts), tested as a privacy check
@@ -234,7 +250,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
                                Classic first night, revote, and BALANCE_BANDS. Fitted with tools/balance-sim (see its README);
                                Bear Tamer, Fox and White Wolf are damped by hand. Adjust here, not in the logic
     icons.js                 — ROLE_ICONS, SUSPICION_ICONS, SUSPICION_LABELS, DEAD_ICON
-    theme.js                 — DAY, NIGHT theme objects + FONTS, RADIUS, SPACING
+    theme.js                 — DAY, NIGHT theme objects + FONTS, RADIUS, SPACING; SETTINGS_THEME (Home's panels: Settings,
+                               Role Guide, My Games), LANTERN_GOLD, MOONLIGHT_TITLE
     botNames.js              — BOT_NAMES (themed villager names), BOT_MARK (🤖 appended to bot nicknames)
     botLines.js              — BOT_LINES phrase bank for bot chat ({name} placeholders)
 /tools/balance-sim/          — Node Monte Carlo simulator + logistic fit behind the balance meter (not bundled; its
@@ -317,6 +334,7 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
   status: "lobby"|"night"|"day"|"ended"
   phase: number                   // Cycle count (0 in lobby, 1 on the first night, +1 each night)
   phaseStartedAt: ISO string      // Client-side timer sync reference
+  gameStartedAt: number           // Date.now() written by startGame; with the room id it names the games/{id} record
   createdAt: Timestamp
   players: [                      // Lobby: join order. From startGame on: seat order (arrangeSeats), narrator last
     { id, nickname, isAlive, isHost, isReady, seat?, isBot?, isNarrator? }
@@ -412,6 +430,24 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 ```
 Written when the player signs in (if no name is saved yet) and when they change their name in Settings; read when
 they sign in, so the name follows the account to a new phone. Deleted with the account.
+
+### `games/{roomId}_{gameStartedAt}`
+```
+{
+  roomId, code, gameStartedAt: number, endedAt: Timestamp, gameMode, classicFirstNight, tieRule,
+  rounds: number,                 // room.phase at the end
+  winner, roleComposition, withBots: bool,
+  narratorId: uid|null,
+  playerIds: uid[],               // Real players (narrator included, bots never): the history query and the read rule
+  winnerIds: uid[],               // The real players who won (winnersOf): the win count
+  players: [{ id, nickname, role, infected, won, alive, isBot, isNarrator }],  // The whole cast, bots included
+  events: string[], history: object[]   // The room's event log and hidden actions, so My Games shows GameReplay
+                                        // (records saved before these were added have neither)
+}
+```
+Written once by the host from GameOverScreen (`saveMatchRecord`); never changed, except that a player deleting their
+account removes their own id from `playerIds` / `winnerIds` (and clears `narratorId`). Games that never reach Game Over
+aren't logged. Listed with the composite index in `firestore.indexes.json` (`playerIds` array-contains + `endedAt` desc).
 
 ### `rooms/{roomId}/werewolfChat/{messageId}`, `rooms/{roomId}/sisterChat/{messageId}` and `rooms/{roomId}/dayChat/{messageId}`
 ```
@@ -551,7 +587,8 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
    Cloud OAuth consent screen to In production (or list each friend as a test user)
 4. Create a **Firestore Database** (Build → Firestore Database)
 5. Copy your web app config into `app/firebase/config.js`
-6. Deploy `firestore.rules`: `firebase deploy --only firestore:rules` (project in `.firebaserc`)
+6. Deploy the rules and indexes: `firebase deploy --only firestore:rules,firestore:indexes` (project in `.firebaserc`).
+   The My Games list fails until the `games` index has finished building (a few minutes after the deploy)
 
 ### Firestore rules (`firestore.rules`)
 Writes are limited to what the app does; anything else is denied:
@@ -566,7 +603,12 @@ Writes are limited to what the app does; anything else is denied:
   Subscribe to it only when `room.ghostIds` holds the player, or the listener fails.
 - **Users**: `users/{uid}` only by its owner: read, delete, and write `{ nickname (2–18 chars), updatedAt == request.time }`
   (tests in `firestore-tests/users.rules-test.js`).
-- **When a new write path is added to the app, add a rule and a test in `firestore-tests/` (`rooms.rules-test.js`, `users.rules-test.js`)** — otherwise it will be denied in production.
+- **Games**: `games/{id}` is created only by the host of its room while the room is `ended`, with the room's `winner` and
+  `gameStartedAt`, the id `roomId_gameStartedAt`, `playerIds` within the room's `memberIds`, `winnerIds` within `playerIds`,
+  only the record's keys and `endedAt == request.time` (so a second save is an update and is refused). Read by anyone in
+  `playerIds`, `winnerIds` or `narratorId` (so the three count queries pass). The only update removes the caller from
+  `playerIds` / `winnerIds` and clears their `narratorId`; never deleted (tests in `firestore-tests/games.rules-test.js`).
+- **When a new write path is added to the app, add a rule and a test in `firestore-tests/` (`rooms.rules-test.js`, `users.rules-test.js`, `games.rules-test.js`)** — otherwise it will be denied in production.
 - Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 
 ## Running the App
@@ -582,11 +624,11 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `account`, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`, `matchRecord.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `account`, `matchHistory`, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
-- **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/rooms.rules-test.js` (named `*.rules-test.js` so `npm test` skips it; config `jest.rules.config.js`, node environment) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
+- **Firestore rules tests**: `npm run test:rules` runs `firestore-tests/*.rules-test.js` (named so `npm test` skips them; config `jest.rules.config.js`, node environment, `maxWorkers: 1` because every file clears the one emulator in `beforeEach`) inside `firebase emulators:exec` with project `demo-werewolves`. Needs Java 21+ for the emulator, while the Android build uses JDK 17 — set `JAVA_HOME` to a JDK 21 just for that command. Run it after any change to `firestore.rules` or to how `roomService.js` writes.
 - **CI**: `.github/workflows/ci.yml` (GitHub Actions) runs `npm test` and `npm run test:rules` (Java 21, `firebase-tools` from devDependencies) as two parallel jobs on every PR to `main` and every push to `main`. Both are required checks on `main` (ruleset). No APK builds and no rules deploys in CI.
 
 ## Building an Android APK (local, Windows)

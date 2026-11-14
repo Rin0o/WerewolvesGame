@@ -353,6 +353,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     ghostIds: narratorPlayers.map((p) => p.id),
     status: 'night',
     phase: 1,
+    gameStartedAt: Date.now(),
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},
     nightSubPhase: ROLE_REVEAL_STEP,

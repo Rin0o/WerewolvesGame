@@ -276,5 +276,49 @@ service cloud.firestore {
       allow read, delete: if isOwner();
       allow create, update: if isOwner() && validProfile();
     }
+
+    match /games/{gameId} {
+
+      function record() {
+        return request.resource.data;
+      }
+
+      function validRecord() {
+        let room = get(/databases/$(database)/documents/rooms/$(record().roomId)).data;
+        return record().keys().hasOnly(['roomId', 'code', 'gameStartedAt', 'endedAt', 'gameMode', 'classicFirstNight',
+            'tieRule', 'rounds', 'winner', 'roleComposition', 'withBots', 'narratorId', 'playerIds', 'winnerIds', 'players',
+            'events', 'history'])
+          && room.hostId == request.auth.uid
+          && room.status == 'ended'
+          && record().winner == room.winner
+          && record().gameStartedAt == room.gameStartedAt
+          && gameId == record().roomId + '_' + string(room.gameStartedAt)
+          && record().playerIds is list
+          && record().winnerIds is list
+          && room.memberIds.hasAll(record().playerIds)
+          && record().playerIds.hasAll(record().winnerIds)
+          && (record().narratorId == null || record().narratorId in record().playerIds)
+          && record().endedAt == request.time;
+      }
+
+      function leavingRecord() {
+        let was = resource.data;
+        let now = request.resource.data;
+        return request.auth.uid in was.playerIds
+          && now.diff(was).affectedKeys().hasOnly(['playerIds', 'winnerIds', 'narratorId'])
+          && now.playerIds == was.playerIds.removeAll([request.auth.uid])
+          && now.winnerIds == was.winnerIds.removeAll([request.auth.uid])
+          && (now.narratorId == was.narratorId || (was.narratorId == request.auth.uid && now.narratorId == null));
+      }
+
+      allow read: if signedIn() && (
+        request.auth.uid in resource.data.playerIds
+        || request.auth.uid in resource.data.winnerIds
+        || resource.data.narratorId == request.auth.uid
+      );
+      allow create: if signedIn() && record().roomId is string && validRecord();
+      allow update: if signedIn() && leavingRecord();
+      allow delete: if false;
+    }
   }
 }

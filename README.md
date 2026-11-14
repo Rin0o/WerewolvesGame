@@ -41,6 +41,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 - **19 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Accursed Wolf-Father, White Wolf and Wolf Hound.
 - **Balance meter (Custom and Narrator):** while choosing the roles, the host sees a bar from "Favours the wolves" to "Favours the village", with the estimated share of village wins. It counts the roles, the first-night and tied-vote rules and the bots. The host can show it to the other players. The numbers come from simulated games (`tools/balance-sim/`) and are kept in `app/constants/balance.js`.
 - **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
+- **My Games:** the Home screen keeps a history of every game you finished: your role, the mode, the date, whether you won (or narrated), and games with bots marked 🤖. On top: games played, wins, win rate and your record with each role. Tap a game to see the whole cast and replay what really happened, night by night. The history belongs to your player, so it follows you to a new phone only if you signed in with Google.
 - **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
 - **Death Chat:** once eliminated, players talk with each other and with the narrator, by day and by night. The living never see it, and the Firestore rules don't let them read it.
@@ -197,6 +198,7 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 | A member | In the lobby: leave, flip their own ready flag, or change their own seat. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
 | The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true); add the players the shot kills to `ghostIds` (never remove one) |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
+| Game history | Only the host saves a finished game, once, while the room has ended, with its real winner and only the room's members as players; only those players read it; a player deleting their account may only remove themselves from it; nobody changes or deletes it otherwise |
 | Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the dead and the narrator (`ghostIds`) read or post in the Death Chat, which every member can read again in the lobby or after the game; only the host deletes |
 
 Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. For the same reason, a `ghostIds` list (the narrator and every dead player) decides who may read the Death Chat. Nobody can delete a room.
@@ -240,10 +242,12 @@ app/
     gameManager.js         startGame, night order, resolveNight, resolveLynch, hunterShoot (Wild Child, Village Idiot)
     hostDecisions.js       What the host decides each night and day (pure, tested); the screens only apply it
     voteManager.js         Vote counting (with the Raven's +2)
+    matchRecord.js         Who won, and the game record saved for My Games
   firebase/
     config.js              Firebase project configuration
     authService.js         Anonymous sign-in
     accountService.js      Optional Google account: link, switch, sign out, delete; the saved name (users/{uid})
+    historyService.js      Save, list and count finished games (games/{id}) for My Games
     roomService.js         All Firestore reads and writes (rooms, chats, host takeover)
   hooks/
     useRoom.js             Live room subscription (with last-snapshot cache)
@@ -288,7 +292,7 @@ npm install
    Google sign-in needs a build of the app (it doesn't work in Expo Go); everything else does.
 3. Create a **Firestore Database**.
 4. Put your web app configuration in [`app/firebase/config.js`](app/firebase/config.js).
-5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) with `firebase deploy --only firestore:rules` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).
+5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) and the index from [`firestore.indexes.json`](firestore.indexes.json) with `firebase deploy --only firestore:rules,firestore:indexes` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).
 
 ### 3. Run
 ```bash
@@ -409,7 +413,7 @@ Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline a
 npm run test:rules
 ```
 
-[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 51 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions including the Fox, Wild Child, Raven, Big Bad Wolf, Wolf-Father and an infected player, votes and the revealed Village Idiot, Hunter shot with the Wild Child turning or the Elder dying, host takeover, wolf/sisters/day chats) and checks that the wrong player can't make them. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
+[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 51 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions including the Fox, Wild Child, Raven, Big Bad Wolf, Wolf-Father and an infected player, votes and the revealed Village Idiot, Hunter shot with the Wild Child turning or the Elder dying, host takeover, wolf/sisters/day chats) and checks that the wrong player can't make them. [`users.rules-test.js`](firestore-tests/users.rules-test.js) and [`games.rules-test.js`](firestore-tests/games.rules-test.js) do the same for the saved name and the game history. The files run one at a time, since each clears the emulator. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
 
 ---
 

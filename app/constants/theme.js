@@ -47,6 +47,21 @@ export const NIGHT = {
   modalOverlay: 'rgba(0,0,0,0.5)',
 };
 
+export const LANTERN_GOLD = '#E8C060';
+export const MOONLIGHT_TITLE = '#FFF1CC';
+
+export const SETTINGS_THEME = {
+  ...NIGHT,
+  surface: '#1E1340',
+  surfaceAlt: '#33246A',
+  border: 'rgba(232,192,96,0.65)',
+  primary: '#9A6BF5',
+  text: MOONLIGHT_TITLE,
+  textSecondary: LANTERN_GOLD,
+  textMuted: '#CDBFEA',
+  modalOverlay: 'rgba(0,0,0,0.65)',
+};
+
 export const FONTS = {
   title: { fontSize: 28, fontWeight: '800', letterSpacing: 0.5 },
   heading: { fontSize: 22, fontWeight: '700' },

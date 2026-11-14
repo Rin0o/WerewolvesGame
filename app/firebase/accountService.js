@@ -9,6 +9,7 @@ import {
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, GOOGLE_WEB_CLIENT_ID } from './config';
 import { ensureSignedIn } from './authService';
+import { forgetMyGames } from './historyService';
 
 const DEVELOPER_ERROR = '10';
 
@@ -138,6 +139,7 @@ export async function deleteAccount() {
   if (!credential) return { status: 'cancelled' };
   try {
     await reauthenticateWithCredential(user, credential);
+    await forgetMyGames(user.uid);
     await deleteDoc(profileDoc(user.uid));
     await deleteUser(user);
   } catch (error) {

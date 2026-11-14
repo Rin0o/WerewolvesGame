@@ -32,6 +32,7 @@ describe('startGame', () => {
     const update = await start(humans(8));
     expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(8)));
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
+    expect(Number.isInteger(update.gameStartedAt)).toBe(true);
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
     expect(clearSisterChat).toHaveBeenCalledWith(ROOM_ID);
     expect(clearGhostChat).toHaveBeenCalledWith(ROOM_ID);

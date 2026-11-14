@@ -14,6 +14,7 @@ import RoleRevealScreen from './app/screens/RoleRevealScreen';
 import NightPhaseScreen from './app/screens/NightPhaseScreen';
 import DayPhaseScreen from './app/screens/DayPhaseScreen';
 import GameOverScreen from './app/screens/GameOverScreen';
+import MyGamesScreen from './app/screens/MyGamesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,7 @@ export default function App() {
           <Stack.Screen name="NightPhase" component={NightPhaseScreen} />
           <Stack.Screen name="DayPhase" component={DayPhaseScreen} />
           <Stack.Screen name="GameOver" component={GameOverScreen} />
+          <Stack.Screen name="MyGames" component={MyGamesScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

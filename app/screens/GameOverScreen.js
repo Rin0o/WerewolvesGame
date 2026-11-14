@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,10 @@ import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
 import { updateRoom, clearDayChat, clearGhostChat } from '../firebase/roomService';
+import { saveMatchRecord } from '../firebase/historyService';
 import GameReplay from '../components/GameReplay';
-import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
+import { didWin, canRecordMatch, matchRecordId, buildMatchRecord } from '../game-logic/matchRecord';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { gameOverSound } from '../utils/gameOverSound';
@@ -40,6 +42,16 @@ export default function GameOverScreen({ route, navigation }) {
   const isVillagers = winner === 'villagers';
   const isLovers = winner === 'lovers';
   useSoundEffect(gameOverSound(room));
+  const recordedGameRef = useRef(null);
+  const isHostNow = !!room && room.hostId === playerId;
+
+  useEffect(() => {
+    if (!isHostNow || !canRecordMatch(room)) return;
+    const id = matchRecordId(roomId, room.gameStartedAt);
+    if (recordedGameRef.current === id) return;
+    recordedGameRef.current = id;
+    saveMatchRecord(id, buildMatchRecord(roomId, room)).catch(() => {});
+  }, [isHostNow, room?.status, room?.winner, room?.gameStartedAt]);
 
   useEffect(() => {
     if (!room) return;
@@ -119,12 +131,7 @@ export default function GameOverScreen({ route, navigation }) {
             const role = roles[item.id];
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
             const infected = item.id === room.infectedId;
-            const teamRole = infected ? ROLE.WEREWOLF : role;
-            const isWinner =
-              (winner === 'villagers' && (ROLE_DEFINITIONS[teamRole] || roleDef).team === 'villagers') ||
-              (winner === 'werewolves' && isPackWolf(teamRole)) ||
-              (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
-              (winner === 'lovers' && room.lovers?.includes(item.id));
+            const isWinner = didWin(room, item.id);
             return (
               <View style={[
                 styles.playerReveal,
@@ -140,7 +147,7 @@ export default function GameOverScreen({ route, navigation }) {
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
                   </Text>
                   <Text style={[styles.revealRole, { color: t.textMuted }]}>
-                    {roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
+                    {item.isNarrator ? 'Narrator' : roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
                   </Text>
                   {!item.isAlive && (
                     <View style={styles.revealDeadRow}>

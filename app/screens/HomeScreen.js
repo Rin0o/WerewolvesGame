@@ -23,27 +23,16 @@ import { loadProfile, sameNickname } from '../utils/profile';
 import SettingsPanel from '../components/SettingsPanel';
 import QrScannerModal from '../components/QrScannerModal';
 import RoleGuide from '../components/RoleGuide';
-import { NIGHT, FONTS, RADIUS, SPACING } from '../constants/theme';
+import {
+  NIGHT, FONTS, RADIUS, SPACING, SETTINGS_THEME, LANTERN_GOLD, MOONLIGHT_TITLE,
+} from '../constants/theme';
 
 const MOON_IMAGE = require('../../assets/moon_borderless.webp');
 const HOME_BACKGROUND = require('../../assets/home_background.webp');
 const SETTINGS_ICON = require('../../assets/home_settings.webp');
-const MOONLIGHT_TITLE = '#FFF1CC';
 const MOONLIGHT_TEXT = '#EDE3FF';
 const MOONLIGHT_LINE = 'rgba(237,227,255,0.45)';
-const LANTERN_GOLD = '#E8C060';
 const DARK_GLASS = 'rgba(13,8,32,0.78)';
-const SETTINGS_THEME = {
-  ...NIGHT,
-  surface: '#1E1340',
-  surfaceAlt: '#33246A',
-  border: 'rgba(232,192,96,0.65)',
-  primary: '#9A6BF5',
-  text: MOONLIGHT_TITLE,
-  textSecondary: LANTERN_GOLD,
-  textMuted: '#CDBFEA',
-  modalOverlay: 'rgba(0,0,0,0.65)',
-};
 
 const STATUS_LABELS = {
   lobby: 'waiting in the lobby',
@@ -279,9 +268,17 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>📷 Scan QR Code</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setGuideOpen(true)}>
-            <Text style={[styles.btnText, { color: LANTERN_GOLD }]}>📖 Role Guide</Text>
-          </TouchableOpacity>
+          <View style={[styles.toolsDivider, { backgroundColor: MOONLIGHT_LINE }]} />
+          <View style={styles.tileRow}>
+            <TouchableOpacity style={styles.tile} onPress={() => setGuideOpen(true)} accessibilityLabel="Role Guide">
+              <Text style={styles.tileIcon}>📖</Text>
+              <Text style={[styles.tileText, { color: MOONLIGHT_TEXT }]} numberOfLines={1}>Roles</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tile} onPress={() => navigation.navigate('MyGames')} accessibilityLabel="My Games">
+              <Text style={styles.tileIcon}>📜</Text>
+              <Text style={[styles.tileText, { color: MOONLIGHT_TEXT }]} numberOfLines={1}>My Games</Text>
+            </TouchableOpacity>
+          </View>
 
           {Platform.OS === 'android' && (
             <TouchableOpacity style={styles.closeAppBtn} onPress={() => BackHandler.exitApp()}>
@@ -361,6 +358,19 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: NIGHT.primaryDark, borderWidth: 1.5, borderColor: LANTERN_GOLD },
   btnSecondary: { backgroundColor: DARK_GLASS, borderWidth: 2, borderColor: LANTERN_GOLD },
   btnText: { ...FONTS.button, color: MOONLIGHT_TITLE },
+  toolsDivider: { height: 1, marginTop: SPACING.sm, marginBottom: SPACING.md, marginHorizontal: SPACING.lg },
+  tileRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.md },
+  tile: {
+    width: 116,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(154,107,245,0.55)',
+    backgroundColor: 'rgba(13,8,32,0.6)',
+  },
+  tileIcon: { fontSize: 26 },
+  tileText: { ...FONTS.caption, fontWeight: '700', letterSpacing: 0.5, marginTop: 2 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.sm },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { ...FONTS.caption, marginHorizontal: SPACING.sm },
