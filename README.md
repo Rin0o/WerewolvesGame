@@ -32,6 +32,7 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## Features
 
 - **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in the settings on the Home screen, which also has a sound on/off switch and shows the app version.
+- **Optional Google sign-in:** everyone plays anonymously by default. Signing in with Google in the settings keeps your player (and your name) on any phone; you can sign out or delete the account there too. Without it, your player lives on this phone only (Android's own backup may bring it back on a new phone).
 - **Rooms with a 5-letter code:** one player creates a room and the others join by typing the code or scanning a QR code the lobby can show. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
@@ -150,7 +151,7 @@ These tables were balanced with a simulation of 20,000 games per player count, a
 |---|---|
 | App | Expo SDK 58, React Native 0.88, React 19.3 (New Architecture only) |
 | Navigation | React Navigation 7 (native stack) |
-| Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
+| Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity, optionally linked to a Google account) |
 | Animation | react-native-reanimated 4 |
 | Audio | expo-audio |
 | QR codes | `qrcode` (generated in JS, drawn with plain Views) and expo-camera (scanning) |
@@ -179,7 +180,7 @@ The host's phone increments a `hostHeartbeat` counter every 8 seconds.
 - Takeover is turned off in Narrator games once they start, because only the narrator can move those forward.
 
 ### Rejoining after closing the app
-Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase anonymous user ID, which stays the same across app restarts.
+Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase user ID, which stays the same across app restarts and when the player links a Google account.
 
 ### Joining by QR code
 The lobby shows the letter code with two buttons, **Share** and **Show QR**. Show QR opens a pop-up with a QR code containing `werewolves://join/<CODE>`; it's hidden by default to keep the lobby short. **Scan QR Code** on the Home screen opens the camera, accepts only codes in that format, and then runs the same join as typing the code (name check included). The QR code is built from the `qrcode` library's matrix and drawn with plain Views, so displaying it needs no extra native module. Scanning uses expo-camera, which asks for the camera permission only (no microphone).
@@ -242,6 +243,7 @@ app/
   firebase/
     config.js              Firebase project configuration
     authService.js         Anonymous sign-in
+    accountService.js      Optional Google account: link, switch, sign out, delete; the saved name (users/{uid})
     roomService.js         All Firestore reads and writes (rooms, chats, host takeover)
   hooks/
     useRoom.js             Live room subscription (with last-snapshot cache)
@@ -279,7 +281,11 @@ npm install
 
 ### 2. Configure Firebase
 1. Create a project in the [Firebase Console](https://console.firebase.google.com).
-2. Enable **Authentication → Sign-in method → Anonymous**.
+2. Enable **Authentication → Sign-in method → Anonymous** and **Google**. For Google sign-in, also:
+   - copy the Google provider's **Web client ID** into `GOOGLE_WEB_CLIENT_ID` in [`app/firebase/config.js`](app/firebase/config.js);
+   - add an Android app (package `com.willcode4beer.werewolves`) with the SHA-1 fingerprints of your release (upload) key and the debug key (`cd android && ./gradlew signingReport`);
+   - in Google Cloud, set the OAuth consent screen to **In production**, or keep it in Testing and add each player as a test user.
+   Google sign-in needs a build of the app (it doesn't work in Expo Go); everything else does.
 3. Create a **Firestore Database**.
 4. Put your web app configuration in [`app/firebase/config.js`](app/firebase/config.js).
 5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) with `firebase deploy --only firestore:rules` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).

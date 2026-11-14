@@ -257,5 +257,24 @@ service cloud.firestore {
       );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
+
+    match /users/{userId} {
+
+      function isOwner() {
+        return signedIn() && request.auth.uid == userId;
+      }
+
+      function validProfile() {
+        let profile = request.resource.data;
+        return profile.keys().hasOnly(['nickname', 'updatedAt'])
+          && profile.nickname is string
+          && profile.nickname.size() >= 2
+          && profile.nickname.size() <= 18
+          && profile.updatedAt == request.time;
+      }
+
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner() && validProfile();
+    }
   }
 }

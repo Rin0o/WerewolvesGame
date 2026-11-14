@@ -15,7 +15,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signInAnon, subscribeToAuth } from '../firebase/authService';
+import { ensureSignedIn, subscribeToAuth } from '../firebase/authService';
 import { createRoom, findRoomByCode, joinRoom, getRoom } from '../firebase/roomService';
 import { forgetRoomSnapshot } from '../hooks/useRoom';
 import { loadSession, clearSession, screenForStatus } from '../utils/session';
@@ -77,7 +77,7 @@ export default function HomeScreen({ navigation }) {
       if (user) {
         setUserId(user.uid);
       } else {
-        const u = await signInAnon();
+        const u = await ensureSignedIn();
         setUserId(u.uid);
       }
     });

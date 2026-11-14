@@ -5,7 +5,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 
 ## Tech Stack
 - **Expo ~58** (React Native 0.88, React 19.3) — New Architecture only. `metro.config.js` turns package exports off only for `firebase/*` imports (Firebase 10 breaks with them on)
-- **Firebase 10** — Firestore (real-time game state) + Anonymous Auth (UID persisted via AsyncStorage, so it survives app restarts)
+- **Firebase 10** — Firestore (real-time game state) + Anonymous Auth (UID persisted via AsyncStorage, so it survives app restarts; Android Auto Backup may restore it on a new phone), optionally linked to Google (`linkWithCredential` keeps the UID)
+- **@react-native-google-signin/google-signin** — the native Google account picker that gives the ID token for Firebase. Not in Expo Go: `accountService` requires it lazily, so only the Sign in button fails there. Its config plugin is **not** in `app.json` (without options it expects a `google-services.json`; with options it needs an iOS client ID); Android needs none, autolinking is enough
 - **React Navigation 7** — Native Stack (`createNativeStackNavigator`). In v7 `navigate()` never goes back to a screen already in the stack (it pushes a new one); every Leave button uses `navigation.popTo('Home')`
 - **react-native-reanimated 4** — PhaseTransition animation
 - **expo-audio** — sound effects (`useSoundEffect`); replaced `expo-av`, which was removed in SDK 55
@@ -59,8 +60,10 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     ClueLog.js               — Inside NotesPanel: a dashed violet "Your clues · only you can see this" block (the
                                player's private clues from usePlayer, newest first) above the event history
     PhaseTransition.js       — Animated day/night transition overlay + sound
-    SettingsPanel.js         — Settings modal on Home (NIGHT theme): edit name (Save/Cancel), sound on/off (saved
-                               immediately), app version
+    SettingsPanel.js         — Settings modal on Home (NIGHT theme): edit name (Save/Cancel; also saved to
+                               users/{uid} when signed in), sound on/off (saved immediately), AccountSection, app version
+    AccountSection.js        — Inside SettingsPanel: anonymous → "Sign in with Google"; signed in → email, Sign out, Delete
+                               my account. Asks before switching to a Google account that already has a player
     RoomQrCode.js            — QR code for a string, drawn as a grid of Views (white quiet zone)
     RoleGuide.js             — Full-screen role guide from Home (SETTINGS_THEME): every role in ROLE_DEFINITIONS,
                                grouped The Village / The Werewolves / Alone (White Wolf) / Either side
@@ -163,8 +166,13 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     bots.js                  — botSeats(humans, target) → number of bots to fill every empty seat (no cap
                                until 2.0, so one player can test alone); pickBotNames(count, takenNames)
   /firebase/
-    config.js                — Firebase app init (project werewolvesgame-46ba0) + Auth persistence
-    authService.js           — signInAnon(), subscribeToAuth()
+    config.js                — Firebase app init (project werewolvesgame-46ba0) + Auth persistence; GOOGLE_WEB_CLIENT_ID
+                               (the Web client ID of the Firebase Google provider; empty = sign-in not set up)
+    authService.js           — ensureSignedIn() (anonymous sign-in, one at a time), subscribeToAuth()
+    accountService.js        — Optional Google account: linkGoogleAccount() → linked | already_linked (+ credential) |
+                               cancelled, switchToGoogleAccount(), cancelGoogleSwitch(), signOutToAnonymous(),
+                               deleteAccount() (fresh Google sign-in first, then users/{uid}, then the Firebase user),
+                               loadSavedNickname(), saveNickname(); throws AccountError with a `kind`
     roomService.js           — All Firestore reads/writes: rooms (create/find/get/join/leave),
                                night actions, votes, chats, disconnect/reconnect,
                                beatHost(), takeOverHost(); setPlayerReady() and takeSeat() change the
@@ -200,6 +208,8 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
     profile.js               — AsyncStorage player profile { nickname, soundEnabled } (cached in
                                memory): loadProfile(), updateProfile(), nicknameError(),
                                sameNickname(), NICKNAME_MAX
+    account.js               — accountStatus(user) → { signedIn, email }, nicknameAfterSignIn(local, saved) (a valid
+                               saved name wins, else the phone name is saved), accountErrorMessage(kind)
     dawnReport.js            — publicDawnNews(room), privateDawnNews(room, playerId) (living, non-narrator only),
                                dawnSummary(publicNews, privateCount): the DawnReport rows;
                                nightReminder(room, myRole, { wolfHasDied }) for the night moon screen (same texts), tested as a privacy check
@@ -396,6 +406,13 @@ A React Native (Expo) mobile app for the social deduction game "The Werewolves o
 }
 ```
 
+### `users/{uid}`
+```
+{ nickname: string, updatedAt: Timestamp }   // Only for players signed in with Google; owner-only
+```
+Written when the player signs in (if no name is saved yet) and when they change their name in Settings; read when
+they sign in, so the name follows the account to a new phone. Deleted with the account.
+
 ### `rooms/{roomId}/werewolfChat/{messageId}`, `rooms/{roomId}/sisterChat/{messageId}` and `rooms/{roomId}/dayChat/{messageId}`
 ```
 { senderId, senderNickname, text, createdAt: Timestamp }
@@ -528,7 +545,10 @@ The table also defines 2–4 players, but the lobby requires `MIN_PLAYERS = 5` (
 
 1. Go to [Firebase Console](https://console.firebase.google.com)
 2. Create a new project
-3. Enable **Anonymous Authentication** (Build → Authentication → Sign-in method)
+3. Enable **Anonymous** and **Google** in Build → Authentication → Sign-in method. Put the Google provider's Web client ID in
+   `GOOGLE_WEB_CLIENT_ID` (`app/firebase/config.js`), add an Android app with package `com.willcode4beer.werewolves`
+   and the SHA-1 of the upload key and the debug key (`cd android && ./gradlew signingReport`), and set the Google
+   Cloud OAuth consent screen to In production (or list each friend as a test user)
 4. Create a **Firestore Database** (Build → Firestore Database)
 5. Copy your web app config into `app/firebase/config.js`
 6. Deploy `firestore.rules`: `firebase deploy --only firestore:rules` (project in `.firebaserc`)
@@ -544,7 +564,9 @@ Writes are limited to what the app does; anything else is denied:
 - **Chats**: members read; post as themselves, 1–500 chars (`CHAT_MESSAGE_MAX`), `createdAt == request.time`; only `werewolf`, `white_wolf`, `big_bad_wolf` and `wolf_father` roles, and the player in `infectedId`, post in `werewolfChat`; only the host deletes. The host may also post **as a bot** (`validBotMessage`: `senderId` matches `bot-N` and has a role in the room; in `werewolfChat` that bot must be a wolf). In `sisterChat` only `sister` roles (or the host for a bot Sister) post, and only while `status == 'night'`. `ghostChat` is the one chat the rules keep secret: only players in `ghostIds` read
   or post in it, except that any member may read it in the lobby or once the game has ended (so the host can clear it).
   Subscribe to it only when `room.ghostIds` holds the player, or the listener fails.
-- **When a new write path is added to the app, add a rule and a test in `firestore-tests/rooms.rules-test.js`** — otherwise it will be denied in production.
+- **Users**: `users/{uid}` only by its owner: read, delete, and write `{ nickname (2–18 chars), updatedAt == request.time }`
+  (tests in `firestore-tests/users.rules-test.js`).
+- **When a new write path is added to the app, add a rule and a test in `firestore-tests/` (`rooms.rules-test.js`, `users.rules-test.js`)** — otherwise it will be denied in production.
 - Deploying these rules breaks app versions older than the `memberIds` change (they create/join rooms without it), so deploy only once every player has the new build.
 
 ## Running the App
@@ -560,7 +582,7 @@ If Metro fails to connect, try `npx expo start --tunnel`.
 npm test
 ```
 - Jest 30 with the `jest-expo` preset; config in `package.json` (`testMatch: **/*.test.js`, so helpers in `__tests__/` aren't run as tests).
-- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
+- Tests live in `app/game-logic/__tests__/` (cover `roles.js`, `voteManager.js`, `gameManager.js`, `bots.js`, `hostDecisions.js`), `app/utils/__tests__/` (`roomQr`, `profile` name rules, `account`, `session` + `screenForStatus`, `gameOverSound`, `dawnReport`, `privateClues`, `replay`; AsyncStorage is mocked with its package's `jest/async-storage-mock`) and `app/hooks/__tests__/` (`deriveGameState` + `relatedGroups` as a privacy check of what each role learns about others; `wildChildNotice`; `unreadCount`/`markSeen`). Hooks keep their logic in exported pure functions (`deriveGameState`, `unreadCount`) so tests don't render React. `helpers.js` has `makeGame(roleByPlayer, { dead, phase, ...overrides })` (player ids double as names, in seating order), `votesFor()`, `lastUpdate(updateRoom)`, `eventsOf(update)`, `countRoles()`.
 - Each test file mocks `../../firebase/roomService` (only the functions it needs) and `firebase/firestore`'s `arrayUnion` as `{ arrayUnion: items }`; assertions check the object passed to the last `updateRoom` call. `startGame.test.js` passes `{ botCount }` to test bots; `bots.test.js` covers the seat cap and names.
 - Don't assert exact `ROLE_COMPOSITIONS` rows — compare against `getCompositionForCount(n)` so the table can change.
 - Run `npm test` after any change to game logic; add a test when fixing a rules bug.
