@@ -12,6 +12,8 @@ import {
   getWerewolves,
   nicknameOf,
   rolesInPlay,
+  seatChart,
+  arrangeSeats,
 } from '../roles';
 import { ROLE, ROLE_DEFINITIONS, getCompositionForCount, buildCustomComposition } from '../../constants/roles';
 import { makeGame, countRoles } from './helpers';
@@ -217,6 +219,38 @@ describe('role helpers', () => {
     expect(getLoversPartner('a', ['a', 'b'])).toBe('b');
     expect(getLoversPartner('c', ['a', 'b'])).toBeNull();
     expect(getLoversPartner('a', null)).toBeNull();
+  });
+});
+
+describe('choosing seats in the lobby', () => {
+  const p = (id, seat) => ({ id, nickname: id, ...(seat === undefined ? {} : { seat }) });
+  const ids = (chart) => chart.map((x) => x?.id ?? null);
+
+  it('charts who sits where, with empty seats as null', () => {
+    expect(ids(seatChart([p('ana', 2), p('bo'), p('cy', 0)], 4))).toEqual(['cy', null, 'ana', null]);
+  });
+
+  it('ignores a seat off the table, and gives a doubly taken seat to the earlier player', () => {
+    expect(ids(seatChart([p('ana', 5), p('bo', 1), p('cy', 1), p('dan', 1.5)], 3))).toEqual([null, 'bo', null]);
+  });
+
+  it('keeps chosen seats and puts everyone else in the free ones', () => {
+    const seated = arrangeSeats([p('ana', 2), p('bot-0'), p('cy', 0), p('dan')]);
+    expect(seated.map((x) => x.seat)).toEqual([0, 1, 2, 3]);
+    expect(seated[0].id).toBe('cy');
+    expect(seated[2].id).toBe('ana');
+    expect(seated.map((x) => x.id).sort()).toEqual(['ana', 'bot-0', 'cy', 'dan']);
+  });
+
+  it('fills the free seats at random', () => {
+    const order = (random) => arrangeSeats([p('ana'), p('bo'), p('cy')], random).map((x) => x.id);
+    expect(order(() => 0.99)).not.toEqual(order(() => 0));
+    expect(order(() => 0).sort()).toEqual(['ana', 'bo', 'cy']);
+  });
+
+  it('treats a seat beyond the final table as no seat', () => {
+    const seated = arrangeSeats([p('ana', 7), p('bo', 0)], () => 0);
+    expect(seated.map((x) => x.id)).toEqual(['bo', 'ana']);
   });
 });
 

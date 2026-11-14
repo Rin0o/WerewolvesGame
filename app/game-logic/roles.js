@@ -130,10 +130,39 @@ export function getSisters(roleMap) {
 }
 
 /**
- * Returns the players seated at the table, in seating (join) order. The narrator has no seat.
+ * Returns the players seated at the table, in seating order (startGame writes `players` in seat
+ * order, see arrangeSeats). The narrator has no seat.
  */
 export function getSeating(players) {
   return players.filter((p) => !p.isNarrator);
+}
+
+/**
+ * Returns the lobby table: tableSize seats, each holding the player sitting there or null.
+ * A seat number outside the table, or one an earlier player already holds, counts as no seat.
+ */
+export function seatChart(players, tableSize) {
+  const chart = Array(Math.max(0, tableSize)).fill(null);
+  players.forEach((p) => {
+    if (Number.isInteger(p.seat) && p.seat >= 0 && p.seat < chart.length && !chart[p.seat]) chart[p.seat] = p;
+  });
+  return chart;
+}
+
+/**
+ * Returns the players in seating order, each with its seat number. Players keep the seat they
+ * chose in the lobby; everyone else (no seat chosen, bots) takes a free seat at random.
+ */
+export function arrangeSeats(players, random = Math.random) {
+  const chart = seatChart(players, players.length);
+  const standing = players.filter((p) => !chart.includes(p));
+  const free = chart.map((p, i) => (p ? null : i)).filter((i) => i !== null);
+  for (let i = free.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [free[i], free[j]] = [free[j], free[i]];
+  }
+  standing.forEach((p, k) => { chart[free[k]] = p; });
+  return chart.map((p, i) => ({ ...p, seat: i }));
 }
 
 /**

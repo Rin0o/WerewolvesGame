@@ -13,6 +13,8 @@ const firebaseConfig = {
   measurementId: "G-M4EX2MZK3R"
 };
 
+export const GOOGLE_WEB_CLIENT_ID = '533863907492-6osottbks1lrv3ga8b18nce9bonfa2sm.apps.googleusercontent.com';
+
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = initializeAuth(app, {

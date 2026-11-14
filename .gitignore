@@ -21,3 +21,5 @@ assets/unused/
 firestore-debug.log
 firebase-debug.log
 ROLES_REFERENCE.md
+tools/balance-sim/samples.json
+.firebase/

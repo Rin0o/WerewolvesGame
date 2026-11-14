@@ -2,13 +2,14 @@ jest.mock('../../firebase/roomService', () => ({
   updateRoom: jest.fn(() => Promise.resolve()),
   clearWerewolfChat: jest.fn(() => Promise.resolve()),
   clearSisterChat: jest.fn(() => Promise.resolve()),
+  clearGhostChat: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('firebase/firestore', () => ({ arrayUnion: (...items) => ({ arrayUnion: items }) }));
 
 import {
   startGame, computeNightSequence, nextNightSubPhase, isSubPhaseDone, playersStillReading, ROLE_REVEAL_STEP,
 } from '../gameManager';
-import { updateRoom, clearWerewolfChat, clearSisterChat } from '../../firebase/roomService';
+import { updateRoom, clearWerewolfChat, clearSisterChat, clearGhostChat } from '../../firebase/roomService';
 import { ROLE, getCompositionForCount } from '../../constants/roles';
 import { BOT_MARK } from '../../constants/botNames';
 import { lastUpdate, countRoles, ROOM_ID } from './helpers';
@@ -31,8 +32,16 @@ describe('startGame', () => {
     const update = await start(humans(8));
     expect(countRoles(Object.values(update.roles))).toEqual(countRoles(getCompositionForCount(8)));
     expect(update).toMatchObject({ status: 'night', phase: 1, winner: null, votes: {}, nightActions: {} });
+    expect(Number.isInteger(update.gameStartedAt)).toBe(true);
     expect(clearWerewolfChat).toHaveBeenCalledWith(ROOM_ID);
     expect(clearSisterChat).toHaveBeenCalledWith(ROOM_ID);
+    expect(clearGhostChat).toHaveBeenCalledWith(ROOM_ID);
+  });
+
+  it('starts the ghost chat with only the narrator in it', async () => {
+    expect((await start(humans(6))).ghostIds).toEqual([]);
+    const players = [...humans(6), { id: 'nar', nickname: 'Nar', isAlive: true, isNarrator: true }];
+    expect((await start(players)).ghostIds).toEqual(['nar']);
   });
 
   it('records the dealt composition so players can see which roles are in the game', async () => {
@@ -51,7 +60,7 @@ describe('startGame', () => {
   it('the night begins once every player still at the table has read their role', async () => {
     const update = await start(humans(5), { botCount: 2 });
     const room = { ...update, disconnectedPlayers: ['h4'] };
-    expect(playersStillReading(room).map((p) => p.id)).toEqual(['h0', 'h1', 'h2', 'h3']);
+    expect(playersStillReading(room).map((p) => p.id).sort()).toEqual(['h0', 'h1', 'h2', 'h3']);
     expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2'] })).toBe(false);
     expect(isSubPhaseDone(ROLE_REVEAL_STEP, { ...room, roleAcknowledged: ['h0', 'h1', 'h2', 'h3'] })).toBe(true);
   });
@@ -68,6 +77,14 @@ describe('startGame', () => {
     const update = await start(humans(8));
     const witch = Object.keys(update.roles).find((id) => update.roles[id] === ROLE.WITCH);
     expect(update.witchPotions).toEqual({ [witch]: { save: true, poison: true } });
+  });
+
+  it('seats players where they sat in the lobby and bots in the free seats', async () => {
+    const players = humans(3).map((p, i) => (i === 0 ? { ...p, seat: 4 } : i === 2 ? { ...p, seat: 1 } : p));
+    const update = await start(players, { botCount: 2 });
+    expect(update.players.map((p) => p.seat)).toEqual([0, 1, 2, 3, 4]);
+    expect(update.players[4].id).toBe('h0');
+    expect(update.players[1].id).toBe('h2');
   });
 
   it('keeps the narrator in the game without a role', async () => {

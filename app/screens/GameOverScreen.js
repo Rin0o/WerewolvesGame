@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,11 @@ import useRoom from '../hooks/useRoom';
 import usePlayer from '../hooks/usePlayer';
 import useHostFailover from '../hooks/useHostFailover';
 import { clearSession } from '../utils/session';
-import { updateRoom, clearDayChat } from '../firebase/roomService';
-import { ROLE, ROLE_DEFINITIONS, isPackWolf } from '../constants/roles';
+import { updateRoom, clearDayChat, clearGhostChat } from '../firebase/roomService';
+import { saveMatchRecord } from '../firebase/historyService';
+import GameReplay from '../components/GameReplay';
+import { didWin, matchToRecord, buildMatchRecord } from '../game-logic/matchRecord';
+import { ROLE_DEFINITIONS } from '../constants/roles';
 import { ROLE_ICONS, DEAD_ICON } from '../constants/icons';
 import useSoundEffect from '../hooks/useSoundEffect';
 import { gameOverSound } from '../utils/gameOverSound';
@@ -39,6 +42,15 @@ export default function GameOverScreen({ route, navigation }) {
   const isVillagers = winner === 'villagers';
   const isLovers = winner === 'lovers';
   useSoundEffect(gameOverSound(room));
+  const recordedGameRef = useRef(null);
+  const isHostNow = !!room && room.hostId === playerId;
+
+  useEffect(() => {
+    const id = matchToRecord(roomId, room, playerId, recordedGameRef.current);
+    if (!id) return;
+    recordedGameRef.current = id;
+    saveMatchRecord(id, buildMatchRecord(roomId, room)).catch(() => {});
+  }, [isHostNow, room?.status, room?.winner, room?.gameStartedAt]);
 
   useEffect(() => {
     if (!room) return;
@@ -57,7 +69,7 @@ export default function GameOverScreen({ route, navigation }) {
     );
   }
 
-  const { players = [], roles = {}, events = [], hostId } = room;
+  const { players = [], roles = {}, hostId } = room;
   const isHost = playerId === hostId;
   const t = isVillagers || isLovers ? DAY : NIGHT;
 
@@ -67,7 +79,10 @@ export default function GameOverScreen({ route, navigation }) {
       return;
     }
     await clearDayChat(roomId);
+    await clearGhostChat(roomId).catch(() => {});
     await updateRoom(roomId, {
+      ghostIds: [],
+      history: [],
       status: 'lobby',
       phase: 0,
       roles: {},
@@ -115,12 +130,7 @@ export default function GameOverScreen({ route, navigation }) {
             const role = roles[item.id];
             const roleDef = ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS.villager;
             const infected = item.id === room.infectedId;
-            const teamRole = infected ? ROLE.WEREWOLF : role;
-            const isWinner =
-              (winner === 'villagers' && (ROLE_DEFINITIONS[teamRole] || roleDef).team === 'villagers') ||
-              (winner === 'werewolves' && isPackWolf(teamRole)) ||
-              (winner === 'white_wolf' && role === ROLE.WHITE_WOLF) ||
-              (winner === 'lovers' && room.lovers?.includes(item.id));
+            const isWinner = didWin(room, item.id);
             return (
               <View style={[
                 styles.playerReveal,
@@ -136,7 +146,7 @@ export default function GameOverScreen({ route, navigation }) {
                     {item.nickname} {item.id === playerId ? '(you)' : ''}
                   </Text>
                   <Text style={[styles.revealRole, { color: t.textMuted }]}>
-                    {roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
+                    {item.isNarrator ? 'Narrator' : roleDef.name}{infected ? ' · infected by the Wolf-Father' : ''}
                   </Text>
                   {!item.isAlive && (
                     <View style={styles.revealDeadRow}>
@@ -151,19 +161,8 @@ export default function GameOverScreen({ route, navigation }) {
           }}
         />
 
-        {/* Event log */}
-        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>Game Summary</Text>
-        <View style={[styles.eventLog, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
-          {events.length === 0 ? (
-            <Text style={[styles.noEvents, { color: t.textMuted }]}>No events recorded.</Text>
-          ) : (
-            events.map((e, i) => (
-              <View key={i} style={[styles.eventEntry, { borderLeftColor: t.primary }]}>
-                <Text style={[styles.eventText, { color: t.text }]}>{e}</Text>
-              </View>
-            ))
-          )}
-        </View>
+        <Text style={[styles.sectionTitle, { color: t.textSecondary }]}>What really happened</Text>
+        <GameReplay room={room} theme={t} />
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -217,18 +216,6 @@ const styles = StyleSheet.create({
   revealDeadIcon: { width: 18, height: 18 },
   revealDead: { ...FONTS.body, fontWeight: '600' },
   winBadge: { fontSize: 26 },
-  eventLog: {
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-  },
-  noEvents: { ...FONTS.caption, fontStyle: 'italic' },
-  eventEntry: {
-    borderLeftWidth: 2,
-    paddingLeft: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  eventText: { ...FONTS.caption, lineHeight: 18 },
   actions: { gap: SPACING.md, marginTop: SPACING.xs, alignItems: 'center', flexDirection: 'row' },
   playAgainBtn: { alignItems: 'center' },
   playAgainIcon: { width: 160, height: 80, marginLeft: 20 },

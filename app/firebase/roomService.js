@@ -47,6 +47,8 @@ export async function createRoom(hostId, hostNickname) {
     createdAt: serverTimestamp(),
     phaseStartedAt: null,
     witchPotions: {},
+    classicFirstNight: true,
+    tieRule: 'revote',
   });
 
   return { roomId: roomRef.id, code };
@@ -102,13 +104,38 @@ export async function leaveRoom(roomId, playerId) {
   await updateDoc(roomRef, { players: updated, memberIds: arrayRemove(playerId) });
 }
 
-export async function setPlayerReady(roomId, playerId, isReady) {
+function updateLobbyPlayers(roomId, change) {
   const roomRef = doc(db, 'rooms', roomId);
-  const snap = await getDoc(roomRef);
-  if (!snap.exists()) return;
-  const { players } = snap.data();
-  const updated = players.map((p) => (p.id === playerId ? { ...p, isReady } : p));
-  await updateDoc(roomRef, { players: updated });
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists() || snap.data().status !== 'lobby') return false;
+    const players = change(snap.data().players || []);
+    if (!players) return false;
+    tx.update(roomRef, { players });
+    return true;
+  });
+}
+
+export function setPlayerReady(roomId, playerId, isReady) {
+  return updateLobbyPlayers(roomId, (players) => players.map((p) => (p.id === playerId ? { ...p, isReady } : p)));
+}
+
+function withSeat(player, seat) {
+  const { seat: _oldSeat, ...rest } = player;
+  return Number.isInteger(seat) ? { ...rest, seat } : rest;
+}
+
+export function takeSeat(roomId, playerId, seat, { swap = false } = {}) {
+  return updateLobbyPlayers(roomId, (players) => {
+    const mover = players.find((p) => p.id === playerId);
+    const occupant = players.find((p) => p.id !== playerId && p.seat === seat);
+    if (!mover || (occupant && !swap)) return null;
+    return players.map((p) => {
+      if (p === mover) return withSeat(p, seat);
+      if (p === occupant) return withSeat(p, mover.seat);
+      return p;
+    });
+  });
 }
 
 // ─── Real-time listener ───────────────────────────────────────────────────────
@@ -139,7 +166,7 @@ export async function eliminatePlayer(roomId, playerId) {
   if (!snap.exists()) return;
   const { players } = snap.data();
   const updated = players.map((p) => (p.id === playerId ? { ...p, isAlive: false } : p));
-  await updateDoc(roomRef, { players: updated });
+  await updateDoc(roomRef, { players: updated, ghostIds: arrayUnion(playerId) });
 }
 
 // ─── Night actions ────────────────────────────────────────────────────────────
@@ -191,7 +218,7 @@ export function subscribeToDayChat(roomId, callback) {
   });
 }
 
-// ─── Private night chats (werewolves, sisters) ────────────────────────────────
+// ─── Private chats (werewolves, sisters, ghosts) ──────────────────────────────
 
 async function clearChat(roomId, chat) {
   const snap = await getDocs(collection(db, 'rooms', roomId, chat));
@@ -231,6 +258,18 @@ export function sendSisterMessage(roomId, senderId, senderNickname, text) {
 
 export function subscribeToSisterChat(roomId, callback) {
   return subscribeToChat(roomId, 'sisterChat', callback);
+}
+
+export function clearGhostChat(roomId) {
+  return clearChat(roomId, 'ghostChat');
+}
+
+export function sendGhostMessage(roomId, senderId, senderNickname, text) {
+  return sendChatMessage(roomId, 'ghostChat', senderId, senderNickname, text);
+}
+
+export function subscribeToGhostChat(roomId, callback) {
+  return subscribeToChat(roomId, 'ghostChat', callback);
 }
 
 // ─── Player notes (stored per-device only via AsyncStorage, not Firestore) ───

@@ -32,17 +32,24 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 ## Features
 
 - **Your name is remembered:** players choose a name the first time they open the app. It's saved on the phone and can be changed later in the settings on the Home screen, which also has a sound on/off switch and shows the app version.
+- **Optional Google sign-in:** everyone plays anonymously by default. Signing in with Google in the settings keeps your player (your name and your game history) on any phone; you can sign out or delete the account there too. Without it, your player lives on this phone only (Android's own backup may bring it back on a new phone).
 - **Rooms with a 5-letter code:** one player creates a room and the others join by typing the code or scanning a QR code the lobby can show. Two players in the same room can't use the same name.
 - **Three game modes:**
   - **Normal:** roles are picked automatically for the number of players.
   - **Custom:** the host chooses the number of werewolves and which special roles are in play.
   - **Narrator:** the host doesn't play. They choose the roles as in Custom mode (the player count doesn't include them), then run the game from dashboards that show every role and every action.
 - **19 roles:** Villager, Werewolf, Seer, Witch, Hunter, Cupid, Thief, Saviour, Bear Tamer, Sisters, Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Accursed Wolf-Father, White Wolf and Wolf Hound.
-- **Lobby options:** a Quiet or Classic first night, what happens on a tied vote (no lynch, or one revote between the tied players), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
+- **Balance meter (Custom and Narrator):** while choosing the roles, the host sees a bar from "Favours the wolves" to "Favours the village", with the estimated share of village wins. It counts the roles, the first-night and tied-vote rules and the bots. The host can show it to the other players. The numbers come from simulated games (`tools/balance-sim/`) and are kept in `app/constants/balance.js`.
+- **Role guide:** the Home screen's Role Guide lists every role by team; tap one to see its card, goal and ability.
+- **My Games:** the Home screen keeps a history of every game you finished: your role, the mode, the date, whether you won (or narrated), and games with bots marked 🤖. On top: games played, wins, win rate and your record with each role. Tap a game to see the whole cast and replay what really happened, night by night. The history belongs to your player, so it follows you to a new phone only if you signed in with Google.
+- **Lobby options:** a Classic (the default) or Quiet first night, what happens on a tied vote (one revote between the tied players by default, or no lynch), and bots to fill empty seats (see [Bots](#bots)). Tap any role icon in the lobby to read what that role does.
 - **Private chats:** the werewolves have their own chat at night, and there's a day chat for everyone. A red badge on the chat button counts new messages.
+- **Death Chat:** once eliminated, players talk with each other and with the narrator, by day and by night. The living never see it, and the Firestore rules don't let them read it.
+- **Choose your seat:** in the lobby each player taps a free seat around the table, and the host can move or swap players. Anyone still standing at the start, and the bots, take the free seats at random. The seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
 - **Seating view:** the table button at night and during the day shows the table. Your two current neighbours are highlighted, and eliminated players are skipped.
 - **Personal notes:** each player can mark suspicion levels, guess roles (only roles that can be in this game are offered) and keep a notepad. These stay on their phone only.
-- **Game log:** an event history, plus a full role reveal at the end.
+- **Your clues in the notes:** what only you learned is written down for you: the Seer's visions, the Fox's sniffs, the Bear Tamer's bears, the Raven's marks, your lover, Cupid's couple and the Wild Child's role model. A clue also sets the suspicion icon of the players it names (a werewolf seen becomes Very suspicious, a cleared player Innocent), but never changes an icon you already chose.
+- **What really happened:** at the end, every role is revealed and the game is replayed night by night and day by day: each round shows what was hidden (how each wolf voted, who the Seer, Fox, Saviour, Witch and Raven chose, the Thief's steal, Cupid's couple, every day vote) above what the village was told. Tap a round to open it.
 - **Resilience:**
   - If the host's phone disappears, another player automatically becomes host.
   - A player who closes the app can rejoin the game in progress.
@@ -66,8 +73,8 @@ Built with React Native (Expo) and Firebase. There is no backend server: all gam
 
 | Night | Order |
 |---|---|
-| **Night 1 — Quiet** (default) | Thief → Cupid → Wild Child (picks a role model) → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
-| **Night 1 — Classic** | Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven |
+| **Night 1 — Quiet** | Thief → Cupid → Wild Child (picks a role model) → Wolf Hound (picks a side) → Werewolves (they only see each other, no kill). The Seer, Witch and Saviour sleep. |
+| **Night 1 — Classic** (default) | Thief → Cupid → Wild Child → Wolf Hound → Saviour → Fox → Werewolves (choose a victim) → Wolf-Father → Big Bad Wolf → Witch → Seer → Raven |
 | **Later nights** | Saviour → Fox (until it loses its power) → Werewolves (choose a victim) → Wolf-Father (until he infects someone) → Big Bad Wolf (until a wolf dies) → White Wolf (even nights only) → Witch (if she has potions left) → Seer → Raven |
 
 The host picks **Quiet** or **Classic** for the first night in the lobby; everyone sees the choice. Classic follows the official rules. Roles that aren't in the game, or whose player is dead, are skipped.
@@ -107,7 +114,7 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | **Cupid** | Village | On night 1, links two players as lovers. If one lover dies, the other dies of heartbreak. |
 | **Thief** | Village | On night 1, takes one of the roles nobody was dealt (Villager, Werewolf, Seer, Witch, Hunter, Cupid) and plays as that role from then on, starting that same night. If none is available, stays with the village. |
 | **Saviour** | Village | Each night (from night 2), protects one other player from the werewolves. Can't protect the same player two nights in a row. |
-| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players in join order, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
+| **Bear Tamer** | Village | No action. If either neighbour is a werewolf, a public growl is announced at dawn. Neighbours are the nearest living players around the table as seated in the lobby, wrapping around (the narrator has no seat). The seating view shows every player their own neighbours. |
 | **Sisters** (2) | Village | Know each other's identity from the start. No night action, but they have a private chat that is open only at night. |
 | **Fox** | Village | Each night (from night 2 with a Quiet first night) may point at another player and learns whether that player or either of their living neighbours is a werewolf. While choosing, the Fox sees exactly which players will be sniffed. If none of the three is a wolf, the Fox loses its power and never wakes again. If the timer runs out, the Fox stays hidden and keeps its power. |
 | **Wild Child** | Village, then maybe Wolves | On night 1, chooses a role model (a random one if the timer runs out). While the model lives, the Wild Child is a villager, and the Seer sees them as one. If the model dies, by any cause, the Wild Child becomes a werewolf: a full-screen notice tells them privately whose death turned them and who their pack is, and they wake with the pack and use the wolf chat from then on. Nobody else is told. |
@@ -124,18 +131,18 @@ Each timer is a maximum. A step ends as soon as its player acts, and the vote en
 | Players | Wolves | Other roles |
 |---|---|---|
 | 5 | 1 | Hunter, 3 Villagers |
-| 6 | 1 | Seer, 4 Villagers |
-| 7 | 2 | Seer, Witch, Hunter, 2 Villagers |
+| 6 | 1 | Witch, 4 Villagers |
+| 7 | 2 | Seer, Witch, Saviour, Bear Tamer, 1 Villager |
 | 8 | 2 | Seer, Witch, Hunter, 3 Villagers |
 | 9 | 2 | Seer, Witch, Hunter, Cupid, 3 Villagers |
-| 10 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 2 Villagers |
+| 10 | 3 | Seer, Witch, Hunter, Saviour, Bear Tamer, 2 Sisters |
 | 11 | 3 | Seer, Witch, Hunter, Cupid, Bear Tamer, 3 Villagers |
 | 12 | 3 | Seer, Witch, Hunter, Saviour, Cupid, 2 Sisters, 2 Villagers |
 | 13 | 4 | Seer, Witch, Hunter, Saviour, Cupid, Bear Tamer, 2 Sisters, 1 Villager |
 | 14–17 | 4 | As for 13, plus one Villager per extra player |
 | 18+ | 5 | As for 13, plus Villagers for the rest |
 
-These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night (a Classic first night helps the village). The Thief isn't in Normal games: every role they could steal is already dealt there, so it only appears in Custom and Narrator modes. Roles are shuffled and dealt at random at the start of every game. In **Custom** and **Narrator** modes the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are only available in Custom and Narrator modes for now.
+These tables were balanced with a simulation of 20,000 games per player count, aiming for the village to win about half the time with the default Quiet first night. In 1.3.0 the 6, 7 and 10-player tables were adjusted with the balance meter's model, so every table from 5 to 20 players now estimates 40–60% village wins (a Classic first night lowers that by about 6 points). The Thief isn't in Normal games, so it only appears in Custom and Narrator modes. Roles are shuffled and dealt at random at the start of every game. In **Custom** and **Narrator** modes the host sets the werewolf count and switches each special role on or off, and Villagers fill the remaining slots. The Fox, Wild Child, Village Idiot, Raven, Elder, Big Bad Wolf, Wolf-Father, White Wolf and Wolf Hound are only available in Custom and Narrator modes for now.
 
 ---
 
@@ -145,7 +152,7 @@ These tables were balanced with a simulation of 20,000 games per player count, a
 |---|---|
 | App | Expo SDK 58, React Native 0.88, React 19.3 (New Architecture only) |
 | Navigation | React Navigation 7 (native stack) |
-| Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity) |
+| Backend | Firebase 10 (Firestore for game state, Anonymous Auth for player identity, optionally linked to a Google account) |
 | Animation | react-native-reanimated 4 |
 | Audio | expo-audio |
 | QR codes | `qrcode` (generated in JS, drawn with plain Views) and expo-camera (scanning) |
@@ -168,13 +175,18 @@ One phone, the host's, notices when a night step is finished or all votes are in
 ### Automatic host takeover
 The host's phone increments a `hostHeartbeat` counter every 8 seconds.
 - Every other phone tracks how long it has been since it last saw the counter change. It uses its own clock, so phones whose clocks disagree don't trigger false takeovers.
-- After 25 seconds of silence, the next player in join order becomes host through a Firestore transaction, which only succeeds if no one else got there first. If that player is also gone, the one after them tries 6 seconds later, and so on.
+- After 25 seconds of silence, the next player in the player list (join order in the lobby, seat order once the game starts) becomes host through a Firestore transaction, which only succeeds if no one else got there first. If that player is also gone, the one after them tries 6 seconds later, and so on.
 - The new host carries on where the old one stopped: a night step, a timer that already ran out, or a pending vote result.
 - If the old host comes back, they continue as a normal player.
 - Takeover is turned off in Narrator games once they start, because only the narrator can move those forward.
 
 ### Rejoining after closing the app
-Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase anonymous user ID, which stays the same across app restarts.
+Entering a lobby saves `{ roomId, playerId, nickname }` on the phone. If the app is closed and reopened, the Home screen offers **Rejoin Game**, as long as the game still exists and the player is still in it. Rejoin opens the lobby, night, day or game-over screen, whichever the game is on. Player identity is the Firebase user ID, which stays the same across app restarts and when the player links a Google account.
+
+### Game history
+When Game Over shows, the host's phone saves one summary of the game to `games/{roomId}_{gameStartedAt}`: the mode and rules, the winner, every player with their role and result, and the event log and hidden actions for the replay. `startGame` writes `gameStartedAt`, so the same room gives each game its own ID, and a second save of the same game (a host takeover, a retry) is refused by the rules instead of making a duplicate. My Games lists the player's games 20 at a time (`playerIds` contains them, newest first, with a composite index in `firestore.indexes.json`), and counts games played, won and narrated with count queries, so the numbers cover the whole history without reading every game.
+
+*Why the host:* only the host's phone is sure to be running when the game ends, and one write covers every player, including those who left mid-game. *Why a separate collection:* rooms are reused by Play Again, and they're readable by anyone signed in; a game summary is readable only by its own players.
 
 ### Joining by QR code
 The lobby shows the letter code with two buttons, **Share** and **Show QR**. Show QR opens a pop-up with a QR code containing `werewolves://join/<CODE>`; it's hidden by default to keep the lobby short. **Scan QR Code** on the Home screen opens the camera, accepts only codes in that format, and then runs the same join as typing the code (name check included). The QR code is built from the `qrcode` library's matrix and drawn with plain Views, so displaying it needs no extra native module. Scanning uses expo-camera, which asks for the camera permission only (no microphone).
@@ -188,12 +200,13 @@ The lobby shows the letter code with two buttons, **Share** and **Show QR**. Sho
 |---|---|
 | Anyone signed in | Create a room as its host; read rooms (needed to join by code) |
 | Someone joining | Add only themselves to a room still in the lobby (`players` + `memberIds`) |
-| A member | In the lobby: leave, or flip their own ready flag. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
-| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true) |
+| A member | In the lobby: leave, flip their own ready flag, or change their own seat. At night: their own role's night action. In the day: their own vote (not once revealed as the Village Idiot). Any time: mark themselves gone/back, take over as host (for themselves only) |
+| The Hunter | Fire their shot (`players`, `winner`, `status`, `hunterTriggered`, `events`) while `hunterTriggered` is them; if the shot kills the Wild Child's role model, also turn that one Wild Child into a werewolf (`roles`, `wildChildTurnedAt`) and no other role; if it kills the Elder, take the village's powers away (`villagePowersLost`, only ever set to true); add the players the shot kills to `ghostIds` (never remove one) |
 | The host | Everything else, except the room code, `createdAt`, `hostId` and `memberIds` |
-| Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the host deletes |
+| Game history | Only the host saves a finished game, once, while the room has ended, with its real winner and only the room's members as players; only those players read it; a player deleting their account may only remove themselves from it; nobody changes or deletes it otherwise |
+| Chats | Members read and post as themselves (1–500 characters); only the pack (wolf roles and an infected player) posts in the wolf chat; only the Sisters post in the sisters chat, and only at night; only the dead and the narrator (`ghostIds`) read or post in the Death Chat, which every member can read again in the lobby or after the game; only the host deletes |
 
-Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. Nobody can delete a room.
+Rooms keep a `memberIds` list next to `players`, because rules can't search a list of player objects for the user's ID. For the same reason, a `ghostIds` list (the narrator and every dead player) decides who may read the Death Chat. Nobody can delete a room.
 
 The rules are tested against the Firestore emulator (`npm run test:rules`, see [Automated tests](#automated-tests)).
 
@@ -234,14 +247,17 @@ app/
     gameManager.js         startGame, night order, resolveNight, resolveLynch, hunterShoot (Wild Child, Village Idiot)
     hostDecisions.js       What the host decides each night and day (pure, tested); the screens only apply it
     voteManager.js         Vote counting (with the Raven's +2)
+    matchRecord.js         Who won, and the game record saved for My Games
   firebase/
     config.js              Firebase project configuration
     authService.js         Anonymous sign-in
+    accountService.js      Optional Google account: link, switch, sign out, delete; the saved name (users/{uid})
+    historyService.js      Save, list and count finished games (games/{id}) for My Games
     roomService.js         All Firestore reads and writes (rooms, chats, host takeover)
   hooks/
     useRoom.js             Live room subscription (with last-snapshot cache)
     useGameState.js        Values derived from the room for the current player
-    usePlayer.js           Personal notes and suspicions (AsyncStorage)
+    usePlayer.js           Personal notes, suspicions and private clues (AsyncStorage)
     useHostFailover.js     Host heartbeat and automatic takeover
     useUnreadMessages.js   Unread badges for the day, wolf and sisters chats
     useTurnedWolfNotice.js The private notice for a Wild Child who turned or a player the Wolf-Father infected
@@ -274,10 +290,14 @@ npm install
 
 ### 2. Configure Firebase
 1. Create a project in the [Firebase Console](https://console.firebase.google.com).
-2. Enable **Authentication → Sign-in method → Anonymous**.
+2. Enable **Authentication → Sign-in method → Anonymous** and **Google**. For Google sign-in, also:
+   - copy the Google provider's **Web client ID** into `GOOGLE_WEB_CLIENT_ID` in [`app/firebase/config.js`](app/firebase/config.js);
+   - add an Android app (package `com.willcode4beer.werewolves`) with the SHA-1 fingerprints of your release (upload) key and the debug key (`cd android && ./gradlew signingReport`);
+   - in Google Cloud, set the OAuth consent screen to **In production**, or keep it in Testing and add each player as a test user.
+   Google sign-in needs a build of the app (it doesn't work in Expo Go); everything else does.
 3. Create a **Firestore Database**.
 4. Put your web app configuration in [`app/firebase/config.js`](app/firebase/config.js).
-5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) with `firebase deploy --only firestore:rules` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).
+5. Deploy the Firestore rules from [`firestore.rules`](firestore.rules) and the index from [`firestore.indexes.json`](firestore.indexes.json) with `firebase deploy --only firestore:rules,firestore:indexes` (Firebase CLI, logged in; the project is set in `.firebaserc`). See [Firestore rules](#firestore-rules).
 
 ### 3. Run
 ```bash
@@ -364,7 +384,7 @@ Prebuild **deletes and recreates `android/`**. Afterwards, re-create `android/lo
 npm test
 ```
 
-Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/), plus helpers in [`app/utils/__tests__/`](app/utils/__tests__/) and [`app/hooks/__tests__/`](app/hooks/__tests__/):
+Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__tests__/`](app/game-logic/__tests__/), plus helpers in [`app/utils/__tests__/`](app/utils/__tests__/) and [`app/hooks/__tests__/`](app/hooks/__tests__/), and the account and history services in [`app/firebase/__tests__/`](app/firebase/__tests__/):
 
 | File | Covers |
 |---|---|
@@ -381,12 +401,22 @@ Jest (with the `jest-expo` preset) tests the game rules in [`app/game-logic/__te
 | `roomQr.test.js` | Reading a room code from a scanned QR, rejecting other or malformed codes |
 | `profile.test.js` | Player-name rules (2–18 characters, trimmed) and the case-insensitive duplicate check |
 | `session.test.js` | Rejoin: which screen each room status opens, saving and clearing the session |
+| `balance.test.js` | The balance meter's estimate: Normal presets near balanced, each role and rule moving it the right way, the verdict bands |
+| `history.test.js` | The hidden actions recorded for the replay (who did what each night, the day's ballots, the Thief's steal), never undefined |
+| `replay.test.js` | How Game Over's replay groups secrets and public lines by round, votes and revotes, older games without history |
+| `privateClues.test.js` | The clues each role writes into their own notes (Seer, Fox, Raven, Bear Tamer, lovers, Cupid, Wild Child), the suspicions they suggest, never overriding the player's own; nothing for other players or the narrator |
 | `dawnReport.test.js` | What the dawn report tells everyone (deaths with role and team, peaceful night, growl, Raven's mark, dead Elder) and what only one player sees (lover, Bear Tamer, surviving Elder, lost power); nothing private for the dead or the narrator |
 | `gameOverSound.test.js` | The end-of-game sound matches the winner, and nothing plays while Play Again resets the room |
 | `gameState.test.js` | What each player learns about others (pack, sister, lover, Cupid, the Wild Child's role model, an infected player) — nobody else's role leaks; the turned Wild Child's and the infected player's notices |
 | `unreadMessages.test.js` | Chat badge counting: own messages never count, opening the chat clears it, per room and chat |
+| `matchRecord.test.js` | Who won (village, pack, White Wolf, lovers, an infected player; never the narrator), when and on whose phone a game is saved (host only, once, a new host after a takeover, never after Play Again), the saved record |
+| `matchHistory.test.js` | My Games: won, lost or narrator, the win rate without narrated games, the record per role, the game's date |
+| `account.test.js` | The settings' account line, which name wins after signing in, the error messages |
+| `accountService.test.js` | Google sign-in: linking keeps the player, an account that already has one, cancelling, each error; deleting the account only after a fresh sign-in, in order (history, name, user), and nothing deleted when a step fails |
+| `historyService.test.js` | Saving a game with the server's end time, paging My Games, the three counts, leaving every game when deleting an account (in batches) |
+| `roomService.test.js` | A new room: the host alone in the lobby, Classic first night and a revote on ties |
 
-Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
+Firestore is mocked (`roomService` and `arrayUnion` in the game-logic tests; the Firestore and sign-in modules in [`app/firebase/__tests__/`](app/firebase/__tests__/)), so the tests run offline and check the exact room update each function writes. The tests don't depend on the exact rows of the composition table, so it can be retuned freely.
 
 ### Firestore rules tests
 
@@ -394,7 +424,7 @@ Firestore is mocked (`roomService` and `arrayUnion`), so the tests run offline a
 npm run test:rules
 ```
 
-[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 51 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions including the Fox, Wild Child, Raven, Big Bad Wolf, Wolf-Father and an infected player, votes and the revealed Village Idiot, Hunter shot with the Wild Child turning or the Elder dying, host takeover, wolf/sisters/day chats) and checks that the wrong player can't make them. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
+[`firestore-tests/rooms.rules-test.js`](firestore-tests/rooms.rules-test.js) runs 51 checks against [`firestore.rules`](firestore.rules) in the local Firestore emulator (`firebase emulators:exec`, demo project `demo-werewolves`, so nothing touches the real database). It makes the same writes the app makes (join, ready, night actions including the Fox, Wild Child, Raven, Big Bad Wolf, Wolf-Father and an infected player, votes and the revealed Village Idiot, Hunter shot with the Wild Child turning or the Elder dying, host takeover, wolf/sisters/day chats) and checks that the wrong player can't make them. [`users.rules-test.js`](firestore-tests/users.rules-test.js) and [`games.rules-test.js`](firestore-tests/games.rules-test.js) do the same for the saved name and the game history. The files run one at a time, since each clears the emulator. Needs the Firebase CLI and **Java 21 or newer** (the Android build still uses Java 17; point `JAVA_HOME` at a JDK 21 just for this command if needed).
 
 ---
 
@@ -443,7 +473,11 @@ Versions follow **MAJOR.MINOR.PATCH**:
 - **Leaving mid-game:** *Leave game* sits in the Options pop-up (the first button on the left of the bottom bar) (which also has the sound switch and this game's rules), behind a confirmation, so it can't be tapped by accident. A player who leaves is eliminated at the end of the current phase, unless they come back before it ends. If it's their turn at night when they leave, the game moves on to the next step immediately.
 - **Host takeover needs everyone on this version**, and it is turned off in Narrator games once they start.
 - If the host's phone dies in the middle of resolving a night, the new host resolves it again, which can duplicate a few event-log lines.
-- **Bear Tamer neighbours** are based on join order, not on where people actually sit.
+- **Game history:**
+  - It belongs to the player ID. A player who stays anonymous loses it when they change phones or reinstall, unless Android's backup restores the app's data. Signing in with Google keeps it.
+  - Only games finished on 1.3.0 or later are in it; games before that can't be recovered.
+  - A game is saved only when Game Over shows on the host's phone (or on a new host's). A game everyone leaves before the end isn't saved.
+  - Game summaries are never deleted. Deleting an account removes the player from their games, but the other players keep those games, with the name the player used.
 
 ---
 

@@ -167,6 +167,36 @@ describe('lobby', () => {
     await assertFails(updateDoc(room, { players: readyFor('bob') }));
   });
 
+  it('a player takes or changes their own seat but nobody else\'s', async () => {
+    const seatFor = (id, seat) => LOBBY.players.map((p) => (p.id === id ? { ...p, seat } : p));
+    await assertSucceeds(updateDoc(as('alice').room, { players: seatFor('alice', 3) }));
+    await seed({ ...LOBBY, players: seatFor('alice', 3) });
+    await assertSucceeds(updateDoc(as('alice').room, { players: seatFor('alice', 0) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor('bob', 1) }));
+  });
+
+  it('a seat is a whole number on the table', async () => {
+    const seatFor = (seat) => LOBBY.players.map((p) => (p.id === 'alice' ? { ...p, seat } : p));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(-1) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(30) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor(1.5) }));
+    await assertFails(updateDoc(as('alice').room, { players: seatFor('1') }));
+  });
+
+  it('the host swaps two players\' seats', async () => {
+    const seated = LOBBY.players.map((p, i) => ({ ...p, seat: i }));
+    await seed({ ...LOBBY, players: seated });
+    const swapped = seated.map((p) => (p.id === 'alice' ? { ...p, seat: 2 } : p.id === 'bob' ? { ...p, seat: 1 } : p));
+    await assertFails(updateDoc(as('alice').room, { players: swapped }));
+    await assertSucceeds(updateDoc(as('host').room, { players: swapped }));
+  });
+
+  it('nobody changes seats once the game has started', async () => {
+    await seed(NIGHT);
+    const players = NIGHT.players.map((p) => (p.id === 'alice' ? { ...p, seat: 4 } : p));
+    await assertFails(updateDoc(as('alice').room, { players }));
+  });
+
   it('a player cannot change anything else about themselves', async () => {
     const players = LOBBY.players.map((p) => (p.id === 'alice' ? { ...p, isHost: true } : p));
     await assertFails(updateDoc(as('alice').room, { players }));
@@ -175,6 +205,8 @@ describe('lobby', () => {
   it('only the host changes game settings and starts the game', async () => {
     await assertSucceeds(updateDoc(as('host').room, { gameMode: 'custom' }));
     await assertFails(updateDoc(as('alice').room, { gameMode: 'normal' }));
+    await assertSucceeds(updateDoc(as('host').room, { showBalance: true }));
+    await assertFails(updateDoc(as('alice').room, { showBalance: false }));
     await assertFails(updateDoc(as('alice').room, { status: 'night', roles: { alice: 'seer' } }));
     await assertSucceeds(updateDoc(as('host').room, { status: 'night', roles: { host: 'villager', alice: 'werewolf', bob: 'seer' } }));
   });
@@ -470,5 +502,51 @@ describe('sisters chat', () => {
   it('only the host clears it', async () => {
     await assertFails(deleteDoc(doc(as('bob').db, 'rooms', ROOM, 'sisterChat', 'm1')));
     await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'sisterChat', 'm1')));
+  });
+});
+
+describe('ghost chat', () => {
+  const ghostChat = (db) => collection(db, 'rooms', ROOM, 'ghostChat');
+  const HAUNTED_DAY = {
+    ...DAY,
+    players: DAY.players.map((p) => (p.id === 'sam' ? { ...p, isAlive: false } : p)),
+    ghostIds: ['sam'],
+  };
+
+  beforeEach(() => seed(HAUNTED_DAY, { ghostChat: { m1: { senderId: 'sam', senderNickname: 'sam', text: 'boo', createdAt: new Date() } } }));
+
+  it('the dead read and post, the living cannot even read it', async () => {
+    await assertSucceeds(getDocs(ghostChat(as('sam').db)));
+    await assertSucceeds(addDoc(ghostChat(as('sam').db), message('sam')));
+    await assertFails(getDocs(ghostChat(as('alice').db)));
+    await assertFails(getDocs(ghostChat(as('host').db)));
+    await assertFails(addDoc(ghostChat(as('alice').db), message('alice')));
+    await assertFails(addDoc(ghostChat(as('sam').db), message('alice')));
+  });
+
+  it('the narrator is in it from the start', async () => {
+    await seed({ ...DAY, ghostIds: ['host'] });
+    await assertSucceeds(getDocs(ghostChat(as('host').db)));
+    await assertSucceeds(addDoc(ghostChat(as('host').db), message('host')));
+  });
+
+  it('once the game is over or back in the lobby, members may read it (to clear it), strangers never', async () => {
+    await seed({ ...HAUNTED_DAY, status: 'ended' });
+    await assertSucceeds(getDocs(ghostChat(as('alice').db)));
+    await seed({ ...HAUNTED_DAY, status: 'lobby' });
+    await assertSucceeds(getDocs(ghostChat(as('host').db)));
+    await assertFails(getDocs(ghostChat(as('stranger').db)));
+  });
+
+  it('only the host clears it', async () => {
+    await assertFails(deleteDoc(doc(as('sam').db, 'rooms', ROOM, 'ghostChat', 'm1')));
+    await assertSucceeds(deleteDoc(doc(as('host').db, 'rooms', ROOM, 'ghostChat', 'm1')));
+  });
+
+  it('the Hunter\'s shot adds the dead to the ghosts, but never removes one', async () => {
+    await seed({ ...HAUNTED_DAY, hunterTriggered: 'bob' });
+    const shotWendy = HAUNTED_DAY.players.map((p) => (p.id === 'wendy' ? { ...p, isAlive: false } : p));
+    await assertSucceeds(updateDoc(as('bob').room, { players: shotWendy, ghostIds: arrayUnion('wendy') }));
+    await assertFails(updateDoc(as('bob').room, { ghostIds: [] }));
   });
 });

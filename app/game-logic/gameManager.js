@@ -1,6 +1,6 @@
 import { arrayUnion } from 'firebase/firestore';
 import { ROLE, getCompositionForCount, isWolfRole, isPackWolf, teamRoles, hasVillagePower, ROLE_DEFINITIONS } from '../constants/roles';
-import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf } from './roles';
+import { assignRoles, checkWinCondition, getPlayerWithRole, getLoversPartner, getAvailableRolesForThief, getSeating, getLivingNeighbours, foxSmellsWolf, nicknameOf, arrangeSeats } from './roles';
 import { tallyVotes, ravenVotes, RAVEN_VOTES } from './voteManager';
 import {
   getRoom,
@@ -9,10 +9,16 @@ import {
   clearNightActions,
   clearWerewolfChat,
   clearSisterChat,
+  clearGhostChat,
 } from '../firebase/roomService';
 import { pickBotNames } from './bots';
+import { nightActs, dayVoteActs, thiefAct, wolfHoundAct } from './history';
 
-export const ELDER_KILLED_EVENT = 'The village killed its Elder. Every villager has lost their powers.';
+function withHistory(acts) {
+  return acts.length > 0 ? { history: arrayUnion(...acts) } : {};
+}
+
+export const ELDER_KILLED_EVENT ='The village killed its Elder. Every villager has lost their powers.';
 
 function computeBearTamerGrowl(players, roles, infectedId = null, villagePowersLost = false) {
   if (villagePowersLost) return null;
@@ -109,6 +115,7 @@ function wolfHoundChoiceUpdate(room) {
     roles: { ...roles, [houndId]: choice },
     witchPotions,
     event: `Night ${phase}: The Wolf Hound chose a side.`,
+    act: wolfHoundAct(phase, houndId, choice),
   };
 }
 
@@ -121,6 +128,7 @@ function thiefChoiceUpdate(room) {
     roles: { ...roles, [thiefId]: stolen },
     witchPotions: stolen === ROLE.WITCH ? { ...witchPotions, [thiefId]: { save: true, poison: true } } : witchPotions,
     event: `Night ${phase}: A shadowy figure stole a role in the dark.`,
+    act: thiefAct(phase, thiefId, stolen),
   };
 }
 
@@ -136,6 +144,7 @@ export function advanceNightUpdate(room, next) {
     witchPotions: choice.witchPotions,
     nightSubPhase: next === 'done' ? 'done' : nextNightSubPhase(nextRoom, room.nightSubPhase),
     events: arrayUnion(choice.event),
+    history: arrayUnion(choice.act),
   };
 }
 
@@ -307,7 +316,7 @@ function dealWithBots(humanPlayers, botPlayers, composition) {
 }
 
 export async function startGame(roomId, players, { composition: customComposition = null, classicFirstNight = false, botCount = 0 } = {}) {
-  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId)]).catch(() => {});
+  const clearingChats = Promise.all([clearWerewolfChat(roomId), clearSisterChat(roomId), clearGhostChat(roomId)]).catch(() => {});
   const humanPlayers = players.filter((p) => !p.isBot && !p.isNarrator);
   const narratorPlayers = players.filter((p) => p.isNarrator);
   let allPlayers = humanPlayers;
@@ -334,14 +343,17 @@ export async function startGame(roomId, players, { composition: customCompositio
     witchPotions = result.witchPotions;
   }
 
+  allPlayers = arrangeSeats(allPlayers);
   if (narratorPlayers.length > 0) allPlayers = [...allPlayers, ...narratorPlayers];
 
   await updateRoom(roomId, {
     roles: roleMap,
     witchPotions,
     players: allPlayers,
+    ghostIds: narratorPlayers.map((p) => p.id),
     status: 'night',
     phase: 1,
+    gameStartedAt: Date.now(),
     phaseStartedAt: new Date().toISOString(),
     nightActions: {},
     nightSubPhase: ROLE_REVEAL_STEP,
@@ -349,6 +361,7 @@ export async function startGame(roomId, players, { composition: customCompositio
     roleComposition: countRoles(roleMap),
     eliminatedThisNight: null,
     events: [`Game started with ${allPlayers.length} players.`],
+    history: [],
     winner: null,
     votes: {},
     votesClosed: false,
@@ -400,6 +413,7 @@ export async function resolveNight(roomId, roomData) {
   const { nightActions, players, roles, phase, witchPotions, lovers, disconnectedPlayers = [] } = roomData;
 
   const events = [];
+  const history = [];
 
   let updatedRoles = { ...roles };
   let potionsBefore = witchPotions || {};
@@ -409,8 +423,10 @@ export async function resolveNight(roomId, roomData) {
       updatedRoles = choice.roles;
       potionsBefore = choice.witchPotions;
       events.push(choice.event);
+      history.push(choice.act);
     }
   }
+  history.push(...nightActs(roomData, updatedRoles));
 
   const quiet = isQuietFirstNight(roomData);
   const foxPowerLost = !!roomData.foxPowerLost
@@ -559,6 +575,7 @@ export async function resolveNight(roomId, roomData) {
     ...(elderPoisoned && { villagePowersLost: true }),
     revoteTargets: null,
     events: arrayUnion(...events),
+    ...withHistory(history),
   });
 
   return { winner, eliminatedId };
@@ -578,6 +595,7 @@ export async function startRevote(roomId, room, tied) {
     votesClosed: false,
     revoteTargets: tied,
     phaseStartedAt: new Date().toISOString(),
+    ...withHistory(dayVoteActs(room)),
     events: arrayUnion(`Day ${room.phase}: The vote was tied between ${tied.map((id) => nicknameOf(room.players || [], id)).join(' and ')}. The village votes again.`),
   });
 }
@@ -680,6 +698,7 @@ export async function resolveLynch(roomId, roomData) {
     disconnectedPlayers: [],
     phaseStartedAt: new Date().toISOString(),
     events: arrayUnion(...events),
+    ...withHistory(dayVoteActs(roomData)),
     ...turn,
     ...(sparedIdiot && { idiotRevealed: sparedIdiot }),
     ...(elderLynched && { villagePowersLost: true }),

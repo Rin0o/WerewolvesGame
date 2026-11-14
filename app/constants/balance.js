@@ -1,0 +1,36 @@
+import { ROLE } from './roles';
+
+export const BALANCE_POINTS_PER_LOGIT = 25;
+
+export const BALANCE_BASE_POINTS = 55;
+export const BALANCE_WOLF_SHARE_POINTS = -277;
+export const BALANCE_PER_PLAYER_POINTS = -1.75;
+export const BALANCE_BOT_SHARE_POINTS = -19;
+export const BALANCE_CLASSIC_FIRST_NIGHT_POINTS = -6;
+export const BALANCE_REVOTE_POINTS = 3;
+
+export const BALANCE_WOLF_ROLES = [ROLE.WEREWOLF, ROLE.BIG_BAD_WOLF, ROLE.WOLF_FATHER, ROLE.WHITE_WOLF];
+
+export const BALANCE_ROLE_POINTS = {
+  [ROLE.VILLAGER]: 0,
+  [ROLE.WEREWOLF]: 0,
+  [ROLE.SEER]: 16.5,
+  [ROLE.WITCH]: 5,
+  [ROLE.HUNTER]: 5.5,
+  [ROLE.CUPID]: 2.5,
+  [ROLE.THIEF]: 7,
+  [ROLE.SAVIOUR]: 3.5,
+  [ROLE.BEAR_TAMER]: 9,
+  [ROLE.SISTER]: 2,
+  [ROLE.FOX]: 8,
+  [ROLE.WILD_CHILD]: -12,
+  [ROLE.VILLAGE_IDIOT]: 3,
+  [ROLE.RAVEN]: 1,
+  [ROLE.ELDER]: 0,
+  [ROLE.WOLF_HOUND]: -9,
+  [ROLE.BIG_BAD_WOLF]: -8,
+  [ROLE.WOLF_FATHER]: -19.5,
+  [ROLE.WHITE_WOLF]: 10,
+};
+
+export const BALANCE_BANDS = { balanced: 0.4, strongly: 0.25 };

@@ -2,6 +2,25 @@
 
 All notable changes to Werewolves of Miller's Hollow (Android). Newest version first.
 
+## [1.3.0] — 2026-11-14
+
+### Added
+- **My Games:** a history of every game you finish, from the new My Games tile on the Home screen. Each game shows your role, the date, the mode and whether you won (or narrated). At the top: games played, wins, win rate and your record with each role. Tap a game to see the whole cast and replay what really happened.
+- **Optional Google sign-in:** in Settings, sign in with Google to keep your player, name and game history when you change phones. You can still play anonymously; you can also sign out or delete the account there.
+- **Choose your seat:** the lobby shows the round table. Tap a free seat to sit down; the host can move or swap players. Seats decide who sits next to whom, which matters for the Bear Tamer and the Fox.
+- **Your clues in the notes:** what only you learned (the Seer's visions, the Fox's sniffs, the Bear Tamer's bears, the Raven's marks, your lover and more) is written in your notes, and sets the suspicion icons you haven't chosen yourself.
+- **Role guide:** every role, by team, from the Home screen. Tap one to see its card.
+- **Death Chat:** eliminated players talk with each other and with the narrator, by day and by night. The living can't read it.
+- **What really happened:** at Game Over, the game is replayed night by night and day by day, with everything that was hidden: how each wolf voted, who the Seer, Witch, Saviour, Fox and Raven chose, and every day vote.
+- **Balance meter:** in Custom and Narrator games, a bar shows whether the chosen roles favour the wolves or the village. The host can show it to everyone.
+- **A privacy page** for the app, linked from Google's sign-in screen.
+
+### Changed
+- **New rooms start with a Classic first night and a revote on tied votes.** Both options are now listed first in the lobby; the host can still change them.
+- **The 6, 7 and 10-player Normal games have new roles,** so they're closer to an even fight.
+- **The Home screen:** Roles and My Games are two small tiles under the room buttons.
+- **Game Over** shows the narrator as "Narrator", without a trophy.
+
 ## [1.2.0] — 2026-10-29
 
 ### Added

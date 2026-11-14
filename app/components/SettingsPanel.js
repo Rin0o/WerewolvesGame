@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import Constants from 'expo-constants';
 import { updateProfile, nicknameError, NICKNAME_MAX } from '../utils/profile';
+import { saveNickname } from '../firebase/accountService';
+import AccountSection from './AccountSection';
 import { FONTS, RADIUS, SPACING } from '../constants/theme';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '?';
@@ -15,7 +17,7 @@ export default function SettingsPanel({ visible, onClose, theme: t, profile, onP
       setNickname(profile.nickname);
       setError(null);
     }
-  }, [visible]);
+  }, [visible, profile.nickname]);
 
   async function handleSoundToggle(soundEnabled) {
     onProfileChange(await updateProfile({ soundEnabled }));
@@ -27,7 +29,9 @@ export default function SettingsPanel({ visible, onClose, theme: t, profile, onP
       setError(problem);
       return;
     }
-    onProfileChange(await updateProfile({ nickname: nickname.trim() }));
+    const trimmed = nickname.trim();
+    onProfileChange(await updateProfile({ nickname: trimmed }));
+    saveNickname(trimmed);
     onClose();
   }
 
@@ -60,6 +64,8 @@ export default function SettingsPanel({ visible, onClose, theme: t, profile, onP
               trackColor={{ true: t.primary, false: t.border }}
             />
           </View>
+
+          <AccountSection theme={t} profile={profile} onProfileChange={onProfileChange} />
 
           <Text style={[styles.version, { color: t.textMuted }]}>Version {APP_VERSION}</Text>
 

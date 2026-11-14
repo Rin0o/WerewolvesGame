@@ -87,7 +87,11 @@ service cloud.firestore {
           && playersRemoved()[0].id == uid();
       }
 
-      function togglingReady() {
+      function validSeat(p) {
+        return !('seat' in p) || (p.seat is int && p.seat >= 0 && p.seat < 30);
+      }
+
+      function editingOwnLobbyEntry() {
         return before().status == 'lobby'
           && changedOnly(['players'])
           && after().players.size() == before().players.size()
@@ -95,7 +99,8 @@ service cloud.firestore {
           && playersAdded().size() == 1
           && playersRemoved()[0].id == uid()
           && playersAdded()[0].id == uid()
-          && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady']);
+          && playersAdded()[0].diff(playersRemoved()[0]).affectedKeys().hasOnly(['isReady', 'seat'])
+          && validSeat(playersAdded()[0]);
       }
 
       function ownWolfVoteOnly() {
@@ -165,8 +170,9 @@ service cloud.firestore {
 
       function huntersShot() {
         return before().get('hunterTriggered', null) == uid()
-          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost'])
+          && changedOnly(['players', 'winner', 'status', 'hunterTriggered', 'events', 'roles', 'wildChildTurnedAt', 'villagePowersLost', 'ghostIds'])
           && after().players.size() == before().players.size()
+          && after().get('ghostIds', []).hasAll(before().get('ghostIds', []))
           && (!after().diff(before()).affectedKeys().hasAny(['roles']) || wildChildTurning())
           && (!after().diff(before()).affectedKeys().hasAny(['villagePowersLost']) || after().villagePowersLost == true);
       }
@@ -185,7 +191,7 @@ service cloud.firestore {
         || joining()
         || (memberOf(before()) && (
           leavingLobby()
-          || togglingReady()
+          || editingOwnLobbyEntry()
           || nightAction()
           || voting()
           || connection()
@@ -232,6 +238,17 @@ service cloud.firestore {
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
     }
 
+    function ghostOf(room) {
+      return request.auth.uid in room.get('ghostIds', []);
+    }
+
+    match /rooms/{roomId}/ghostChat/{messageId} {
+      allow read: if memberOf(roomAt(roomId))
+        && (ghostOf(roomAt(roomId)) || roomAt(roomId).status in ['lobby', 'ended']);
+      allow create: if memberOf(roomAt(roomId)) && ghostOf(roomAt(roomId)) && validMessage();
+      allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+
     match /rooms/{roomId}/sisterChat/{messageId} {
       allow read: if memberOf(roomAt(roomId));
       allow create: if memberOf(roomAt(roomId)) && roomAt(roomId).status == 'night' && (
@@ -239,6 +256,69 @@ service cloud.firestore {
         || (validBotMessage(roomAt(roomId)) && botRole(roomAt(roomId)) == 'sister')
       );
       allow delete: if signedIn() && roomAt(roomId).hostId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+
+      function isOwner() {
+        return signedIn() && request.auth.uid == userId;
+      }
+
+      function validProfile() {
+        let profile = request.resource.data;
+        return profile.keys().hasOnly(['nickname', 'updatedAt'])
+          && profile.nickname is string
+          && profile.nickname.size() >= 2
+          && profile.nickname.size() <= 18
+          && profile.updatedAt == request.time;
+      }
+
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner() && validProfile();
+    }
+
+    match /games/{gameId} {
+
+      function record() {
+        return request.resource.data;
+      }
+
+      function validRecord() {
+        let room = get(/databases/$(database)/documents/rooms/$(record().roomId)).data;
+        return record().keys().hasOnly(['roomId', 'code', 'gameStartedAt', 'endedAt', 'gameMode', 'classicFirstNight',
+            'tieRule', 'rounds', 'winner', 'roleComposition', 'withBots', 'narratorId', 'playerIds', 'winnerIds', 'players',
+            'events', 'history'])
+          && room.hostId == request.auth.uid
+          && room.status == 'ended'
+          && record().winner == room.winner
+          && record().gameStartedAt == room.gameStartedAt
+          && gameId == record().roomId + '_' + string(room.gameStartedAt)
+          && record().playerIds is list
+          && record().winnerIds is list
+          && room.memberIds.hasAll(record().playerIds)
+          && record().playerIds.hasAll(record().winnerIds)
+          && (record().narratorId == null || record().narratorId in record().playerIds)
+          && record().endedAt == request.time;
+      }
+
+      function leavingRecord() {
+        let was = resource.data;
+        let now = request.resource.data;
+        return request.auth.uid in was.playerIds
+          && now.diff(was).affectedKeys().hasOnly(['playerIds', 'winnerIds', 'narratorId'])
+          && now.playerIds == was.playerIds.removeAll([request.auth.uid])
+          && now.winnerIds == was.winnerIds.removeAll([request.auth.uid])
+          && (now.narratorId == was.narratorId || (was.narratorId == request.auth.uid && now.narratorId == null));
+      }
+
+      allow read: if signedIn() && (
+        request.auth.uid in resource.data.playerIds
+        || request.auth.uid in resource.data.winnerIds
+        || resource.data.narratorId == request.auth.uid
+      );
+      allow create: if signedIn() && record().roomId is string && validRecord();
+      allow update: if signedIn() && leavingRecord();
+      allow delete: if false;
     }
   }
 }

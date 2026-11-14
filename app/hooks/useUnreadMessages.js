@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { subscribeToDayChat, subscribeToWerewolfChat, subscribeToSisterChat } from '../firebase/roomService';
+import { subscribeToDayChat, subscribeToWerewolfChat, subscribeToSisterChat, subscribeToGhostChat } from '../firebase/roomService';
 
 const SUBSCRIBERS = {
   day: subscribeToDayChat,
   werewolf: subscribeToWerewolfChat,
   sister: subscribeToSisterChat,
+  ghost: subscribeToGhostChat,
 };
 
 const seenByChat = new Map();
